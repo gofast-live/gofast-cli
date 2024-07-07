@@ -115,66 +115,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	s := ""
 	if m.err != nil {
-		return fmt.Sprintf("\nWe had some trouble: %v\n\n%s",
+		s += fmt.Sprintf("\nWe had some trouble: %v\n\n",
 			m.err,
-			"(esc to quit)",
 		)
 	}
 	if m.step == 1 {
-		return m.step1()
+		s += fmt.Sprintf(
+			"Step 1: Enter your email address\n\n%s",
+			m.emailInput.View(),
+		) + "\n\n"
 	} else if m.step == 2 {
-		return m.step2()
+		s += "Step 2: Checking your email address ...\n\n\n\n"
 	} else if m.step == 3 {
-		return m.step3()
+		s += fmt.Sprintf(
+			"Step 3: Input project name\n\n%s",
+			m.projectNameInput.View(),
+		) + "\n\n"
 	} else if m.step == 4 {
-		return m.step4()
+		s += "Step 4: Copying repository ...\n\n\n\n"
 	} else if m.step == 5 {
-		return m.step5()
+		s += "Step 5: Finished\n\n\n\n"
 	}
-	return ""
-}
-
-// What’s your email address?
-func (m model) step1() string {
-	return fmt.Sprintf(
-		"What’s your email address?\n\n%s\n\n%s",
-		m.emailInput.View(),
-		"(esc to quit)",
-	) + "\n"
-}
-
-// Checking your email address
-func (m model) step2() string {
-	return fmt.Sprintf(
-		"Step 2: Checking your email address ...\n\n%s",
-		"(esc to quit)",
-	) + "\n"
-}
-
-// Input project name
-func (m model) step3() string {
-	return fmt.Sprintf(
-		"Step 3: Input project name\n\n%s\n\n%s",
-		m.projectNameInput.View(),
-		"(esc to quit)",
-	) + "\n"
-}
-
-// Copying repository
-func (m model) step4() string {
-	return fmt.Sprintf(
-		"Step 4: Copying repository ...\n\n%s",
-		"(esc to quit)",
-	) + "\n"
-}
-
-// Finish
-func (m model) step5() string {
-	return fmt.Sprintf(
-		"Step 5: Finished\n\n%s",
-		"(esc to quit)",
-	) + "\n"
+	s += "(esc to quit)"
+	return s
 }
 
 func checkEmail(email string) tea.Cmd {
