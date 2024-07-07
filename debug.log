@@ -1,0 +1,24 @@
+debug 2024/07/07 23:50:50 git clone https://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@github.com/gofast-live/gofast-app.git
+debug 2024/07/07 23:51:16 git clone https://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@github.com/gofast-live/gofast-app.git
+debug 2024/07/07 23:51:58 git clone https://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@github.com/gofast-live/gofast-app.git
+debug 2024/07/07 23:53:25 git clone start
+debug 2024/07/07 23:53:26 git clone finished
+debug 2024/07/07 23:53:26 error: <nil>
+debug 2024/07/07 23:53:55 git clone start
+debug 2024/07/07 23:53:57 git clone finished
+debug 2024/07/07 23:53:57 error: <nil>
+debug 2024/07/07 23:56:30 git clone start
+debug 2024/07/07 23:56:30 git clone finished
+debug 2024/07/07 23:56:30 error: exit status 128
+debug 2024/07/07 23:56:47 git clone start
+debug 2024/07/07 23:56:47 git clone finished
+debug 2024/07/07 23:56:47 error: exit status 128
+debug 2024/07/07 23:57:18 git clone start
+debug 2024/07/07 23:57:18 git clone finished
+debug 2024/07/07 23:57:18 error: exit status 128
+debug 2024/07/08 00:02:15 git clone finished
+debug 2024/07/08 00:02:15 error: <nil>
+debug 2024/07/08 00:05:30 git clone finished
+debug 2024/07/08 00:05:30 error: <nil>
+debug 2024/07/08 00:05:53 git clone finished
+debug 2024/07/08 00:05:53 error: exit status 128
