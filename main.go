@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/mail"
 	"os"
 	"os/exec"
-	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -28,23 +30,30 @@ var GITHUB_URL = "https://github_pat_11AGKQOBA0yF3fDxCq8Gh8_Flfser4RO7sxAPijVqAE
 
 type (
 	errMsg            error
-	emailMsg          string
+	emailValidated    string
+	keyValidated      string
 	githubFinishedMsg struct{ err error }
 )
 
 type model struct {
 	step             int
 	emailInput       textinput.Model
+	apiKeyInput      textinput.Model
 	projectNameInput textinput.Model
 	err              error
 }
 
 func initialModel() model {
-	ti := textinput.New()
-	ti.Placeholder = "Enter your email address"
-	ti.Focus()
-	ti.CharLimit = 156
-	ti.Width = 40
+	ei := textinput.New()
+	ei.Placeholder = "Enter your email address"
+	ei.Focus()
+	ei.CharLimit = 156
+	ei.Width = 40
+
+	ai := textinput.New()
+	ai.Placeholder = "Enter your API key"
+	ai.CharLimit = 156
+	ai.Width = 40
 
 	pi := textinput.New()
 	pi.Placeholder = "Enter your project name"
@@ -53,7 +62,8 @@ func initialModel() model {
 
 	return model{
 		step:             1,
-		emailInput:       ti,
+		emailInput:       ei,
+		apiKeyInput:      ai,
 		projectNameInput: pi,
 		err:              nil,
 	}
@@ -64,6 +74,15 @@ func (m model) Blink() tea.Cmd {
 }
 
 func (m model) Init() tea.Cmd {
+	path, err := os.UserConfigDir()
+	if err != nil {
+		panic(err)
+	}
+	_, err = os.OpenFile(path+"/gofast.json", os.O_CREATE, 0666)
+	if err != nil {
+		panic(err)
+	}
+
 	return m.Blink()
 }
 
@@ -75,9 +94,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyEnter:
 			if m.step == 1 {
-				m.step = 2
 				email := m.emailInput.Value()
 				return m, checkEmail(email)
+            } else if m.step == 2 {
+                apiKey := m.apiKeyInput.Value()
+                return m, checkKey(apiKey)
 			} else if m.step == 3 {
 				m.step = 4
 				return m, copyRepo(m.projectNameInput.Value())
@@ -92,7 +113,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg
 		return m, nil
 
-	case emailMsg:
+	case emailValidated:
+		email := string(msg)
+		saveToConfig("email", email)
+		m.step = 2
+		m.apiKeyInput.Focus()
+		return m, m.Blink()
+
+	case keyValidated:
+		key := string(msg)
+		saveToConfig("api_key", key)
 		m.step = 3
 		m.projectNameInput.Focus()
 		return m, m.Blink()
@@ -108,6 +138,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.step == 1 {
 		m.emailInput, cmd = m.emailInput.Update(msg)
+	} else if m.step == 2 {
+		m.apiKeyInput, cmd = m.apiKeyInput.Update(msg)
 	} else if m.step == 3 {
 		m.projectNameInput, cmd = m.projectNameInput.Update(msg)
 	}
@@ -116,18 +148,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	s := ""
-	if m.err != nil {
-		s += fmt.Sprintf("\nWe had some trouble: %v\n\n",
-			m.err,
-		)
-	}
 	if m.step == 1 {
 		s += fmt.Sprintf(
 			"Step 1: Enter your email address\n\n%s",
 			m.emailInput.View(),
 		) + "\n\n"
 	} else if m.step == 2 {
-		s += "Step 2: Checking your email address ...\n\n\n\n"
+		s += fmt.Sprintf("Step 2: Enter your API key\n\n%s",
+			m.apiKeyInput.View(),
+		) + "\n\n"
 	} else if m.step == 3 {
 		s += fmt.Sprintf(
 			"Step 3: Input project name\n\n%s",
@@ -138,18 +167,78 @@ func (m model) View() string {
 	} else if m.step == 5 {
 		s += "Step 5: Finished\n\n\n\n"
 	}
+	if m.err != nil {
+		s += fmt.Sprintf("\n%v\n\n",
+			m.err,
+		)
+	}
 	s += "(esc to quit)"
 	return s
 }
 
-func checkEmail(email string) tea.Cmd {
+type Config struct {
+	Email  string `json:"email"`
+	ApiKey string `json:"api_key"`
+}
+
+func saveToConfig(key string, value string) {
+	path, err := os.UserConfigDir()
+	if err != nil {
+		panic(err)
+	}
+	config := path + "/gofast.json"
+	jsonFile, err := os.OpenFile(config, os.O_RDWR, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer jsonFile.Close()
+	// marshal existing json
+	// add new key value
+	// write to file
+	data, err := io.ReadAll(jsonFile)
+	if err != nil {
+		panic(err)
+	}
+	var c Config
+	err = json.Unmarshal(data, &c)
+	if err != nil {
+		// write empty json
+		c = Config{}
+	}
+	if key == "email" {
+		c.Email = value
+	}
+	if key == "api_key" {
+		c.ApiKey = value
+	}
+	data, err = json.Marshal(c)
+	if err != nil {
+		panic(err)
+	}
+	_, err = jsonFile.WriteAt(data, 0)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func checkEmail(e string) tea.Cmd {
 	return func() tea.Msg {
-		if email == "" {
-			return errMsg(fmt.Errorf("email is required"))
+		if e == "" {
+			return errMsg(fmt.Errorf("Email is required"))
 		}
-		// mock wait 3 sec
-		time.Sleep(1 * time.Second)
-		return emailMsg("")
+		if _, err := mail.ParseAddress(e); err != nil {
+			return errMsg(fmt.Errorf("Invalid email address"))
+		}
+		return emailValidated(e)
+	}
+}
+
+func checkKey(k string) tea.Cmd {
+	return func() tea.Msg {
+		if k == "" {
+			return errMsg(fmt.Errorf("API key is required"))
+		}
+		return keyValidated(k)
 	}
 }
 
