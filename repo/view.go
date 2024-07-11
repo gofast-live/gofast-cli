@@ -14,14 +14,6 @@ func (m model) View() string {
 		b.WriteRune('\n')
 		b.WriteRune('\n')
 		b.WriteString(m.apiKeyInput.View())
-	} else if m.step == 2 {
-		b.WriteRune('\n')
-		b.WriteString(m.spinner.View())
-		b.WriteString(" Validating credentials")
-		b.WriteRune('\n')
-		b.WriteRune('\n')
-		b.WriteRune('\n')
-		b.WriteRune('\n')
 	} else if m.step == 3 {
 		b.WriteRune('\n')
 		b.WriteString(successStyle.Render("Credentials validated successfully!"))
@@ -36,10 +28,16 @@ func (m model) View() string {
 		b.WriteString(m.projectNameInput.View())
 		b.WriteRune('\n')
 		b.WriteRune('\n')
-	} else if m.step == 5 {
+	} else if m.step == 2 || m.step == 5 || m.step == 6 {
 		b.WriteRune('\n')
 		b.WriteString(m.spinner.View())
-		b.WriteString(" Cleaning up the project")
+		if m.step == 2 {
+			b.WriteString(" Validating project")
+		} else if m.step == 5 {
+			b.WriteString(" Downloading project")
+		} else {
+			b.WriteString(" Cloning project")
+		}
 		b.WriteRune('\n')
 		b.WriteRune('\n')
 		b.WriteRune('\n')
