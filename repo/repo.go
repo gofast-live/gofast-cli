@@ -1,10 +1,7 @@
 package repo
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/mail"
 	"os"
 	"os/exec"
 
@@ -20,20 +17,22 @@ var (
 	noStyle      = lipgloss.NewStyle()
 	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("032"))
 	blurredStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-    activeStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	activeStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+    errStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
 	helpStyle    = blurredStyle
 )
 
 type (
 	errMsg            error
 	configValid       string
+	tokenMsg          string
 	githubFinishedMsg struct{ err error }
 )
 
 type model struct {
 	step             int
 	focusIndex       int
-    spinner          spinner.Model
+	spinner          spinner.Model
 	emailInput       textinput.Model
 	apiKeyInput      textinput.Model
 	projectNameInput textinput.Model
@@ -41,12 +40,12 @@ type model struct {
 }
 
 func InitialModel() model {
-    sp := spinner.New()
-    sp.Spinner = spinner.Points
-    sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("032"))
+	sp := spinner.New()
+	sp.Spinner = spinner.Points
+	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("032"))
 
 	ei := textinput.New()
-    ei.SetValue("mateuszpiorowski@gmail.com")
+	ei.SetValue("mateuszpiorowski@gmail.com")
 	ei.Placeholder = "Enter your email address"
 	ei.Focus()
 	ei.CharLimit = 156
@@ -55,7 +54,7 @@ func InitialModel() model {
 	ei.TextStyle = focusedStyle
 
 	ai := textinput.New()
-    ai.SetValue("admin")
+	ai.SetValue("admin")
 	ai.Placeholder = "Enter your API key"
 	ai.CharLimit = 156
 	ai.Width = 40
@@ -68,7 +67,7 @@ func InitialModel() model {
 	return model{
 		focusIndex:       0,
 		step:             1,
-        spinner:          sp,
+		spinner:          sp,
 		emailInput:       ei,
 		apiKeyInput:      ai,
 		projectNameInput: pi,
@@ -110,11 +109,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		case tea.KeyCtrlQ:
-            blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput, &m.projectNameInput})
+            m.err = nil
+			blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput, &m.projectNameInput})
 			m.emailInput.Focus()
-            m.emailInput.PromptStyle = focusedStyle
-            m.emailInput.TextStyle = focusedStyle
-            m.focusIndex = 0
+			m.emailInput.PromptStyle = focusedStyle
+			m.emailInput.TextStyle = focusedStyle
+			m.focusIndex = 0
 			m.step = 1
 			return m, nil
 		case tea.KeyCtrlC, tea.KeyEsc:
@@ -128,8 +128,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case configValid:
 		m.step = 2
-        blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
-        m.spinner, cmd = m.spinner.Update(msg)
+		blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
+        cmd = m.getToken()
 		return m, cmd
 
 	case githubFinishedMsg:
@@ -150,16 +150,16 @@ func (m *model) updateInputs(msg tea.Msg) tea.Cmd {
 	m.emailInput, cmds[0] = m.emailInput.Update(msg)
 	m.apiKeyInput, cmds[1] = m.apiKeyInput.Update(msg)
 	m.projectNameInput, cmds[2] = m.projectNameInput.Update(msg)
-    m.spinner, cmds[3] = m.spinner.Update(msg)
+	m.spinner, cmds[3] = m.spinner.Update(msg)
 	return tea.Batch(cmds...)
 }
 
 func blurAll(inputs []*textinput.Model) {
-    for _, i := range inputs {
-        i.Blur()
-        i.PromptStyle = noStyle
-        i.TextStyle = noStyle
-    }
+	for _, i := range inputs {
+		i.Blur()
+		i.PromptStyle = noStyle
+		i.TextStyle = noStyle
+	}
 }
 
 func (m *model) toggleFocus(inputs []*textinput.Model) tea.Cmd {
@@ -182,65 +182,13 @@ func (m *model) toggleFocus(inputs []*textinput.Model) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-type Config struct {
-	Email  string `json:"email"`
-	ApiKey string `json:"api_key"`
-}
-
-func saveToConfig(email string, apiKey string) error {
-	path, err := os.UserConfigDir()
-	if err != nil {
-		return fmt.Errorf("Could not get user config dir")
-	}
-	config := path + "/gofast.json"
-	jsonFile, err := os.OpenFile(config, os.O_RDWR, 0666)
-	if err != nil {
-		return fmt.Errorf("Could not open config file")
-	}
-	defer jsonFile.Close()
-	// marshal existing json
-	// add new key value
-	// write to file
-	data, err := io.ReadAll(jsonFile)
-	if err != nil {
-		return fmt.Errorf("Could not read config file")
-	}
-	var c Config
-	err = json.Unmarshal(data, &c)
-	if err != nil {
-		// clean up file
-		_ = jsonFile.Truncate(0)
-		c = Config{}
-	}
-	c.Email = email
-	c.ApiKey = apiKey
-	data, err = json.Marshal(c)
-	if err != nil {
-		return fmt.Errorf("Could not marshal config data")
-	}
-	_, err = jsonFile.WriteAt(data, 0)
-	if err != nil {
-		return fmt.Errorf("Could not write to config file")
-	}
-	return nil
-}
-
-func checkConfig(email string, apiKey string) tea.Cmd {
+func (m *model) getToken() tea.Cmd {
 	return func() tea.Msg {
-		if email == "" {
-			return errMsg(fmt.Errorf("Email is required"))
-		}
-		if _, err := mail.ParseAddress(email); err != nil {
-			return errMsg(fmt.Errorf("Invalid email address"))
-		}
-		if apiKey == "" {
-			return errMsg(fmt.Errorf("API key is required"))
-		}
-		err := saveToConfig(email, apiKey)
+		token, err := m.valdiate()
 		if err != nil {
 			return errMsg(err)
 		}
-		return configValid("")
+		return tokenMsg(token)
 	}
 }
 
