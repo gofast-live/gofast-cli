@@ -97,6 +97,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 
 		case tea.KeyEnter:
+			m.err = nil
 			if m.step == 1 {
 				email := m.emailInput.Value()
 				apiKey := m.apiKeyInput.Value()
@@ -110,6 +111,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, textinput.Blink
 			} else if m.step == 4 {
 				projectName := m.projectNameInput.Value()
+				if projectName == "" {
+					return m, func() tea.Msg {
+						return errMsg(fmt.Errorf("Project name cannot be empty"))
+					}
+				}
+				m.step = 5
 				return m, copyRepo(m.token, projectName)
 			}
 
@@ -150,7 +157,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 			return m, tea.Quit
 		} else {
-			m.step = 5
+			m.step = 6
 		}
 	}
 
@@ -212,22 +219,14 @@ func (m *model) getToken() tea.Cmd {
 }
 
 func copyRepo(token string, projectName string) tea.Cmd {
-	// run git clone command
-	if projectName == "" {
-		return func() tea.Msg {
-			return errMsg(fmt.Errorf("Project name cannot be empty"))
-		}
-	}
-	authURL := fmt.Sprintf("https://%s%s", token, GITHUB_URL)
-	c := exec.Command("git", "clone", authURL, projectName)
-	c.Stdout = os.Stdout
-	err := c.Start()
-	if err != nil {
-		return func() tea.Msg {
+	return func() tea.Msg {
+		authURL := fmt.Sprintf("https://%s%s", token, GITHUB_URL)
+		c := exec.Command("git", "clone", authURL, projectName)
+		c.Stdout = os.Stdout
+		err := c.Start()
+		if err != nil {
 			return errMsg(err)
 		}
-	}
-	return func() tea.Msg {
 		return githubFinishedMsg{err: c.Wait()}
 	}
 

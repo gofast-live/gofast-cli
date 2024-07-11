@@ -32,11 +32,11 @@ func (m model) View() string {
 		b.WriteRune('\n')
 		b.WriteString(m.spinner.View())
 		if m.step == 2 {
-			b.WriteString(" Validating project")
+			b.WriteString(" Validating credentials")
 		} else if m.step == 5 {
 			b.WriteString(" Downloading project")
 		} else {
-			b.WriteString(" Cloning project")
+			b.WriteString(" Cleaning project")
 		}
 		b.WriteRune('\n')
 		b.WriteRune('\n')
