@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -12,13 +13,13 @@ import (
 )
 
 var (
-	GITHUB_URL = "https://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@github.com/gofast-live/gofast-app.git"
-
+	GITHUB_URL   = "@github.com/gofast-live/gofast-app.git"
 	noStyle      = lipgloss.NewStyle()
 	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("032"))
 	blurredStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	activeStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-    errStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	errStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	helpStyle    = blurredStyle
 )
 
@@ -32,6 +33,7 @@ type (
 type model struct {
 	step             int
 	focusIndex       int
+	token            string
 	spinner          spinner.Model
 	emailInput       textinput.Model
 	apiKeyInput      textinput.Model
@@ -49,15 +51,13 @@ func InitialModel() model {
 	ei.Placeholder = "Enter your email address"
 	ei.Focus()
 	ei.CharLimit = 156
-	ei.Width = 40
 	ei.PromptStyle = focusedStyle
 	ei.TextStyle = focusedStyle
 
 	ai := textinput.New()
-	ai.SetValue("admin")
+	ai.SetValue("sk_live_12379277dd33f815dde9f5acc8b62ec4c4acb8d7ee05abb3a50140fc9e6d7e7b46a4b75a")
 	ai.Placeholder = "Enter your API key"
 	ai.CharLimit = 156
-	ai.Width = 40
 
 	pi := textinput.New()
 	pi.Placeholder = "Enter your project name"
@@ -67,6 +67,7 @@ func InitialModel() model {
 	return model{
 		focusIndex:       0,
 		step:             1,
+		token:            "",
 		spinner:          sp,
 		emailInput:       ei,
 		apiKeyInput:      ai,
@@ -100,7 +101,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				email := m.emailInput.Value()
 				apiKey := m.apiKeyInput.Value()
 				return m, checkConfig(email, apiKey)
+			} else if m.step == 3 {
+				blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
+				m.projectNameInput.Focus()
+				m.projectNameInput.PromptStyle = focusedStyle
+				m.projectNameInput.TextStyle = focusedStyle
+				m.step = 4
+				return m, textinput.Blink
+			} else if m.step == 4 {
+				projectName := m.projectNameInput.Value()
+				return m, copyRepo(m.token, projectName)
 			}
+
 			return m, cmd
 
 		case tea.KeyTab, tea.KeyShiftTab, tea.KeyDown, tea.KeyUp:
@@ -109,28 +121,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		case tea.KeyCtrlQ:
-            m.err = nil
+			m.err = nil
 			blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput, &m.projectNameInput})
 			m.emailInput.Focus()
 			m.emailInput.PromptStyle = focusedStyle
 			m.emailInput.TextStyle = focusedStyle
 			m.focusIndex = 0
 			m.step = 1
-			return m, nil
+			return m, textinput.Blink
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		}
 
-	// We handle errors just like any other message
 	case errMsg:
 		m.err = msg
 		return m, nil
-
 	case configValid:
 		m.step = 2
-		blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
-        cmd = m.getToken()
+		cmd = m.getToken()
 		return m, cmd
+	case tokenMsg:
+		m.step = 3
+		m.token = string(msg)
+		return m, nil
 
 	case githubFinishedMsg:
 		if msg.err != nil {
@@ -184,23 +197,41 @@ func (m *model) toggleFocus(inputs []*textinput.Model) tea.Cmd {
 
 func (m *model) getToken() tea.Cmd {
 	return func() tea.Msg {
-		token, err := m.valdiate()
+		// min 1 sec
+		now := time.Now()
+		token, err := validateConfig()
 		if err != nil {
 			return errMsg(err)
+		}
+		elapsed := time.Since(now)
+		if elapsed < time.Second {
+			time.Sleep(time.Second - elapsed)
 		}
 		return tokenMsg(token)
 	}
 }
 
-func copyRepo(projectName string) tea.Cmd {
+func copyRepo(token string, projectName string) tea.Cmd {
 	// run git clone command
 	if projectName == "" {
 		return func() tea.Msg {
-			return errMsg(fmt.Errorf("project name is required"))
+			return errMsg(fmt.Errorf("Project name cannot be empty"))
 		}
 	}
-	c := exec.Command("git", "clone", GITHUB_URL, projectName)
-	return tea.ExecProcess(c, func(err error) tea.Msg {
-		return githubFinishedMsg{err: err}
-	})
+	authURL := fmt.Sprintf("https://%s%s", token, GITHUB_URL)
+	c := exec.Command("git", "clone", authURL, projectName)
+	c.Stdout = os.Stdout
+	err := c.Start()
+	if err != nil {
+		return func() tea.Msg {
+			return errMsg(err)
+		}
+	}
+	return func() tea.Msg {
+		return githubFinishedMsg{err: c.Wait()}
+	}
+
+	// return tea.ExecProcess(c, func(err error) tea.Msg {
+	// 	return githubFinishedMsg{err: err}
+	// })
 }

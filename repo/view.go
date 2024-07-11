@@ -14,24 +14,38 @@ func (m model) View() string {
 		b.WriteRune('\n')
 		b.WriteRune('\n')
 		b.WriteString(m.apiKeyInput.View())
-
 	} else if m.step == 2 {
-		b.WriteRune('\n')
 		b.WriteRune('\n')
 		b.WriteString(m.spinner.View())
 		b.WriteString(" Validating credentials")
 		b.WriteRune('\n')
 		b.WriteRune('\n')
 		b.WriteRune('\n')
+		b.WriteRune('\n')
 	} else if m.step == 3 {
+		b.WriteRune('\n')
+		b.WriteString(successStyle.Render("Credentials validated successfully!"))
+		b.WriteRune('\n')
+		b.WriteRune('\n')
+		b.WriteString(successStyle.Render("Welcome to the GoFast CLI :)"))
+		b.WriteRune('\n')
+		b.WriteRune('\n')
+	} else if m.step == 4 {
+		b.WriteRune('\n')
 		b.WriteString("Enter the name of the project\n\n")
 		b.WriteString(m.projectNameInput.View())
-		b.WriteString("\n\n")
-	} else if m.step == 4 {
-		b.WriteString("Copying repository ...\n\n\n\n")
+		b.WriteRune('\n')
+		b.WriteRune('\n')
 	} else if m.step == 5 {
-		b.WriteString("Finished\n\n\n\n")
+		b.WriteRune('\n')
+		b.WriteString(m.spinner.View())
+		b.WriteString(" Cleaning up the project")
+		b.WriteRune('\n')
+		b.WriteRune('\n')
+		b.WriteRune('\n')
+		b.WriteRune('\n')
 	}
+
 	b.WriteRune('\n')
 	b.WriteRune('\n')
 	if m.err != nil {
@@ -41,7 +55,7 @@ func (m model) View() string {
 	b.WriteRune('\n')
 	b.WriteString(s)
 	b.WriteString(activeStyle.Render("enter"))
-	b.WriteString(helpStyle.Render(" submit"))
+	b.WriteString(helpStyle.Render(" next"))
 	b.WriteString(helpStyle.Render(" • "))
 	b.WriteString(activeStyle.Render("tab / up / down"))
 	b.WriteString(helpStyle.Render(" navigate"))
