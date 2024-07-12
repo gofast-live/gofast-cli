@@ -24,10 +24,11 @@ var (
 )
 
 type (
-	errMsg            error
-	configValid       string
-	tokenMsg          string
-	githubFinishedMsg struct{ err error }
+	errMsg      error
+	configValid string
+	tokenMsg    string
+	copyMsg     struct{ err error }
+	finishMsg   struct{}
 )
 
 type model struct {
@@ -39,6 +40,17 @@ type model struct {
 	apiKeyInput      textinput.Model
 	projectNameInput textinput.Model
 	err              error
+
+	protocols                []string
+	selectedProtocol         string
+	databases                []string
+	selectedDatabase         string
+	paymentsProviders        []string
+	selectedPaymentsProvider string
+	emailsProviders          []string
+	selectedEmailProvider    string
+	filesProviders           []string
+	selectedFilesProvider    string
 }
 
 func InitialModel() model {
@@ -73,6 +85,17 @@ func InitialModel() model {
 		apiKeyInput:      ai,
 		projectNameInput: pi,
 		err:              nil,
+
+		protocols:                []string{"HTTP", "gRPC"},
+		selectedProtocol:         "HTTP",
+		databases:                []string{"Turso", "PostgreSQL", "MySQL", "SQLite"},
+		selectedDatabase:         "Turso",
+		paymentsProviders:        []string{"Stripe", "Lemon Squeezy (not implemented)", "None"},
+		selectedPaymentsProvider: "Stripe",
+		emailsProviders:          []string{"Postmark", "Sendgrid", "Resend", "None"},
+		selectedEmailProvider:    "Postmark",
+		filesProviders:           []string{"S3", "None"},
+		selectedFilesProvider:    "S3",
 	}
 }
 
@@ -110,14 +133,42 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.step = 4
 				return m, textinput.Blink
 			} else if m.step == 4 {
+				m.selectedProtocol = m.protocols[m.focusIndex]
+				m.focusIndex = 0
+				m.step = 5
+			} else if m.step == 5 {
+				m.selectedDatabase = m.databases[m.focusIndex]
+				m.focusIndex = 0
+				m.step = 6
+			} else if m.step == 6 {
+				m.selectedPaymentsProvider = m.paymentsProviders[m.focusIndex]
+				m.focusIndex = 0
+				m.step = 7
+			} else if m.step == 7 {
+				m.selectedEmailProvider = m.emailsProviders[m.focusIndex]
+				m.focusIndex = 0
+				m.step = 8
+			} else if m.step == 8 {
+				m.selectedFilesProvider = m.filesProviders[m.focusIndex]
+				m.focusIndex = 0
+				m.step = 9
+			} else if m.step == 9 {
 				projectName := m.projectNameInput.Value()
 				if projectName == "" {
 					return m, func() tea.Msg {
 						return errMsg(fmt.Errorf("Project name cannot be empty"))
 					}
 				}
-				m.step = 5
-				return m, copyRepo(m.token, projectName)
+                // check if there is a dir with the same name
+                if _, err := os.Stat(projectName); !os.IsNotExist(err) {
+                    return m, func() tea.Msg {
+                        return errMsg(fmt.Errorf("Directory with the same name already exists"))
+                    }
+                }
+				m.step = 10
+				return m, m.copyRepo(m.token, projectName)
+			} else if m.step == 12 {
+				return m, tea.Quit
 			}
 
 			return m, cmd
@@ -126,6 +177,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.step == 1 {
 				cmd := m.toggleFocus([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
 				return m, cmd
+			} else if m.step == 4 || m.step == 5 || m.step == 6 || m.step == 7 || m.step == 8 {
+				var d []string
+				if m.step == 4 {
+					d = m.protocols
+				} else if m.step == 5 {
+					d = m.databases
+				} else if m.step == 6 {
+					d = m.paymentsProviders
+				} else if m.step == 7 {
+					d = m.emailsProviders
+				} else if m.step == 8 {
+					d = m.filesProviders
+				}
+				if tea.KeyDown == msg.Type || tea.KeyTab == msg.Type {
+					if m.focusIndex == len(d)-1 {
+						m.focusIndex = 0
+					} else {
+						m.focusIndex++
+					}
+				} else {
+					if m.focusIndex == 0 {
+						m.focusIndex = len(d) - 1
+					} else {
+						m.focusIndex--
+					}
+				}
+				return m, nil
 			}
 		case tea.KeyCtrlQ:
 			m.err = nil
@@ -151,14 +229,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.step = 3
 		m.token = string(msg)
 		return m, nil
-
-	case githubFinishedMsg:
+	case copyMsg:
 		if msg.err != nil {
 			m.err = msg.err
 			return m, tea.Quit
 		} else {
-			m.step = 6
+			m.step = 11
 		}
+		return m, m.cleaningRepo()
+	case finishMsg:
+		m.step = 12
+		return m, nil
 	}
 
 	cmd = m.updateInputs(msg)
@@ -218,7 +299,7 @@ func (m *model) getToken() tea.Cmd {
 	}
 }
 
-func copyRepo(token string, projectName string) tea.Cmd {
+func (m *model) copyRepo(token string, projectName string) tea.Cmd {
 	return func() tea.Msg {
 		authURL := fmt.Sprintf("https://%s%s", token, GITHUB_URL)
 		c := exec.Command("git", "clone", authURL, projectName)
@@ -227,10 +308,16 @@ func copyRepo(token string, projectName string) tea.Cmd {
 		if err != nil {
 			return errMsg(err)
 		}
-		return githubFinishedMsg{err: c.Wait()}
+		return copyMsg{err: c.Wait()}
 	}
+}
 
-	// return tea.ExecProcess(c, func(err error) tea.Msg {
-	// 	return githubFinishedMsg{err: err}
-	// })
+func (m *model) cleaningRepo() tea.Cmd {
+	return func() tea.Msg {
+		err := cleaning(m.projectNameInput.Value(), m.selectedProtocol, m.selectedDatabase, m.selectedPaymentsProvider, m.selectedEmailProvider, m.selectedFilesProvider)
+		if err != nil {
+			return errMsg(err)
+		}
+		return finishMsg{}
+	}
 }
