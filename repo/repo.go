@@ -44,6 +44,8 @@ type model struct {
 
 	protocols                []string
 	selectedProtocol         string
+    clients                  []string
+    selectedClient           string
 	databases                []string
 	selectedDatabase         string
 	paymentsProviders        []string
@@ -89,8 +91,10 @@ func InitialModel() model {
 
 		protocols:                []string{"HTTP", "gRPC"},
 		selectedProtocol:         "HTTP",
-		databases:                []string{"Turso", "PostgreSQL", "SQLite", "Memory"},
-		selectedDatabase:         "Turso",
+        clients:                  []string{"SvelteKit", "Next.js", "None"},
+        selectedClient:           "SvelteKit",
+		databases:                []string{"SQLite", "Turso", "PostgreSQL", "Memory"},
+		selectedDatabase:         "SQLite",
 		paymentsProviders:        []string{"None", "Stripe", "Lemon Squeezy (not implemented)"},
 		selectedPaymentsProvider: "None",
 		emailsProviders:          []string{"None", "Postmark", "Sendgrid", "Resend"},
@@ -137,23 +141,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedProtocol = m.protocols[m.focusIndex]
 				m.focusIndex = 0
 				m.step = 5
-			} else if m.step == 5 {
-				m.selectedDatabase = m.databases[m.focusIndex]
-				m.focusIndex = 0
-				m.step = 6
+            } else if m.step == 5 {
+                m.selectedClient = m.clients[m.focusIndex]
+                m.focusIndex = 0
+                m.step = 6
 			} else if m.step == 6 {
-				m.selectedPaymentsProvider = m.paymentsProviders[m.focusIndex]
+				m.selectedDatabase = m.databases[m.focusIndex]
 				m.focusIndex = 0
 				m.step = 7
 			} else if m.step == 7 {
-				m.selectedEmailProvider = m.emailsProviders[m.focusIndex]
+				m.selectedPaymentsProvider = m.paymentsProviders[m.focusIndex]
 				m.focusIndex = 0
 				m.step = 8
 			} else if m.step == 8 {
-				m.selectedFilesProvider = m.filesProviders[m.focusIndex]
+				m.selectedEmailProvider = m.emailsProviders[m.focusIndex]
 				m.focusIndex = 0
 				m.step = 9
 			} else if m.step == 9 {
+				m.selectedFilesProvider = m.filesProviders[m.focusIndex]
+				m.focusIndex = 0
+				m.step = 10
+			} else if m.step == 10 {
 				projectName := m.projectNameInput.Value()
 				if projectName == "" {
 					return m, func() tea.Msg {
@@ -166,9 +174,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return errMsg(fmt.Errorf("Directory with the same name already exists"))
 					}
 				}
-				m.step = 10
+				m.step = 11
 				return m, m.copyRepo(m.token, projectName)
-			} else if m.step == 12 {
+			} else if m.step == 13 {
 				return m, tea.Quit
 			}
 
@@ -178,17 +186,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.step == 1 {
 				cmd := m.toggleFocus([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
 				return m, cmd
-			} else if m.step == 4 || m.step == 5 || m.step == 6 || m.step == 7 || m.step == 8 {
+			} else if m.step == 4 || m.step == 5 || m.step == 6 || m.step == 7 || m.step == 8 || m.step == 9 {
 				var d []string
 				if m.step == 4 {
 					d = m.protocols
-				} else if m.step == 5 {
-					d = m.databases
+                } else if m.step == 5 {
+                    d = m.clients
 				} else if m.step == 6 {
-					d = m.paymentsProviders
+					d = m.databases
 				} else if m.step == 7 {
-					d = m.emailsProviders
+					d = m.paymentsProviders
 				} else if m.step == 8 {
+					d = m.emailsProviders
+				} else if m.step == 9 {
 					d = m.filesProviders
 				}
 				if tea.KeyDown == msg.Type || tea.KeyTab == msg.Type {
@@ -235,11 +245,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 			return m, tea.Quit
 		} else {
-			m.step = 11
+			m.step = 12
 		}
 		return m, m.cleaningRepo()
 	case finishMsg:
-		m.step = 12
+		m.step = 13
 		return m, nil
 	}
 
@@ -318,10 +328,15 @@ func (m *model) copyRepo(token string, projectName string) tea.Cmd {
 
 func (m *model) cleaningRepo() tea.Cmd {
 	return func() tea.Msg {
+        now := time.Now()
 		err := cleaning(m.projectNameInput.Value(), m.selectedProtocol, m.selectedDatabase, m.selectedPaymentsProvider, m.selectedEmailProvider, m.selectedFilesProvider)
 		if err != nil {
 			return errMsg(err)
 		}
+        elapsed := time.Since(now)
+        if elapsed < time.Second {
+            time.Sleep(time.Second - elapsed)
+        }
 		return finishMsg{}
 	}
 }

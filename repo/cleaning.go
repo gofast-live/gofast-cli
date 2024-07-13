@@ -13,9 +13,10 @@ func cleaning(projectName string, protocol string, database string, paymentsProv
 	}
 	docker_compose_file_str := string(docker_compose_file)
 
-    var proto
+	var server string
+	// var client string
 	if protocol == "HTTP" {
-        p
+		server = "go-http"
 		err = os.RemoveAll(projectName + "/svelte-grpc")
 		if err != nil {
 			return err
@@ -25,6 +26,7 @@ func cleaning(projectName string, protocol string, database string, paymentsProv
 			return err
 		}
 	} else if protocol == "gRPC" {
+		server = "go-grpc"
 		err = os.RemoveAll(projectName + "/svelte-http")
 		if err != nil {
 			return err
@@ -51,9 +53,19 @@ func cleaning(projectName string, protocol string, database string, paymentsProv
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PORT: 5432", "POSTGRES_PORT: 5432")
 	}
 
-    if paymentsProvider == "None" {
-        err = os.RemoveAll(projectName + "/go-g
-
+	if paymentsProvider == "None" {
+		err = os.RemoveAll(projectName + "/" + server + "/service/payments")
+		if err != nil {
+			return err
+		}
+	} else if paymentsProvider == "Stripe" {
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "PAYMENT_ENABLED: false", "PAYMENT_ENABLED: true")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_API_KEY: ${STRIPE_API_KEY}", "STRIPE_API_KEY: ${STRIPE_API_KEY}")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}", "STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}")
+	} else if paymentsProvider == "Lemon Squeezy (not implemented)" {
+		// TODO: Implement Lemon Squeezy
+		return nil
+	}
 
 	err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
 	if err != nil {
