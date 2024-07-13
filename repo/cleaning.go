@@ -15,8 +15,10 @@ func cleaning(projectName string, protocol string, database string, paymentsProv
 
 	var server string
 	// var client string
+	var route_file_path string
 	if protocol == "HTTP" {
 		server = "go-http"
+		route_file_path = projectName + "/go-http/http/routes.go"
 		err = os.RemoveAll(projectName + "/svelte-grpc")
 		if err != nil {
 			return err
@@ -27,6 +29,7 @@ func cleaning(projectName string, protocol string, database string, paymentsProv
 		}
 	} else if protocol == "gRPC" {
 		server = "go-grpc"
+		route_file_path = projectName + "/go-grpc/grpc/routes.go"
 		err = os.RemoveAll(projectName + "/svelte-http")
 		if err != nil {
 			return err
@@ -36,6 +39,12 @@ func cleaning(projectName string, protocol string, database string, paymentsProv
 			return err
 		}
 	}
+
+	route_file, err := os.ReadFile(route_file_path)
+	if err != nil {
+		return err
+	}
+	route_file_str := string(route_file)
 
 	if database == "SQLite" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: memory", "DB_PROVIDER: sqlite")
@@ -52,12 +61,26 @@ func cleaning(projectName string, protocol string, database string, paymentsProv
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_HOST: db-postgres", "POSTGRES_HOST: db-postgres")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PORT: 5432", "POSTGRES_PORT: 5432")
 	}
+	if database != "PostgreSQL" {
+		lines := strings.Split(docker_compose_file_str, "\n")
+		new_lines := lines[:len(lines)-10]
+		docker_compose_file_str = strings.Join(new_lines, "\n")
+	}
 
 	if paymentsProvider == "None" {
-		err = os.RemoveAll(projectName + "/" + server + "/service/payments")
+		err = os.RemoveAll(projectName + "/" + server + "/service/payment")
 		if err != nil {
 			return err
 		}
+		lines := strings.Split(route_file_str, "\n")
+		var new_lines []string
+		for i := range lines {
+			if i >= 33 && i <= 47 || i == 7 {
+				continue
+			}
+			new_lines = append(new_lines, lines[i])
+		}
+		route_file_str = strings.Join(new_lines, "\n")
 	} else if paymentsProvider == "Stripe" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "PAYMENT_ENABLED: false", "PAYMENT_ENABLED: true")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_API_KEY: ${STRIPE_API_KEY}", "STRIPE_API_KEY: ${STRIPE_API_KEY}")
@@ -68,6 +91,10 @@ func cleaning(projectName string, protocol string, database string, paymentsProv
 	}
 
 	err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(route_file_path, []byte(route_file_str), 0644)
 	if err != nil {
 		return err
 	}
