@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -90,12 +91,12 @@ func InitialModel() model {
 		selectedProtocol:         "HTTP",
 		databases:                []string{"Turso", "PostgreSQL", "SQLite", "Memory"},
 		selectedDatabase:         "Turso",
-		paymentsProviders:        []string{"Stripe", "Lemon Squeezy (not implemented)", "None"},
-		selectedPaymentsProvider: "Stripe",
-		emailsProviders:          []string{"Postmark", "Sendgrid", "Resend", "None"},
-		selectedEmailProvider:    "Postmark",
-		filesProviders:           []string{"S3", "None"},
-		selectedFilesProvider:    "S3",
+		paymentsProviders:        []string{"None", "Stripe", "Lemon Squeezy (not implemented)"},
+		selectedPaymentsProvider: "None",
+		emailsProviders:          []string{"None", "Postmark", "Sendgrid", "Resend"},
+		selectedEmailProvider:    "None",
+		filesProviders:           []string{"None", "S3"},
+		selectedFilesProvider:    "None",
 	}
 }
 
@@ -159,12 +160,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return errMsg(fmt.Errorf("Project name cannot be empty"))
 					}
 				}
-                // check if there is a dir with the same name
-                if _, err := os.Stat(projectName); !os.IsNotExist(err) {
-                    return m, func() tea.Msg {
-                        return errMsg(fmt.Errorf("Directory with the same name already exists"))
-                    }
-                }
+				// check if there is a dir with the same name
+				if _, err := os.Stat(projectName); !os.IsNotExist(err) {
+					return m, func() tea.Msg {
+						return errMsg(fmt.Errorf("Directory with the same name already exists"))
+					}
+				}
 				m.step = 10
 				return m, m.copyRepo(m.token, projectName)
 			} else if m.step == 12 {
@@ -294,6 +295,9 @@ func (m *model) getToken() tea.Cmd {
 		elapsed := time.Since(now)
 		if elapsed < time.Second {
 			time.Sleep(time.Second - elapsed)
+		}
+		if token == "" || !strings.Contains(token, "github_pat") {
+			return errMsg(fmt.Errorf("Error downloading token"))
 		}
 		return tokenMsg(token)
 	}
