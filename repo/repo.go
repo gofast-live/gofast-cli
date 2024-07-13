@@ -88,7 +88,7 @@ func InitialModel() model {
 
 		protocols:                []string{"HTTP", "gRPC"},
 		selectedProtocol:         "HTTP",
-		databases:                []string{"Turso", "PostgreSQL", "MySQL", "SQLite"},
+		databases:                []string{"Turso", "PostgreSQL", "SQLite", "Memory"},
 		selectedDatabase:         "Turso",
 		paymentsProviders:        []string{"Stripe", "Lemon Squeezy (not implemented)", "None"},
 		selectedPaymentsProvider: "Stripe",
