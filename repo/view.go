@@ -48,8 +48,8 @@ func (m model) View() string {
 		var d []string
 		if m.step == 4 {
 			d = m.protocols
-        } else if m.step == 5 {
-            d = m.clients
+		} else if m.step == 5 {
+			d = m.clients
 		} else if m.step == 6 {
 			d = m.databases
 		} else if m.step == 7 {
@@ -79,13 +79,13 @@ func (m model) View() string {
 		b.WriteRune('\n')
 	} else if m.step == 11 || m.step == 12 || m.step == 13 {
 		b.WriteRune('\n')
-		b.WriteString(m.spinner.View())
+		b.WriteString(m.spinner.View() + "  ")
 		if m.step == 11 {
-			b.WriteString(" Downloading project")
+			b.WriteString("Downloading project")
 		} else if m.step == 12 {
-			b.WriteString(" Cleaning project")
+			b.WriteString("Cleaning project")
 		} else if m.step == 13 {
-			b.WriteString(" Project downloaded successfully!")
+			b.WriteString("Project downloaded successfully! Click enter to continue.")
 		}
 		b.WriteRune('\n')
 		b.WriteRune('\n')

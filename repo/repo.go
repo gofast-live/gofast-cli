@@ -44,8 +44,8 @@ type model struct {
 
 	protocols                []string
 	selectedProtocol         string
-    clients                  []string
-    selectedClient           string
+	clients                  []string
+	selectedClient           string
 	databases                []string
 	selectedDatabase         string
 	paymentsProviders        []string
@@ -91,16 +91,16 @@ func InitialModel() model {
 
 		protocols:                []string{"HTTP", "gRPC"},
 		selectedProtocol:         "HTTP",
-        clients:                  []string{"SvelteKit", "Next.js", "None"},
-        selectedClient:           "SvelteKit",
+		clients:                  []string{"SvelteKit", "Next.js", "None"},
+		selectedClient:           "SvelteKit",
 		databases:                []string{"SQLite", "Turso", "PostgreSQL", "Memory"},
 		selectedDatabase:         "SQLite",
 		paymentsProviders:        []string{"None", "Stripe", "Lemon Squeezy (not implemented)"},
 		selectedPaymentsProvider: "None",
-		emailsProviders:          []string{"None", "Postmark", "Sendgrid", "Resend"},
-		selectedEmailProvider:    "None",
-		filesProviders:           []string{"None", "S3"},
-		selectedFilesProvider:    "None",
+		emailsProviders:          []string{"Local (log)", "Postmark", "Sendgrid", "Resend", "None"},
+		selectedEmailProvider:    "Local (log)",
+		filesProviders:           []string{"Local (folder)", "S3/D2", "None"},
+		selectedFilesProvider:    "Local (folder)",
 	}
 }
 
@@ -141,10 +141,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedProtocol = m.protocols[m.focusIndex]
 				m.focusIndex = 0
 				m.step = 5
-            } else if m.step == 5 {
-                m.selectedClient = m.clients[m.focusIndex]
-                m.focusIndex = 0
-                m.step = 6
+			} else if m.step == 5 {
+				m.selectedClient = m.clients[m.focusIndex]
+				m.focusIndex = 0
+				m.step = 6
 			} else if m.step == 6 {
 				m.selectedDatabase = m.databases[m.focusIndex]
 				m.focusIndex = 0
@@ -190,8 +190,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				var d []string
 				if m.step == 4 {
 					d = m.protocols
-                } else if m.step == 5 {
-                    d = m.clients
+				} else if m.step == 5 {
+					d = m.clients
 				} else if m.step == 6 {
 					d = m.databases
 				} else if m.step == 7 {
@@ -328,15 +328,15 @@ func (m *model) copyRepo(token string, projectName string) tea.Cmd {
 
 func (m *model) cleaningRepo() tea.Cmd {
 	return func() tea.Msg {
-        now := time.Now()
-		err := cleaning(m.projectNameInput.Value(), m.selectedProtocol, m.selectedDatabase, m.selectedPaymentsProvider, m.selectedEmailProvider, m.selectedFilesProvider)
+		now := time.Now()
+		err := cleaning(m.projectNameInput.Value(), m.selectedProtocol, m.selectedClient, m.selectedDatabase, m.selectedPaymentsProvider, m.selectedEmailProvider, m.selectedFilesProvider)
 		if err != nil {
 			return errMsg(err)
 		}
-        elapsed := time.Since(now)
-        if elapsed < time.Second {
-            time.Sleep(time.Second - elapsed)
-        }
+		elapsed := time.Since(now)
+		if elapsed < time.Second {
+			time.Sleep(time.Second - elapsed)
+		}
 		return finishMsg{}
 	}
 }
