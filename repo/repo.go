@@ -25,11 +25,12 @@ var (
 )
 
 type (
-	errMsg      error
-	configValid string
-	tokenMsg    string
-	copyMsg     struct{ err error }
-	finishMsg   struct{}
+	errMsg        error
+	configValid   string
+	configInvalid struct{ err error }
+	tokenMsg      string
+	copyMsg       struct{ err error }
+	finishMsg     struct{}
 )
 
 type model struct {
@@ -105,16 +106,17 @@ func InitialModel() model {
 }
 
 func (m model) Init() tea.Cmd {
-	path, err := os.UserConfigDir()
-	if err != nil {
-		panic(err)
+	var validate = func() tea.Msg {
+		token, err := validateConfig()
+		if err != nil {
+			return nil
+		}
+		if token == "" || !strings.Contains(token, "github_pat") {
+			return nil
+		}
+		return tokenMsg(token)
 	}
-	_, err = os.OpenFile(path+"/gofast.json", os.O_CREATE, 0666)
-	if err != nil {
-		panic(err)
-	}
-
-	return tea.Batch(textinput.Blink, m.spinner.Tick)
+	return tea.Batch(textinput.Blink, m.spinner.Tick, validate)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -232,6 +234,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		m.err = msg
 		return m, nil
+	case configInvalid:
+		m.step = 1
+		m.err = msg.err
+		return m, nil
 	case configValid:
 		m.step = 2
 		cmd = m.getToken()
@@ -296,18 +302,18 @@ func (m *model) toggleFocus(inputs []*textinput.Model) tea.Cmd {
 
 func (m *model) getToken() tea.Cmd {
 	return func() tea.Msg {
-		// min 1 sec
+		// min 500ms
 		now := time.Now()
 		token, err := validateConfig()
-		if err != nil {
-			return errMsg(err)
-		}
 		elapsed := time.Since(now)
-		if elapsed < time.Second {
+		if elapsed < 500*time.Millisecond {
 			time.Sleep(time.Second - elapsed)
 		}
+		if err != nil {
+			return configInvalid{err}
+		}
 		if token == "" || !strings.Contains(token, "github_pat") {
-			return errMsg(fmt.Errorf("Error downloading token"))
+			return configInvalid{fmt.Errorf("Error downloading token")}
 		}
 		return tokenMsg(token)
 	}

@@ -83,7 +83,7 @@ func validateConfig() (string, error) {
 		return "", fmt.Errorf("Could not get user config dir")
 	}
 	config := path + "/gofast.json"
-	jsonFile, err := os.OpenFile(config, os.O_RDWR, 0666)
+	jsonFile, err := os.OpenFile(config, os.O_RDWR | os.O_CREATE, 0666)
 	if err != nil {
 		return "", fmt.Errorf("Could not open config file")
 	}
