@@ -23,13 +23,13 @@ func cleaning(projectName string, protocol string, client string, database strin
 	if client == "None" {
 		_ = os.RemoveAll(projectName + "/svelte")
 		_ = os.RemoveAll(projectName + "/next")
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "svelte:", "go:")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  go:")
 	} else if client == "SvelteKit" {
 		_ = os.RemoveAll(projectName + "/next")
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "next:", "go:")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  next:", "  go:")
 	} else if client == "Next.js" {
 		_ = os.RemoveAll(projectName + "/svelte")
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "svelte:", "next:")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  next:")
 	}
 
 	// Protocol
@@ -55,6 +55,7 @@ func cleaning(projectName string, protocol string, client string, database strin
 		// TODO: Implement gRPC
 	}
 
+    // SvelteKit
 	if protocol == "HTTP" && client == "SvelteKit" {
 		_ = os.RemoveAll(projectName + "/svelte/src/routes/(app)/notes_grpc")
 		_ = os.RemoveAll(projectName + "/svelte/src/routes/(app)/emails_grpc")
@@ -62,11 +63,23 @@ func cleaning(projectName string, protocol string, client string, database strin
 		_ = os.RemoveAll(projectName + "/svelte/src/routes/(app)/billing_grpc")
 		_ = os.RemoveAll(projectName + "/svelte/src/lib/services/user_service_grpc.ts")
 		_ = os.RemoveAll(projectName + "/svelte/src/lib/services/note_service_grpc.ts")
-        _ = os.RemoveAll(projectName + "/svelte/src/lib/services/email_service_grpc.ts")
-        _ = os.RemoveAll(projectName + "/svelte/src/lib/services/file_service_grpc.ts")
-        _ = os.RemoveAll(projectName + "/svelte/src/lib/services/payment_service_grpc.ts")
-
+		_ = os.RemoveAll(projectName + "/svelte/src/lib/services/email_service_grpc.ts")
+		_ = os.RemoveAll(projectName + "/svelte/src/lib/services/file_service_grpc.ts")
+		_ = os.RemoveAll(projectName + "/svelte/src/lib/services/payment_service_grpc.ts")
+		layoutFileContent, _ := os.ReadFile(projectName + "/svelte/src/routes/(app)/+layout.svelte")
+		layoutFileLines := strings.Split(string(layoutFileContent), "\n")
+		layoutFileNewLines := remove_lines_from_to(layoutFileLines, "<!-- gRPC -->", "<!-- End -->")
+		_ = os.WriteFile(projectName+"/svelte/src/routes/(app)/+layout.svelte", []byte(strings.Join(layoutFileNewLines, "\n")), 0644)
+	} else if protocol == "gRPC" && client == "SvelteKit" {
+		// TODO: Implement gRPC
 	}
+
+    // Next.js
+    if protocol == "HTTP" && client == "Next.js" {
+        // TODO: Implement Next.js
+    } else if protocol == "gRPC" && client == "Next.js" {
+        // TODO: Implement gRPC
+    }
 
 	docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
 	// Database
