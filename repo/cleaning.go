@@ -151,7 +151,7 @@ func cleaning(projectName string, protocol string, client string, database strin
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_DIR: ./files", "# FILE_DIR: ./files")
 		new_routes = remove_line(lines, "\"server/service/file\"")
 		new_routes = remove_lines_from_to(new_routes, "// File routes", "// End of routes")
-	} else if filesProvider == "S3/D2" {
+	} else if filesProvider == "S3/R2" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: s3")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# S3_BUCKET: ${S3_BUCKET}", "S3_BUCKET: ${S3_BUCKET}")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# S3_REGION: ${S3_REGION}", "S3_REGION: ${S3_REGION}")

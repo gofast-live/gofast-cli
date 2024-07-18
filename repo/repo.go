@@ -100,7 +100,7 @@ func InitialModel() model {
 		selectedPaymentsProvider: "None",
 		emailsProviders:          []string{"Local (log)", "Postmark", "Sendgrid", "Resend", "None"},
 		selectedEmailProvider:    "Local (log)",
-		filesProviders:           []string{"Local (folder)", "S3/D2", "None"},
+		filesProviders:           []string{"Local (folder)", "S3/R2", "None"},
 		selectedFilesProvider:    "Local (folder)",
 	}
 }
