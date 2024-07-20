@@ -6,7 +6,9 @@ import (
 
 func (m model) View() string {
 	var b strings.Builder
-	if m.step == 1 {
+    if m.step == 0 {
+        b.WriteString("\n\n\n\n\n")
+    } else if m.step == 1 {
 		b.WriteRune('\n')
 		b.WriteString("Enter your email address and API key\n\n")
 		b.WriteString(m.emailInput.View())

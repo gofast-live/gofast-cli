@@ -14,6 +14,7 @@ import (
 )
 
 var (
+    SERVER_URL   = "https://server.gofast.live/repo"
 	GITHUB_URL   = "@github.com/gofast-live/gofast-app.git"
 	noStyle      = lipgloss.NewStyle()
 	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("032"))
@@ -71,7 +72,7 @@ func InitialModel() model {
 	ei.TextStyle = focusedStyle
 
 	ai := textinput.New()
-	ai.SetValue("sk_live_12379277dd33f815dde9f5acc8b62ec4c4acb8d7ee05abb3a50140fc9e6d7e7b46a4b75a")
+	ai.SetValue("sk_live_b5f343812e2ed0ec0209eb14439e3441f896eb122b70e3319ab52b9d10a3447b")
 	ai.Placeholder = "Enter your API key"
 	ai.CharLimit = 156
 
@@ -82,7 +83,7 @@ func InitialModel() model {
 
 	return model{
 		focusIndex:       0,
-		step:             1,
+		step:             0,
 		token:            "",
 		spinner:          sp,
 		emailInput:       ei,
@@ -109,10 +110,10 @@ func (m model) Init() tea.Cmd {
 	var validate = func() tea.Msg {
 		token, err := validateConfig()
 		if err != nil {
-			return nil
+			return tokenMsg("")
 		}
 		if token == "" || !strings.Contains(token, "github_pat") {
-			return nil
+			return tokenMsg("")
 		}
 		return tokenMsg(token)
 	}
@@ -231,6 +232,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
+	case tokenMsg:
+        token := string(msg)
+        if token == "" {
+            m.step = 1
+            return m, nil
+        }
+		m.step = 3
+		return m, nil
 	case errMsg:
 		m.err = msg
 		return m, nil
@@ -242,10 +251,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.step = 2
 		cmd = m.getToken()
 		return m, cmd
-	case tokenMsg:
-		m.step = 3
-		m.token = string(msg)
-		return m, nil
 	case copyMsg:
 		if msg.err != nil {
 			m.err = msg.err
