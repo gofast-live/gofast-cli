@@ -238,6 +238,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             m.step = 1
             return m, nil
         }
+        m.token = token
 		m.step = 3
 		return m, nil
 	case errMsg:
@@ -327,7 +328,7 @@ func (m *model) getToken() tea.Cmd {
 func (m *model) copyRepo(token string, projectName string) tea.Cmd {
 	return func() tea.Msg {
 		authURL := fmt.Sprintf("https://%s%s", token, GITHUB_URL)
-		c := exec.Command("git", "clone", authURL, projectName)
+		c := exec.Command("git", "clone", "--depth", "1", authURL, projectName)
 		c.Stdout = os.Stdout
 		err := c.Start()
 		if err != nil {
