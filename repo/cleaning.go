@@ -18,6 +18,48 @@ func cleaning(projectName string, protocol string, client string, database strin
 	}
 	docker_compose_file_str := string(docker_compose_file)
 	docker_compose_lines := strings.Split(docker_compose_file_str, "\n")
+	mainFileContent, _ := os.ReadFile(projectName + "/go/main.go")
+	main_file_lines := strings.Split(string(mainFileContent), "\n")
+	var new_main_file_lines []string
+
+	// Protocol
+	var route_file_path string
+	if protocol == "HTTP" {
+		route_file_path = projectName + "/go/http/route.go"
+		_ = os.RemoveAll(projectName + "/proto.sh")
+		_ = os.RemoveAll(projectName + "/proto")
+		_ = os.RemoveAll(projectName + "/go/proto")
+		_ = os.RemoveAll(projectName + "/go/grpc")
+		_ = os.RemoveAll(projectName + "/svelte/src/lib/proto")
+		_ = os.RemoveAll(projectName + "/svelte/src/lib/server/grpc.ts")
+		for _, file := range []string{"email_service_grpc.ts", "note_service_grpc.ts", "payment_service_grpc.ts", "user_service_grpc.ts"} {
+			_ = os.RemoveAll(projectName + "/svelte/src/lib/services/" + file)
+		}
+		_ = os.RemoveAll(projectName + "/next/app/lib/proto")
+		_ = os.RemoveAll(projectName + "/next/app/lib/server/grpc.ts")
+		for _, file := range []string{"email_service_grpc.ts", "note_service_grpc.ts", "payment_service_grpc.ts", "user_service_grpc.ts"} {
+			_ = os.RemoveAll(projectName + "/next/app/lib/services/" + file)
+		}
+		for i, line := range main_file_lines {
+			if strings.Contains(line, "\"server/grpc\"") || strings.Contains(line, "grpc.RunGRPC") || strings.Contains(line, "Run the gRPC server") {
+				continue
+			}
+			new_main_file_lines = append(new_main_file_lines, main_file_lines[i])
+		}
+	} else if protocol == "gRPC" {
+		route_file_path = projectName + "/go/grpc/route.go"
+		for _, file := range []string{"email_service_http.ts", "note_service_http.ts", "payment_service_http.ts", "user_service_http.ts"} {
+			_ = os.RemoveAll(projectName + "/svelte/src/lib/services/" + file)
+		}
+		for _, file := range []string{"email_service_http.ts", "note_service_http.ts", "payment_service_http.ts", "user_service_http.ts"} {
+			_ = os.RemoveAll(projectName + "/next/app/lib/services/" + file)
+		}
+        http_route_file, _ := os.ReadFile(projectName + "/go/http/route.go")
+        http_route_file_lines := strings.Split(string(http_route_file), "\n")
+        new_http_route_file_lines := remove_lines_from_to(http_route_file_lines, "// Auth routes", "// End of routes")
+        _ = os.WriteFile(projectName+"/go/http/route.go", []byte(strings.Join(new_http_route_file_lines, "\n")), 0644)
+	}
+	_ = os.WriteFile(projectName+"/go/main.go", []byte(strings.Join(new_main_file_lines, "\n")), 0644)
 
 	// Client
 	if client == "None" {
@@ -32,30 +74,7 @@ func cleaning(projectName string, protocol string, client string, database strin
 		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  next:")
 	}
 
-	// Protocol
-	var route_file_path string
-	if protocol == "HTTP" {
-		route_file_path = projectName + "/go/http/route.go"
-		_ = os.RemoveAll(projectName + "/proto.sh")
-		_ = os.RemoveAll(projectName + "/proto")
-		_ = os.RemoveAll(projectName + "/go/proto")
-		_ = os.RemoveAll(projectName + "/go/grpc")
-		mainFileContent, _ := os.ReadFile(projectName + "/go/main.go")
-		lines := strings.Split(string(mainFileContent), "\n")
-		var new_lines []string
-		for i, line := range lines {
-			if strings.Contains(line, "\"server/grpc\"") || strings.Contains(line, "grpc.RunGRPC") || strings.Contains(line, "Run the gRPC server") {
-				continue
-			}
-			new_lines = append(new_lines, lines[i])
-		}
-		_ = os.WriteFile(projectName+"/go/main.go", []byte(strings.Join(new_lines, "\n")), 0644)
-	} else if protocol == "gRPC" {
-		route_file_path = projectName + "/go/grpc/route.go"
-		// TODO: Implement gRPC
-	}
-
-    // SvelteKit
+	// SvelteKit
 	if protocol == "HTTP" && client == "SvelteKit" {
 		_ = os.RemoveAll(projectName + "/svelte/src/routes/(app)/notes_grpc")
 		_ = os.RemoveAll(projectName + "/svelte/src/routes/(app)/emails_grpc")
@@ -74,12 +93,12 @@ func cleaning(projectName string, protocol string, client string, database strin
 		// TODO: Implement gRPC
 	}
 
-    // Next.js
-    if protocol == "HTTP" && client == "Next.js" {
-        // TODO: Implement Next.js
-    } else if protocol == "gRPC" && client == "Next.js" {
-        // TODO: Implement gRPC
-    }
+	// Next.js
+	if protocol == "HTTP" && client == "Next.js" {
+		// TODO: Implement Next.js
+	} else if protocol == "gRPC" && client == "Next.js" {
+		// TODO: Implement gRPC
+	}
 
 	docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
 	// Database
@@ -198,3 +217,5 @@ func remove_lines_from_to(lines []string, from string, to string) []string {
 	}
 	return new_lines
 }
+
+func 
