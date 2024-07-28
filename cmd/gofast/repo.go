@@ -101,7 +101,7 @@ func initialModel() model {
 		selectedPaymentsProvider: "Local (mock)",
 		emailsProviders:          []string{"Local (log)", "Postmark", "Sendgrid", "Resend"},
 		selectedEmailProvider:    "Local (log)",
-		filesProviders:           []string{"Local (folder)", "AWS S3", "Cloudflare R2"},
+		filesProviders:           []string{"Local (folder)", "AWS S3", "Cloudflare R2", "Google Cloud Storage"},
 		selectedFilesProvider:    "Local (folder)",
 	}
 }

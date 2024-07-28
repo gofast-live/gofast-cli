@@ -6,9 +6,9 @@ import (
 
 func (m model) View() string {
 	var b strings.Builder
-    if m.step == 0 {
-        b.WriteString("\n\n\n\n\n")
-    } else if m.step == 1 {
+	if m.step == 0 {
+		b.WriteString("\n\n\n\n\n\n\n")
+	} else if m.step == 1 {
 		b.WriteRune('\n')
 		b.WriteString("Enter your email address and API key\n\n")
 		b.WriteString(m.emailInput.View())
@@ -32,6 +32,8 @@ func (m model) View() string {
 		b.WriteRune('\n')
 		b.WriteRune('\n')
 		b.WriteString(successStyle.Render("Press enter to continue"))
+		b.WriteRune('\n')
+		b.WriteRune('\n')
 	} else if m.step == 4 || m.step == 5 || m.step == 6 || m.step == 7 || m.step == 8 || m.step == 9 {
 		b.WriteRune('\n')
 		if m.step == 4 {
@@ -74,10 +76,22 @@ func (m model) View() string {
 			s += cursor + " [" + checked + "] " + c + "\n"
 		}
 		b.WriteString(s)
+		if m.step == 4 {
+			b.WriteString("\n\n")
+		} else if m.step == 5 {
+			b.WriteString("\n")
+		} else if m.step == 6 {
+		} else if m.step == 7 {
+			b.WriteString("\n")
+		} else if m.step == 8 {
+		} else if m.step == 9 {
+		}
 	} else if m.step == 10 {
 		b.WriteRune('\n')
 		b.WriteString("Enter the name of the project\n\n")
 		b.WriteString(m.projectNameInput.View())
+		b.WriteRune('\n')
+		b.WriteRune('\n')
 		b.WriteRune('\n')
 		b.WriteRune('\n')
 	} else if m.step == 11 || m.step == 12 || m.step == 13 {
@@ -96,8 +110,6 @@ func (m model) View() string {
 		b.WriteRune('\n')
 	}
 
-	b.WriteRune('\n')
-	b.WriteRune('\n')
 	if m.err != nil {
 		b.WriteString(errStyle.Render(m.err.Error()))
 	}
