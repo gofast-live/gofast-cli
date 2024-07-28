@@ -38,7 +38,7 @@ func cleaning(projectName string, protocol string, client string, database strin
 			_ = os.RemoveAll(projectName + "/next/app/lib/services/" + file)
 		}
 
-        // Remove gRPC from main.go
+		// Remove gRPC from main.go
 		mainFileContent, _ := os.ReadFile(projectName + "/go/main.go")
 		main_file_lines := strings.Split(string(mainFileContent), "\n")
 		var new_main_file_lines []string
@@ -50,7 +50,7 @@ func cleaning(projectName string, protocol string, client string, database strin
 		}
 		_ = os.WriteFile(projectName+"/go/main.go", []byte(strings.Join(new_main_file_lines, "\n")), 0644)
 	} else if protocol == "gRPC" {
-        // Remove HTTP files from Svelte and Next.js
+		// Remove HTTP files from Svelte and Next.js
 		route_file_path = projectName + "/go/grpc/route.go"
 		for _, file := range []string{"email_service_http.ts", "note_service_http.ts", "payment_service_http.ts", "user_service_http.ts"} {
 			_ = os.Remove(projectName + "/svelte/src/lib/server/services/" + file)
@@ -59,7 +59,7 @@ func cleaning(projectName string, protocol string, client string, database strin
 			_ = os.Remove(projectName + "/next/app/lib/server/services/" + file)
 		}
 
-        // Clean HTTP routes
+		// Clean HTTP routes
 		http_route_file, _ := os.ReadFile(projectName + "/go/http/route.go")
 		http_route_file_lines := strings.Split(string(http_route_file), "\n")
 		http_route_file_lines = remove_lines_from_to(http_route_file_lines, "// Auth Routes", "// End Routes")
@@ -72,7 +72,7 @@ func cleaning(projectName string, protocol string, client string, database strin
 		}
 		_ = os.WriteFile(projectName+"/go/http/route.go", []byte(strings.Join(new_http_route_file_lines, "\n")), 0644)
 
-        // Replace _http with _grpc in Svelte and Next.js
+		// Replace _http with _grpc in Svelte and Next.js
 		replace_http(projectName+"/svelte/src/", []string{
 			"hooks.server.ts",
 			"routes/auth/+page.server.ts",
@@ -80,7 +80,7 @@ func cleaning(projectName string, protocol string, client string, database strin
 			"routes/(app)/notes/+page.server.ts",
 			"routes/(app)/notes/[note_id]/+page.server.ts",
 			"routes/(app)/emails/+page.server.ts",
-			"routes/(app)/billing/+page.server.ts",
+			"routes/(app)/payments/+page.server.ts",
 		})
 		replace_http(projectName+"/next/app/", []string{
 			"auth/auth_form.tsx",
@@ -94,8 +94,8 @@ func cleaning(projectName string, protocol string, client string, database strin
 			"(app)/notes/[note_id]/delete_note_form.tsx",
 			"(app)/emails/page.tsx",
 			"(app)/emails/send_email_form.tsx",
-			"(app)/billing/page.tsx",
-			"(app)/billing/billing_form.tsx",
+			"(app)/payments/page.tsx",
+			"(app)/payments/billing_form.tsx",
 		})
 	}
 
@@ -110,6 +110,9 @@ func cleaning(projectName string, protocol string, client string, database strin
 	} else if client == "Next.js" {
 		_ = os.RemoveAll(projectName + "/svelte")
 		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  next:")
+		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "- 3001:3000", "- 3000:3000")
+		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
 	}
 
 	docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
@@ -128,7 +131,7 @@ func cleaning(projectName string, protocol string, client string, database strin
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PASS: gofast", "POSTGRES_PASS: gofast")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_USER: gofast", "POSTGRES_USER: gofast")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_NAME: gofast", "POSTGRES_NAME: gofast")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_HOST: db-postgres", "POSTGRES_HOST: postgres")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_HOST: postgres", "POSTGRES_HOST: postgres")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PORT: 5432", "POSTGRES_PORT: 5432")
 	}
 	if database != "PostgreSQL" {
@@ -140,14 +143,13 @@ func cleaning(projectName string, protocol string, client string, database strin
 	route_file, _ := os.ReadFile(route_file_path)
 	route_file_str := string(route_file)
 	route_lines := strings.Split(route_file_str, "\n")
-	var new_routes []string
 
 	// Payments
 	if paymentsProvider == "None" {
 		_ = os.RemoveAll(projectName + "/go/service/payment")
-		new_routes = remove_line(route_lines, "\"io\"")
-		new_routes = remove_line(new_routes, "\"server/service/payment\"")
-		new_routes = remove_lines_from_to(new_routes, "// Payment Routes", "// Note Routes")
+		route_lines = remove_line(route_lines, "\"io\"")
+		route_lines = remove_line(route_lines, "\"server/service/payment\"")
+		route_lines = remove_lines_from_to(route_lines, "// Payment Routes", "// Note Routes")
 	} else if paymentsProvider == "Stripe" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "PAYMENT_ENABLED: false", "PAYMENT_ENABLED: true")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_API_KEY: ${STRIPE_API_KEY}", "STRIPE_API_KEY: ${STRIPE_API_KEY}")
@@ -162,8 +164,8 @@ func cleaning(projectName string, protocol string, client string, database strin
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_ENABLED: true", "EMAIL_ENABLED: false")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "# EMAIL_PROVIDER: local")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_FROM: admin@gofast.live", "# EMAIL_FROM: admin@gofast.live")
-		new_routes = remove_line(route_lines, "\"server/service/email\"")
-		new_routes = remove_lines_from_to(new_routes, "// Email Routes", "// File Routes")
+		route_lines = remove_line(route_lines, "\"server/service/email\"")
+		route_lines = remove_lines_from_to(route_lines, "// Email Routes", "// File Routes")
 	} else if emailProvider == "Postmark" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: postmark")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTMARK_API_KEY: ${POSTMARK_API_KEY}", "POSTMARK_API_KEY: ${POSTMARK_API_KEY}")
@@ -176,32 +178,45 @@ func cleaning(projectName string, protocol string, client string, database strin
 	}
 	// Files
 	if filesProvider == "None" {
-        // TODO: if gRPC, remove whole http section
+		// TODO: if gRPC, remove whole http section
 		_ = os.RemoveAll(projectName + "/go/service/file")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_ENABLED: true", "FILE_ENABLED: false")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "# FILE_PROVIDER: local")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_DIR: ./files", "# FILE_DIR: ./files")
-		new_routes = remove_line(route_lines, "\"server/service/file\"")
-		new_routes = remove_lines_from_to(new_routes, "// File Routes", "// End Routes")
+		if protocol == "HTTP" {
+			_ = os.RemoveAll(projectName + "/go/http/file_route.go")
+			server_file_lines := strings.Split(projectName+"/go/http/server.go", "\n")
+			server_file_lines = remove_line(server_file_lines, "setupFileRoute")
+			_ = os.WriteFile(projectName+"/go/http/server.go", []byte(strings.Join(server_file_lines, "\n")), 0644)
+		} else if protocol == "gRPC" {
+			_ = os.RemoveAll(projectName + "/go/http")
+			mainFileContent, _ := os.ReadFile(projectName + "/go/main.go")
+			main_file_lines := strings.Split(string(mainFileContent), "\n")
+			main_file_lines = remove_line(main_file_lines, "\"server/http\"")
+			main_file_lines = remove_line(main_file_lines, "Run the HTTP server")
+			main_file_lines = remove_line(main_file_lines, "http.RunHTTP")
+			_ = os.WriteFile(projectName+"/go/main.go", []byte(strings.Join(main_file_lines, "\n")), 0644)
+		}
+
 	} else if filesProvider == "AWS S3" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: s3")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# S3_REGION: ${S3_REGION}", "S3_REGION: ${S3_REGION}")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# S3_ACCESS_KEY: ${S3_ACCESS_KEY}", "S3_ACCESS_KEY: ${S3_ACCESS_KEY}")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# S3_SECRET_KEY: ${S3_SECRET_KEY}", "S3_SECRET_KEY: ${S3_SECRET_KEY}")
 	} else if filesProvider == "Cloudflare R2" {
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: r2")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_ENDPOINT: ${R2_ENDPOINT}", "R2_ENDPOINT: ${R2_ENDPOINT}")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_ACCESS_KEY: ${R2_ACCESS_KEY}", "R2_ACCESS_KEY: ${R2_ACCESS_KEY}")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_SECRET_KEY: ${R2_SECRET_KEY}", "R2_SECRET_KEY: ${R2_SECRET_KEY}")
-
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: r2")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_ENDPOINT: ${R2_ENDPOINT}", "R2_ENDPOINT: ${R2_ENDPOINT}")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_ACCESS_KEY: ${R2_ACCESS_KEY}", "R2_ACCESS_KEY: ${R2_ACCESS_KEY}")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_SECRET_KEY: ${R2_SECRET_KEY}", "R2_SECRET_KEY: ${R2_SECRET_KEY}")
+	}
 
 	err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
 	if err != nil {
 		return err
 	}
-	route_file_str = strings.Join(new_routes, "\n")
+	route_file_str = strings.Join(route_lines, "\n")
 	err = os.WriteFile(route_file_path, []byte(route_file_str), 0644)
 	if err != nil {
 		return err

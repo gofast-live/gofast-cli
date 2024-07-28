@@ -97,11 +97,11 @@ func InitialModel() model {
 		selectedClient:           "SvelteKit",
 		databases:                []string{"SQLite", "Turso", "PostgreSQL", "Memory"},
 		selectedDatabase:         "SQLite",
-		paymentsProviders:        []string{"None", "Stripe", "Lemon Squeezy (not implemented)"},
-		selectedPaymentsProvider: "None",
-		emailsProviders:          []string{"Local (log)", "Postmark", "Sendgrid", "Resend", "None"},
+		paymentsProviders:        []string{"Local (mock)", "Stripe", "Lemon Squeezy (not implemented)"},
+		selectedPaymentsProvider: "Local (mock)",
+		emailsProviders:          []string{"Local (log)", "Postmark", "Sendgrid", "Resend"},
 		selectedEmailProvider:    "Local (log)",
-		filesProviders:           []string{"Local (folder)", "AWS S3", "Cloudflare R2", "None"},
+		filesProviders:           []string{"Local (folder)", "AWS S3", "Cloudflare R2"},
 		selectedFilesProvider:    "Local (folder)",
 	}
 }
