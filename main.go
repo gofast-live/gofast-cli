@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"gofast-cli/repo"
 	"log"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/gofast-live/gofast-cli/repo"
 )
 
 func main() {
