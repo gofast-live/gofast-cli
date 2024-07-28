@@ -12,6 +12,12 @@ GOOS=windows GOARCH=amd64 go build -o gofast-windows-amd64.exe
 
 ## Installation
 
+### Using Go
+
+```sh
+go install github.com/gofast-live/gofast-cli/cmd/gofast
+```
+
 ### Download the binary
 
 Go to the [Releases](https://github.com/gofast-live/gofast-cli/releases) page and download the appropriate binary for your operating system.
