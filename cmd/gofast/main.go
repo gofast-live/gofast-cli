@@ -6,7 +6,6 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/gofast-live/gofast-cli/repo"
 )
 
 func main() {
@@ -16,7 +15,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer f.Close()
-	p := tea.NewProgram(repo.InitialModel())
+	p := tea.NewProgram(initialModel())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}

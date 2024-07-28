@@ -1,4 +1,4 @@
-package repo
+package main
 
 import (
 	"fmt"
@@ -58,7 +58,7 @@ type model struct {
 	selectedFilesProvider    string
 }
 
-func InitialModel() model {
+func initialModel() model {
 	sp := spinner.New()
 	sp.Spinner = spinner.Points
 	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("032"))
