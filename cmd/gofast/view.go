@@ -30,6 +30,7 @@ func (m model) View() string {
 		b.WriteRune('\n')
 		b.WriteString(successStyle.Render("Welcome to the GoFast CLI :)"))
 		b.WriteRune('\n')
+		b.WriteRune('\n')
 		b.WriteString(successStyle.Render("Press enter to continue"))
 	} else if m.step == 4 || m.step == 5 || m.step == 6 || m.step == 7 || m.step == 8 || m.step == 9 {
 		b.WriteRune('\n')
