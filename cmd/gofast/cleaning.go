@@ -6,6 +6,7 @@ import (
 )
 
 // TODO
+// Clean ports on docker-compose.yml
 // Clean github actions linting per setting
 func cleaning(projectName string, protocol string, client string, database string, paymentsProvider string, emailProvider string, filesProvider string) error {
 	// remove .git folder
