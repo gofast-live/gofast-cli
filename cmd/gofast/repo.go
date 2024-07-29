@@ -14,7 +14,7 @@ import (
 )
 
 var (
-    SERVER_URL   = "https://server.gofast.live/repo"
+    SERVER_URL   = "https://admin.gofast.live/api/repo"
 	GITHUB_URL   = "@github.com/gofast-live/gofast-app.git"
 	noStyle      = lipgloss.NewStyle()
 	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("032"))
@@ -64,7 +64,6 @@ func initialModel() model {
 	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("032"))
 
 	ei := textinput.New()
-	ei.SetValue("mateuszpiorowski@gmail.com")
 	ei.Placeholder = "Enter your email address"
 	ei.Focus()
 	ei.CharLimit = 156
@@ -72,7 +71,6 @@ func initialModel() model {
 	ei.TextStyle = focusedStyle
 
 	ai := textinput.New()
-	ai.SetValue("sk_live_b5f343812e2ed0ec0209eb14439e3441f896eb122b70e3319ab52b9d10a3447b")
 	ai.Placeholder = "Enter your API key"
 	ai.CharLimit = 156
 
