@@ -38,6 +38,8 @@ func cleaning(projectName string, protocol string, client string, database strin
 			_ = os.RemoveAll(projectName + "/next/app/lib/services/" + file)
 		}
 
+		docker_compose_lines = remove_line(docker_compose_lines, "GRPC_PORT")
+
 		// Remove gRPC from main.go
 		mainFileContent, _ := os.ReadFile(projectName + "/go/main.go")
 		main_file_lines := strings.Split(string(mainFileContent), "\n")
