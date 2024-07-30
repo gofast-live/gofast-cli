@@ -118,6 +118,11 @@ func cleaning(projectName string, protocol string, client string, database strin
 		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
 	}
 
+	var run_cmd []string
+	run_cmd = append(run_cmd, "JWT_SECRET=gofast_is_the_best \\\n")
+	run_cmd = append(run_cmd, "GITHUB_CLIENT_ID=Iv23litoS0DJltaklISr \\\n")
+	run_cmd = append(run_cmd, "GITHUB_CLIENT_SECRET=c6ed4d8bc5bcb687162da0ea0d9bc614e31004a8 \\\n")
+
 	docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
 	// Database
 	if database != "SQLite" {
@@ -128,14 +133,21 @@ func cleaning(projectName string, protocol string, client string, database strin
 	} else if database == "Turso" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: sqlite", "DB_PROVIDER: turso")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# TURSO_URL: ${TURSO_URL}", "TURSO_URL: ${TURSO_URL}")
+		run_cmd = append(run_cmd, "TURSO_URL=TURSO_URL \\\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# TURSO_TOKEN: ${TURSO_TOKEN}", "TURSO_TOKEN: ${TURSO_TOKEN}")
+		run_cmd = append(run_cmd, "TURSO_TOKEN=TURSO_TOKEN \\\n")
 	} else if database == "PostgreSQL" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: sqlite", "DB_PROVIDER: postgres")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PASS: gofast", "POSTGRES_PASS: gofast")
+		run_cmd = append(run_cmd, "POSTGRES_PASS=POSTGRES_PASS \\\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_USER: gofast", "POSTGRES_USER: gofast")
+		run_cmd = append(run_cmd, "POSTGRES_USER=POSTGRES_USER \\\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_NAME: gofast", "POSTGRES_NAME: gofast")
+		run_cmd = append(run_cmd, "POSTGRES_NAME=POSTGRES_NAME \\\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_HOST: postgres", "POSTGRES_HOST: postgres")
+		run_cmd = append(run_cmd, "POSTGRES_HOST=POSTGRES_HOST \\\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PORT: 5432", "POSTGRES_PORT: 5432")
+		run_cmd = append(run_cmd, "POSTGRES_PORT=POSTGRES_PORT \\\n")
 	}
 	if database != "PostgreSQL" {
 		lines := strings.Split(docker_compose_file_str, "\n")
@@ -156,7 +168,9 @@ func cleaning(projectName string, protocol string, client string, database strin
 	} else if paymentsProvider == "Stripe" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "PAYMENT_ENABLED: false", "PAYMENT_ENABLED: true")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_API_KEY: ${STRIPE_API_KEY}", "STRIPE_API_KEY: ${STRIPE_API_KEY}")
+		run_cmd = append(run_cmd, "STRIPE_API_KEY=STRIPE_API_KEY \\\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}", "STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}")
+		run_cmd = append(run_cmd, "STRIPE_PRICE_ID=STRIPE_PRICE_ID \\\n")
 	} else if paymentsProvider == "Lemon Squeezy (not implemented)" {
 		// TODO: Implement Lemon Squeezy
 		return nil
@@ -166,18 +180,21 @@ func cleaning(projectName string, protocol string, client string, database strin
 		_ = os.RemoveAll(projectName + "/go/service/email")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_ENABLED: true", "EMAIL_ENABLED: false")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "# EMAIL_PROVIDER: local")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_FROM: admin@gofast.live", "# EMAIL_FROM: admin@gofast.live")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_FROM: ${EMAIL_FROM}", "# EMAIL_FROM: ${EMAIL_FROM}")
 		route_lines = remove_line(route_lines, "\"server/service/email\"")
 		route_lines = remove_lines_from_to(route_lines, "// Email Routes", "// File Routes")
 	} else if emailProvider == "Postmark" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: postmark")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTMARK_API_KEY: ${POSTMARK_API_KEY}", "POSTMARK_API_KEY: ${POSTMARK_API_KEY}")
+		run_cmd = append(run_cmd, "POSTMARK_API_KEY=POSTMARK_API_KEY \\\n")
 	} else if emailProvider == "Sendgrid" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: sendgrid")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# SENDGRID_API_KEY: ${SENDGRID_API_KEY}", "SENDGRID_API_KEY: ${SENDGRID_API_KEY}")
+		run_cmd = append(run_cmd, "SENDGRID_API_KEY=SENDGRID_API_KEY \\\n")
 	} else if emailProvider == "Resend" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: resend")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# RESEND_API_KEY: ${RESEND_API_KEY}", "RESEND_API_KEY: ${RESEND_API_KEY}")
+		run_cmd = append(run_cmd, "RESEND_API_KEY=RESEND_API_KEY \\\n")
 	}
 	// Files
 	if filesProvider == "None" {
@@ -204,15 +221,23 @@ func cleaning(projectName string, protocol string, client string, database strin
 	} else if filesProvider == "AWS S3" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: s3")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
+		run_cmd = append(run_cmd, "BUCKET_NAME=BUCKET_NAME \\\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# S3_REGION: ${S3_REGION}", "S3_REGION: ${S3_REGION}")
+		run_cmd = append(run_cmd, "S3_REGION=S3_REGION \\\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# S3_ACCESS_KEY: ${S3_ACCESS_KEY}", "S3_ACCESS_KEY: ${S3_ACCESS_KEY}")
+		run_cmd = append(run_cmd, "S3_ACCESS_KEY=S3_ACCESS_KEY \\\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# S3_SECRET_KEY: ${S3_SECRET_KEY}", "S3_SECRET_KEY: ${S3_SECRET_KEY}")
+		run_cmd = append(run_cmd, "S3_SECRET_KEY=S3_SECRET_KEY \\\n")
 	} else if filesProvider == "Cloudflare R2" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: r2")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
+		run_cmd = append(run_cmd, "BUCKET_NAME=BUCKET_NAME \\\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_ENDPOINT: ${R2_ENDPOINT}", "R2_ENDPOINT: ${R2_ENDPOINT}")
+		run_cmd = append(run_cmd, "R2_ENDPOINT=R2_ENDPOINT \\\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_ACCESS_KEY: ${R2_ACCESS_KEY}", "R2_ACCESS_KEY: ${R2_ACCESS_KEY}")
+		run_cmd = append(run_cmd, "R2_ACCESS_KEY=R2_ACCESS_KEY \\\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_SECRET_KEY: ${R2_SECRET_KEY}", "R2_SECRET_KEY: ${R2_SECRET_KEY}")
+		run_cmd = append(run_cmd, "R2_SECRET_KEY=R2_SECRET_KEY \\\n")
 	}
 
 	err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
@@ -221,6 +246,19 @@ func cleaning(projectName string, protocol string, client string, database strin
 	}
 	route_file_str = strings.Join(route_lines, "\n")
 	err = os.WriteFile(route_file_path, []byte(route_file_str), 0644)
+	if err != nil {
+		return err
+	}
+
+	// Append the cmd to Readme
+	run_cmd = append(run_cmd, "docker compose up --build")
+	readme_file, _ := os.ReadFile(projectName + "/README.md")
+	readme_file_lines := strings.Split(string(readme_file), "\n")
+	readme_file_lines = append(readme_file_lines, "```bash")
+	readme_file_lines = append(readme_file_lines, run_cmd...)
+	readme_file_lines = append(readme_file_lines, "```")
+	readme_file_str := strings.Join(readme_file_lines, "\n")
+	err = os.WriteFile(projectName+"/README.md", []byte(readme_file_str), 0644)
 	if err != nil {
 		return err
 	}
