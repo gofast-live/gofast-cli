@@ -31,7 +31,7 @@ func cleaning(projectName string, protocol string, client string, database strin
 		_ = os.RemoveAll(projectName + "/svelte/src/lib/proto")
 		_ = os.RemoveAll(projectName + "/svelte/src/lib/server/grpc.ts")
 		for _, file := range []string{"email_service_grpc.ts", "note_service_grpc.ts", "payment_service_grpc.ts", "user_service_grpc.ts"} {
-			_ = os.RemoveAll(projectName + "/svelte/src/lib/services/" + file)
+			_ = os.RemoveAll(projectName + "/svelte/src/lib/server/services/" + file)
 		}
 		_ = os.RemoveAll(projectName + "/next/app/lib/proto")
 		_ = os.RemoveAll(projectName + "/next/app/lib/server/grpc.ts")
@@ -119,9 +119,9 @@ func cleaning(projectName string, protocol string, client string, database strin
 	}
 
 	var run_cmd []string
-	run_cmd = append(run_cmd, "JWT_SECRET=gofast_is_the_best \\\n")
-	run_cmd = append(run_cmd, "GITHUB_CLIENT_ID=Iv23litoS0DJltaklISr \\\n")
-	run_cmd = append(run_cmd, "GITHUB_CLIENT_SECRET=c6ed4d8bc5bcb687162da0ea0d9bc614e31004a8 \\\n")
+	run_cmd = append(run_cmd, "JWT_SECRET=gofast_is_the_best \\")
+	run_cmd = append(run_cmd, "GITHUB_CLIENT_ID=Iv23litoS0DJltaklISr \\")
+	run_cmd = append(run_cmd, "GITHUB_CLIENT_SECRET=c6ed4d8bc5bcb687162da0ea0d9bc614e31004a8 \\")
 
 	docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
 	// Database
@@ -133,21 +133,21 @@ func cleaning(projectName string, protocol string, client string, database strin
 	} else if database == "Turso" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: sqlite", "DB_PROVIDER: turso")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# TURSO_URL: ${TURSO_URL}", "TURSO_URL: ${TURSO_URL}")
-		run_cmd = append(run_cmd, "TURSO_URL=TURSO_URL \\\n")
+		run_cmd = append(run_cmd, "TURSO_URL=TURSO_URL \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# TURSO_TOKEN: ${TURSO_TOKEN}", "TURSO_TOKEN: ${TURSO_TOKEN}")
-		run_cmd = append(run_cmd, "TURSO_TOKEN=TURSO_TOKEN \\\n")
+		run_cmd = append(run_cmd, "TURSO_TOKEN=TURSO_TOKEN \\")
 	} else if database == "PostgreSQL" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: sqlite", "DB_PROVIDER: postgres")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PASS: gofast", "POSTGRES_PASS: gofast")
-		run_cmd = append(run_cmd, "POSTGRES_PASS=POSTGRES_PASS \\\n")
+		run_cmd = append(run_cmd, "POSTGRES_PASS=POSTGRES_PASS \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_USER: gofast", "POSTGRES_USER: gofast")
-		run_cmd = append(run_cmd, "POSTGRES_USER=POSTGRES_USER \\\n")
+		run_cmd = append(run_cmd, "POSTGRES_USER=POSTGRES_USER \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_NAME: gofast", "POSTGRES_NAME: gofast")
-		run_cmd = append(run_cmd, "POSTGRES_NAME=POSTGRES_NAME \\\n")
+		run_cmd = append(run_cmd, "POSTGRES_NAME=POSTGRES_NAME \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_HOST: postgres", "POSTGRES_HOST: postgres")
-		run_cmd = append(run_cmd, "POSTGRES_HOST=POSTGRES_HOST \\\n")
+		run_cmd = append(run_cmd, "POSTGRES_HOST=POSTGRES_HOST \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PORT: 5432", "POSTGRES_PORT: 5432")
-		run_cmd = append(run_cmd, "POSTGRES_PORT=POSTGRES_PORT \\\n")
+		run_cmd = append(run_cmd, "POSTGRES_PORT=POSTGRES_PORT \\")
 	}
 	if database != "PostgreSQL" {
 		lines := strings.Split(docker_compose_file_str, "\n")
@@ -168,13 +168,15 @@ func cleaning(projectName string, protocol string, client string, database strin
 	} else if paymentsProvider == "Stripe" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "PAYMENT_ENABLED: false", "PAYMENT_ENABLED: true")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_API_KEY: ${STRIPE_API_KEY}", "STRIPE_API_KEY: ${STRIPE_API_KEY}")
-		run_cmd = append(run_cmd, "STRIPE_API_KEY=STRIPE_API_KEY \\\n")
+		run_cmd = append(run_cmd, "STRIPE_API_KEY=STRIPE_API_KEY \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}", "STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}")
-		run_cmd = append(run_cmd, "STRIPE_PRICE_ID=STRIPE_PRICE_ID \\\n")
+		run_cmd = append(run_cmd, "STRIPE_PRICE_ID=STRIPE_PRICE_ID \\")
 	} else if paymentsProvider == "Lemon Squeezy (not implemented)" {
 		// TODO: Implement Lemon Squeezy
 		return nil
 	}
+
+	run_cmd = append(run_cmd, "EMAIL_FROM=EMAIL_FROM \\")
 	// Emails
 	if emailProvider == "None" {
 		_ = os.RemoveAll(projectName + "/go/service/email")
@@ -186,15 +188,15 @@ func cleaning(projectName string, protocol string, client string, database strin
 	} else if emailProvider == "Postmark" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: postmark")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTMARK_API_KEY: ${POSTMARK_API_KEY}", "POSTMARK_API_KEY: ${POSTMARK_API_KEY}")
-		run_cmd = append(run_cmd, "POSTMARK_API_KEY=POSTMARK_API_KEY \\\n")
+		run_cmd = append(run_cmd, "POSTMARK_API_KEY=POSTMARK_API_KEY \\")
 	} else if emailProvider == "Sendgrid" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: sendgrid")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# SENDGRID_API_KEY: ${SENDGRID_API_KEY}", "SENDGRID_API_KEY: ${SENDGRID_API_KEY}")
-		run_cmd = append(run_cmd, "SENDGRID_API_KEY=SENDGRID_API_KEY \\\n")
+		run_cmd = append(run_cmd, "SENDGRID_API_KEY=SENDGRID_API_KEY \\")
 	} else if emailProvider == "Resend" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: resend")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# RESEND_API_KEY: ${RESEND_API_KEY}", "RESEND_API_KEY: ${RESEND_API_KEY}")
-		run_cmd = append(run_cmd, "RESEND_API_KEY=RESEND_API_KEY \\\n")
+		run_cmd = append(run_cmd, "RESEND_API_KEY=RESEND_API_KEY \\")
 	}
 	// Files
 	if filesProvider == "None" {
@@ -221,23 +223,23 @@ func cleaning(projectName string, protocol string, client string, database strin
 	} else if filesProvider == "AWS S3" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: s3")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
-		run_cmd = append(run_cmd, "BUCKET_NAME=BUCKET_NAME \\\n")
+		run_cmd = append(run_cmd, "BUCKET_NAME=BUCKET_NAME \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# S3_REGION: ${S3_REGION}", "S3_REGION: ${S3_REGION}")
-		run_cmd = append(run_cmd, "S3_REGION=S3_REGION \\\n")
+		run_cmd = append(run_cmd, "S3_REGION=S3_REGION \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# S3_ACCESS_KEY: ${S3_ACCESS_KEY}", "S3_ACCESS_KEY: ${S3_ACCESS_KEY}")
-		run_cmd = append(run_cmd, "S3_ACCESS_KEY=S3_ACCESS_KEY \\\n")
+		run_cmd = append(run_cmd, "S3_ACCESS_KEY=S3_ACCESS_KEY \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# S3_SECRET_KEY: ${S3_SECRET_KEY}", "S3_SECRET_KEY: ${S3_SECRET_KEY}")
-		run_cmd = append(run_cmd, "S3_SECRET_KEY=S3_SECRET_KEY \\\n")
+		run_cmd = append(run_cmd, "S3_SECRET_KEY=S3_SECRET_KEY \\")
 	} else if filesProvider == "Cloudflare R2" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: r2")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
-		run_cmd = append(run_cmd, "BUCKET_NAME=BUCKET_NAME \\\n")
+		run_cmd = append(run_cmd, "BUCKET_NAME=BUCKET_NAME \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_ENDPOINT: ${R2_ENDPOINT}", "R2_ENDPOINT: ${R2_ENDPOINT}")
-		run_cmd = append(run_cmd, "R2_ENDPOINT=R2_ENDPOINT \\\n")
+		run_cmd = append(run_cmd, "R2_ENDPOINT=R2_ENDPOINT \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_ACCESS_KEY: ${R2_ACCESS_KEY}", "R2_ACCESS_KEY: ${R2_ACCESS_KEY}")
-		run_cmd = append(run_cmd, "R2_ACCESS_KEY=R2_ACCESS_KEY \\\n")
+		run_cmd = append(run_cmd, "R2_ACCESS_KEY=R2_ACCESS_KEY \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_SECRET_KEY: ${R2_SECRET_KEY}", "R2_SECRET_KEY: ${R2_SECRET_KEY}")
-		run_cmd = append(run_cmd, "R2_SECRET_KEY=R2_SECRET_KEY \\\n")
+		run_cmd = append(run_cmd, "R2_SECRET_KEY=R2_SECRET_KEY \\")
 	}
 
 	err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)

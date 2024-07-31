@@ -14,7 +14,7 @@ import (
 )
 
 var (
-    SERVER_URL   = "https://admin.gofast.live/api/repo"
+	SERVER_URL   = "https://admin.gofast.live/api/repo"
 	GITHUB_URL   = "@github.com/gofast-live/gofast-app.git"
 	noStyle      = lipgloss.NewStyle()
 	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("032"))
@@ -99,7 +99,7 @@ func initialModel() model {
 		selectedPaymentsProvider: "Local (mock)",
 		emailsProviders:          []string{"Local (log)", "Postmark", "Sendgrid", "Resend"},
 		selectedEmailProvider:    "Local (log)",
-		filesProviders:           []string{"Local (folder)", "AWS S3", "Cloudflare R2", "Google Cloud Storage"},
+		filesProviders:           []string{"Local (folder)", "Cloudflare R2", "AWS S3", "Google Cloud Storage"},
 		selectedFilesProvider:    "Local (folder)",
 	}
 }
@@ -231,12 +231,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tokenMsg:
-        token := string(msg)
-        if token == "" {
-            m.step = 1
-            return m, nil
-        }
-        m.token = token
+		token := string(msg)
+		if token == "" {
+			m.step = 1
+			return m, nil
+		}
+		m.token = token
 		m.step = 3
 		return m, nil
 	case errMsg:

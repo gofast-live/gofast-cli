@@ -112,6 +112,8 @@ func (m model) View() string {
 		b.WriteRune('\n')
 		b.WriteRune('\n')
 		b.WriteRune('\n')
+		b.WriteRune('\n')
+		b.WriteRune('\n')
 	}
 
 	if m.err != nil {
