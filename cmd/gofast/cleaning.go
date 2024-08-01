@@ -8,22 +8,20 @@ import (
 // TODO
 // Clean ports on docker-compose.yml
 // Clean github actions linting per setting
-func cleaning(projectName string, protocol string, client string, database string, paymentsProvider string, emailProvider string, filesProvider string) error {
+func cleaning(projectName string, protocol string, client string, start string, database string, paymentsProvider string, emailProvider string, filesProvider string) ([]string, error) {
 	// remove .git folder
 	_ = os.RemoveAll(projectName + "/.git")
 
 	var err error
 	docker_compose_file, err := os.ReadFile(projectName + "/docker-compose.yml")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	docker_compose_file_str := string(docker_compose_file)
 	docker_compose_lines := strings.Split(docker_compose_file_str, "\n")
 
 	// Protocol
-	var route_file_path string
 	if protocol == "HTTP" {
-		route_file_path = projectName + "/go/http/route.go"
 		_ = os.RemoveAll(projectName + "/proto.sh")
 		_ = os.RemoveAll(projectName + "/proto")
 		_ = os.RemoveAll(projectName + "/go/proto")
@@ -54,7 +52,6 @@ func cleaning(projectName string, protocol string, client string, database strin
 		_ = os.WriteFile(projectName+"/go/main.go", []byte(strings.Join(new_main_file_lines, "\n")), 0644)
 	} else if protocol == "gRPC" {
 		// Remove HTTP files from Svelte and Next.js
-		route_file_path = projectName + "/go/grpc/route.go"
 		for _, file := range []string{"email_service_http.ts", "note_service_http.ts", "payment_service_http.ts", "user_service_http.ts"} {
 			_ = os.Remove(projectName + "/svelte/src/lib/server/services/" + file)
 		}
@@ -119,9 +116,37 @@ func cleaning(projectName string, protocol string, client string, database strin
 	}
 
 	var run_cmd []string
-	run_cmd = append(run_cmd, "JWT_SECRET=gofast_is_the_best \\")
-	run_cmd = append(run_cmd, "GITHUB_CLIENT_ID=Iv23litoS0DJltaklISr \\")
-	run_cmd = append(run_cmd, "GITHUB_CLIENT_SECRET=c6ed4d8bc5bcb687162da0ea0d9bc614e31004a8 \\")
+	if start == "Generate base project" {
+		run_cmd = append(run_cmd, "JWT_SECRET=gofast_is_the_best \\")
+		run_cmd = append(run_cmd, "GITHUB_CLIENT_ID=Iv23litoS0DJltaklISr \\")
+		run_cmd = append(run_cmd, "GITHUB_CLIENT_SECRET=c6ed4d8bc5bcb687162da0ea0d9bc614e31004a8 \\")
+        run_cmd = append(run_cmd, "GOOGLE_CLIENT_ID=646089287190-m252eqv203c3fsv1gt1m29nkq2t6lrp6.apps.googleusercontent.com \\")
+        run_cmd = append(run_cmd, "GOOGLE_CLIENT_SECRET=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 \\")
+		run_cmd = append(run_cmd, "EMAIL_FROM=admin@gofast.live \\")
+		run_cmd = append(run_cmd, "docker compose up --build")
+		readme_file, _ := os.ReadFile(projectName + "/README.md")
+		readme_file_lines := strings.Split(string(readme_file), "\n")
+		readme_file_lines = append(readme_file_lines, "```bash")
+		readme_file_lines = append(readme_file_lines, run_cmd...)
+		readme_file_lines = append(readme_file_lines, "```")
+		readme_file_str := strings.Join(readme_file_lines, "\n")
+		err = os.WriteFile(projectName+"/README.md", []byte(readme_file_str), 0644)
+		if err != nil {
+			return nil, err
+		}
+        docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
+        err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
+        if err != nil {
+            return nil, err
+        }
+		return run_cmd, nil
+	} else {
+		run_cmd = append(run_cmd, "JWT_SECRET=gofast_is_the_best \\")
+		run_cmd = append(run_cmd, "GITHUB_CLIENT_ID=GITHUB_CLIENT_ID \\")
+		run_cmd = append(run_cmd, "GITHUB_CLIENT_SECRET=GITHUB_CLIENT_SECRET \\")
+		run_cmd = append(run_cmd, "GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID \\")
+		run_cmd = append(run_cmd, "GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET \\")
+	}
 
 	docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
 	// Database
@@ -155,17 +180,8 @@ func cleaning(projectName string, protocol string, client string, database strin
 		docker_compose_file_str = strings.Join(new_lines, "\n")
 	}
 
-	route_file, _ := os.ReadFile(route_file_path)
-	route_file_str := string(route_file)
-	route_lines := strings.Split(route_file_str, "\n")
-
 	// Payments
-	if paymentsProvider == "None" {
-		_ = os.RemoveAll(projectName + "/go/service/payment")
-		route_lines = remove_line(route_lines, "\"io\"")
-		route_lines = remove_line(route_lines, "\"server/service/payment\"")
-		route_lines = remove_lines_from_to(route_lines, "// Payment Routes", "// Note Routes")
-	} else if paymentsProvider == "Stripe" {
+	if paymentsProvider == "Stripe" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "PAYMENT_ENABLED: false", "PAYMENT_ENABLED: true")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_API_KEY: ${STRIPE_API_KEY}", "STRIPE_API_KEY: ${STRIPE_API_KEY}")
 		run_cmd = append(run_cmd, "STRIPE_API_KEY=STRIPE_API_KEY \\")
@@ -173,19 +189,12 @@ func cleaning(projectName string, protocol string, client string, database strin
 		run_cmd = append(run_cmd, "STRIPE_PRICE_ID=STRIPE_PRICE_ID \\")
 	} else if paymentsProvider == "Lemon Squeezy (not implemented)" {
 		// TODO: Implement Lemon Squeezy
-		return nil
+		return nil, nil
 	}
 
 	run_cmd = append(run_cmd, "EMAIL_FROM=EMAIL_FROM \\")
 	// Emails
-	if emailProvider == "None" {
-		_ = os.RemoveAll(projectName + "/go/service/email")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_ENABLED: true", "EMAIL_ENABLED: false")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "# EMAIL_PROVIDER: local")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_FROM: ${EMAIL_FROM}", "# EMAIL_FROM: ${EMAIL_FROM}")
-		route_lines = remove_line(route_lines, "\"server/service/email\"")
-		route_lines = remove_lines_from_to(route_lines, "// Email Routes", "// File Routes")
-	} else if emailProvider == "Postmark" {
+	if emailProvider == "Postmark" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: postmark")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTMARK_API_KEY: ${POSTMARK_API_KEY}", "POSTMARK_API_KEY: ${POSTMARK_API_KEY}")
 		run_cmd = append(run_cmd, "POSTMARK_API_KEY=POSTMARK_API_KEY \\")
@@ -199,28 +208,7 @@ func cleaning(projectName string, protocol string, client string, database strin
 		run_cmd = append(run_cmd, "RESEND_API_KEY=RESEND_API_KEY \\")
 	}
 	// Files
-	if filesProvider == "None" {
-		// TODO: if gRPC, remove whole http section
-		_ = os.RemoveAll(projectName + "/go/service/file")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_ENABLED: true", "FILE_ENABLED: false")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "# FILE_PROVIDER: local")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_DIR: ./files", "# FILE_DIR: ./files")
-		if protocol == "HTTP" {
-			_ = os.RemoveAll(projectName + "/go/http/file_route.go")
-			server_file_lines := strings.Split(projectName+"/go/http/server.go", "\n")
-			server_file_lines = remove_line(server_file_lines, "setupFileRoute")
-			_ = os.WriteFile(projectName+"/go/http/server.go", []byte(strings.Join(server_file_lines, "\n")), 0644)
-		} else if protocol == "gRPC" {
-			_ = os.RemoveAll(projectName + "/go/http")
-			mainFileContent, _ := os.ReadFile(projectName + "/go/main.go")
-			main_file_lines := strings.Split(string(mainFileContent), "\n")
-			main_file_lines = remove_line(main_file_lines, "\"server/http\"")
-			main_file_lines = remove_line(main_file_lines, "Run the HTTP server")
-			main_file_lines = remove_line(main_file_lines, "http.RunHTTP")
-			_ = os.WriteFile(projectName+"/go/main.go", []byte(strings.Join(main_file_lines, "\n")), 0644)
-		}
-
-	} else if filesProvider == "AWS S3" {
+	if filesProvider == "AWS S3" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: s3")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
 		run_cmd = append(run_cmd, "BUCKET_NAME=BUCKET_NAME \\")
@@ -244,12 +232,7 @@ func cleaning(projectName string, protocol string, client string, database strin
 
 	err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
 	if err != nil {
-		return err
-	}
-	route_file_str = strings.Join(route_lines, "\n")
-	err = os.WriteFile(route_file_path, []byte(route_file_str), 0644)
-	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Append the cmd to Readme
@@ -262,9 +245,9 @@ func cleaning(projectName string, protocol string, client string, database strin
 	readme_file_str := strings.Join(readme_file_lines, "\n")
 	err = os.WriteFile(projectName+"/README.md", []byte(readme_file_str), 0644)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return run_cmd, nil
 }
 
 func remove_line(lines []string, to_remove string) []string {

@@ -31,7 +31,7 @@ type (
 	configInvalid struct{ err error }
 	tokenMsg      string
 	copyMsg       struct{ err error }
-	finishMsg     struct{}
+	finishMsg     struct{ docker []string }
 )
 
 type model struct {
@@ -48,6 +48,8 @@ type model struct {
 	selectedProtocol         string
 	clients                  []string
 	selectedClient           string
+	startOptions             []string
+	selectedStartOption      string
 	databases                []string
 	selectedDatabase         string
 	paymentsProviders        []string
@@ -56,6 +58,7 @@ type model struct {
 	selectedEmailProvider    string
 	filesProviders           []string
 	selectedFilesProvider    string
+	docker                   []string
 }
 
 func initialModel() model {
@@ -93,6 +96,8 @@ func initialModel() model {
 		selectedProtocol:         "HTTP",
 		clients:                  []string{"SvelteKit", "Next.js", "None"},
 		selectedClient:           "SvelteKit",
+		startOptions:             []string{"Start the configuration", "Generate base project"},
+		selectedStartOption:      "Start the configuration",
 		databases:                []string{"SQLite", "Turso", "PostgreSQL", "Memory"},
 		selectedDatabase:         "SQLite",
 		paymentsProviders:        []string{"Local (mock)", "Stripe", "Lemon Squeezy (not implemented)"},
@@ -101,6 +106,7 @@ func initialModel() model {
 		selectedEmailProvider:    "Local (log)",
 		filesProviders:           []string{"Local (folder)", "Cloudflare R2", "AWS S3", "Google Cloud Storage"},
 		selectedFilesProvider:    "Local (folder)",
+		docker:                   []string{},
 	}
 }
 
@@ -132,10 +138,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				apiKey := m.apiKeyInput.Value()
 				return m, checkConfig(email, apiKey)
 			} else if m.step == 3 {
-				blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
-				m.projectNameInput.Focus()
-				m.projectNameInput.PromptStyle = focusedStyle
-				m.projectNameInput.TextStyle = focusedStyle
 				m.step = 4
 				return m, textinput.Blink
 			} else if m.step == 4 {
@@ -147,22 +149,41 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.focusIndex = 0
 				m.step = 6
 			} else if m.step == 6 {
-				m.selectedDatabase = m.databases[m.focusIndex]
+				m.selectedStartOption = m.startOptions[m.focusIndex]
 				m.focusIndex = 0
-				m.step = 7
+				if m.selectedStartOption == "Generate base project" {
+					m.step = 11
+					blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput, &m.projectNameInput})
+					m.projectNameInput.Focus()
+					m.projectNameInput.PromptStyle = focusedStyle
+					m.projectNameInput.TextStyle = focusedStyle
+					return m, textinput.Blink
+				} else {
+					m.step = 7
+				}
 			} else if m.step == 7 {
-				m.selectedPaymentsProvider = m.paymentsProviders[m.focusIndex]
+				m.selectedDatabase = m.databases[m.focusIndex]
 				m.focusIndex = 0
 				m.step = 8
 			} else if m.step == 8 {
-				m.selectedEmailProvider = m.emailsProviders[m.focusIndex]
+				m.selectedPaymentsProvider = m.paymentsProviders[m.focusIndex]
 				m.focusIndex = 0
 				m.step = 9
 			} else if m.step == 9 {
-				m.selectedFilesProvider = m.filesProviders[m.focusIndex]
+				m.selectedEmailProvider = m.emailsProviders[m.focusIndex]
 				m.focusIndex = 0
 				m.step = 10
 			} else if m.step == 10 {
+				blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
+				m.projectNameInput.Focus()
+				m.projectNameInput.PromptStyle = focusedStyle
+				m.projectNameInput.TextStyle = focusedStyle
+
+				m.selectedFilesProvider = m.filesProviders[m.focusIndex]
+				m.focusIndex = 0
+				m.step = 11
+				return m, textinput.Blink
+			} else if m.step == 11 {
 				projectName := m.projectNameInput.Value()
 				if projectName == "" {
 					return m, func() tea.Msg {
@@ -175,31 +196,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return errMsg(fmt.Errorf("Directory with the same name already exists"))
 					}
 				}
-				m.step = 11
+				m.step = 12
 				return m, m.copyRepo(m.token, projectName)
-			} else if m.step == 13 {
+			} else if m.step == 14 {
 				return m, tea.Quit
 			}
-
 			return m, cmd
 
 		case tea.KeyTab, tea.KeyShiftTab, tea.KeyDown, tea.KeyUp:
 			if m.step == 1 {
 				cmd := m.toggleFocus([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
 				return m, cmd
-			} else if m.step == 4 || m.step == 5 || m.step == 6 || m.step == 7 || m.step == 8 || m.step == 9 {
+			} else if m.step == 4 || m.step == 5 || m.step == 6 || m.step == 7 || m.step == 8 || m.step == 9 || m.step == 10 {
 				var d []string
 				if m.step == 4 {
 					d = m.protocols
 				} else if m.step == 5 {
 					d = m.clients
 				} else if m.step == 6 {
-					d = m.databases
+					d = m.startOptions
 				} else if m.step == 7 {
-					d = m.paymentsProviders
+					d = m.databases
 				} else if m.step == 8 {
-					d = m.emailsProviders
+					d = m.paymentsProviders
 				} else if m.step == 9 {
+					d = m.emailsProviders
+				} else if m.step == 10 {
 					d = m.filesProviders
 				}
 				if tea.KeyDown == msg.Type || tea.KeyTab == msg.Type {
@@ -255,11 +277,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 			return m, tea.Quit
 		} else {
-			m.step = 12
+			m.step = 13
 		}
 		return m, m.cleaningRepo()
 	case finishMsg:
-		m.step = 13
+		m.step = 14
+		m.docker = msg.docker
 		return m, nil
 	}
 
@@ -339,7 +362,7 @@ func (m *model) copyRepo(token string, projectName string) tea.Cmd {
 func (m *model) cleaningRepo() tea.Cmd {
 	return func() tea.Msg {
 		now := time.Now()
-		err := cleaning(m.projectNameInput.Value(), m.selectedProtocol, m.selectedClient, m.selectedDatabase, m.selectedPaymentsProvider, m.selectedEmailProvider, m.selectedFilesProvider)
+		d, err := cleaning(m.projectNameInput.Value(), m.selectedProtocol, m.selectedClient, m.selectedStartOption, m.selectedDatabase, m.selectedPaymentsProvider, m.selectedEmailProvider, m.selectedFilesProvider)
 		if err != nil {
 			return errMsg(err)
 		}
@@ -347,6 +370,6 @@ func (m *model) cleaningRepo() tea.Cmd {
 		if elapsed < time.Second {
 			time.Sleep(time.Second - elapsed)
 		}
-		return finishMsg{}
+		return finishMsg{docker: d}
 	}
 }
