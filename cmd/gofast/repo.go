@@ -98,7 +98,7 @@ func initialModel() model {
 		selectedClient:           "SvelteKit",
 		startOptions:             []string{"Start the configuration", "Generate base project"},
 		selectedStartOption:      "Start the configuration",
-		databases:                []string{"SQLite", "Turso", "PostgreSQL", "Memory"},
+		databases:                []string{"SQLite", "Turso", "PostgreSQL (local)", "PostgreSQL (remote)"},
 		selectedDatabase:         "SQLite",
 		paymentsProviders:        []string{"Local (mock)", "Stripe", "Lemon Squeezy (not implemented)"},
 		selectedPaymentsProvider: "Local (mock)",

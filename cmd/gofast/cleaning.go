@@ -120,8 +120,8 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		run_cmd = append(run_cmd, "JWT_SECRET=gofast_is_the_best \\")
 		run_cmd = append(run_cmd, "GITHUB_CLIENT_ID=Iv23litoS0DJltaklISr \\")
 		run_cmd = append(run_cmd, "GITHUB_CLIENT_SECRET=c6ed4d8bc5bcb687162da0ea0d9bc614e31004a8 \\")
-        run_cmd = append(run_cmd, "GOOGLE_CLIENT_ID=646089287190-m252eqv203c3fsv1gt1m29nkq2t6lrp6.apps.googleusercontent.com \\")
-        run_cmd = append(run_cmd, "GOOGLE_CLIENT_SECRET=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 \\")
+		run_cmd = append(run_cmd, "GOOGLE_CLIENT_ID=646089287190-m252eqv203c3fsv1gt1m29nkq2t6lrp6.apps.googleusercontent.com \\")
+		run_cmd = append(run_cmd, "GOOGLE_CLIENT_SECRET=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 \\")
 		run_cmd = append(run_cmd, "EMAIL_FROM=admin@gofast.live \\")
 		run_cmd = append(run_cmd, "docker compose up --build")
 		readme_file, _ := os.ReadFile(projectName + "/README.md")
@@ -134,11 +134,11 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		if err != nil {
 			return nil, err
 		}
-        docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
-        err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
-        if err != nil {
-            return nil, err
-        }
+		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
+		err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
+		if err != nil {
+			return nil, err
+		}
 		return run_cmd, nil
 	} else {
 		run_cmd = append(run_cmd, "JWT_SECRET=gofast_is_the_best \\")
@@ -153,28 +153,38 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	if database != "SQLite" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "SQLITE_FILE: ./local.db", "# SQLITE_FILE: ./local.db")
 	}
-	if database == "Memory" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: sqlite", "DB_PROVIDER: memory")
-	} else if database == "Turso" {
+	if database == "Turso" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: sqlite", "DB_PROVIDER: turso")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# TURSO_URL: ${TURSO_URL}", "TURSO_URL: ${TURSO_URL}")
 		run_cmd = append(run_cmd, "TURSO_URL=TURSO_URL \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# TURSO_TOKEN: ${TURSO_TOKEN}", "TURSO_TOKEN: ${TURSO_TOKEN}")
 		run_cmd = append(run_cmd, "TURSO_TOKEN=TURSO_TOKEN \\")
-	} else if database == "PostgreSQL" {
+	} else if database == "PostgreSQL (local)" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: sqlite", "DB_PROVIDER: postgres")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PASS: gofast", "POSTGRES_PASS: gofast")
-		run_cmd = append(run_cmd, "POSTGRES_PASS=POSTGRES_PASS \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_USER: gofast", "POSTGRES_USER: gofast")
-		run_cmd = append(run_cmd, "POSTGRES_USER=POSTGRES_USER \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_NAME: gofast", "POSTGRES_NAME: gofast")
-		run_cmd = append(run_cmd, "POSTGRES_NAME=POSTGRES_NAME \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_HOST: postgres", "POSTGRES_HOST: postgres")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_HOST: ${POSTGRES_HOST}", "POSTGRES_HOST: postgres")
+		run_cmd = append(run_cmd, "POSTGRES_HOST=postgres \\")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PORT: ${POSTGRES_PORT}", "POSTGRES_PORT: 5432")
+		run_cmd = append(run_cmd, "POSTGRES_PORT=5432 \\")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_NAME: ${POSTGRES_DB}", "POSTGRES_DB: gofast")
+		run_cmd = append(run_cmd, "POSTGRES_DB=gofast \\")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PASS: ${POSTGRES_PASS}", "POSTGRES_PASS: gofast")
+		run_cmd = append(run_cmd, "POSTGRES_PASS=gofast \\")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_USER: ${POSTGRES_USER}", "POSTGRES_USER: gofast")
+		run_cmd = append(run_cmd, "POSTGRES_USER=gofast \\")
+	} else if database == "PostgreSQL (remote)" {
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: sqlite", "DB_PROVIDER: postgres")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_HOST: ${POSTGRES_HOST}", "POSTGRES_HOST: ${POSTGRES_HOST}")
 		run_cmd = append(run_cmd, "POSTGRES_HOST=POSTGRES_HOST \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PORT: 5432", "POSTGRES_PORT: 5432")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PORT: ${POSTGRES_PORT}", "POSTGRES_PORT: ${POSTGRES_PORT}")
 		run_cmd = append(run_cmd, "POSTGRES_PORT=POSTGRES_PORT \\")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_NAME: ${POSTGRES_DB}", "POSTGRES_DB: ${POSTGRES_DB}")
+		run_cmd = append(run_cmd, "POSTGRES_DB=POSTGRES_DB \\")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PASS: ${POSTGRES_PASS}", "POSTGRES_PASS: ${POSTGRES_PASS}")
+		run_cmd = append(run_cmd, "POSTGRES_PASS=POSTGRES_PASS \\")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_USER: ${POSTGRES_USER}", "POSTGRES_USER: ${POSTGRES_USER}")
+		run_cmd = append(run_cmd, "POSTGRES_USER=POSTGRES_USER \\")
 	}
-	if database != "PostgreSQL" {
+	if database != "PostgreSQL (local)" {
 		lines := strings.Split(docker_compose_file_str, "\n")
 		new_lines := lines[:len(lines)-10]
 		docker_compose_file_str = strings.Join(new_lines, "\n")
