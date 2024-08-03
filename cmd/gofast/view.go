@@ -93,7 +93,6 @@ func (m model) View() string {
 			b.WriteString("\n")
 		} else if m.step == 7 {
 		} else if m.step == 8 {
-			b.WriteString("\n")
 		} else if m.step == 9 {
 		} else if m.step == 10 {
 		}

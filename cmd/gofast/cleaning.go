@@ -151,7 +151,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
 	// Database
 	if database != "SQLite" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "SQLITE_FILE: ./local.db", "# SQLITE_FILE: ./local.db")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "SQLITE_FILE: ./storage/local.db", "# SQLITE_FILE: ./storage/local.db")
 	}
 	if database == "Turso" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: sqlite", "DB_PROVIDER: turso")

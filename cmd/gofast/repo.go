@@ -100,7 +100,7 @@ func initialModel() model {
 		selectedStartOption:      "Start the configuration",
 		databases:                []string{"SQLite", "Turso", "PostgreSQL (local)", "PostgreSQL (remote)"},
 		selectedDatabase:         "SQLite",
-		paymentsProviders:        []string{"Local (mock)", "Stripe", "Lemon Squeezy (not implemented)"},
+		paymentsProviders:        []string{"Local (mock)", "Stripe", "Lemon Squeezy (not implemented)", "Paddle (not implemented)"},
 		selectedPaymentsProvider: "Local (mock)",
 		emailsProviders:          []string{"Local (log)", "Postmark", "Sendgrid", "Resend"},
 		selectedEmailProvider:    "Local (log)",
