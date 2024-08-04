@@ -166,7 +166,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		run_cmd = append(run_cmd, "POSTGRES_HOST=postgres \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PORT: ${POSTGRES_PORT}", "POSTGRES_PORT: 5432")
 		run_cmd = append(run_cmd, "POSTGRES_PORT=5432 \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_NAME: ${POSTGRES_DB}", "POSTGRES_DB: gofast")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_DB: ${POSTGRES_DB}", "POSTGRES_DB: gofast")
 		run_cmd = append(run_cmd, "POSTGRES_DB=gofast \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PASS: ${POSTGRES_PASS}", "POSTGRES_PASS: gofast")
 		run_cmd = append(run_cmd, "POSTGRES_PASS=gofast \\")
@@ -178,7 +178,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		run_cmd = append(run_cmd, "POSTGRES_HOST=__CHANGE_ME__ \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PORT: ${POSTGRES_PORT}", "POSTGRES_PORT: ${POSTGRES_PORT}")
 		run_cmd = append(run_cmd, "POSTGRES_PORT=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_NAME: ${POSTGRES_DB}", "POSTGRES_DB: ${POSTGRES_DB}")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_DB: ${POSTGRES_DB}", "POSTGRES_DB: ${POSTGRES_DB}")
 		run_cmd = append(run_cmd, "POSTGRES_DB=__CHANGE_ME__ \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PASS: ${POSTGRES_PASS}", "POSTGRES_PASS: ${POSTGRES_PASS}")
 		run_cmd = append(run_cmd, "POSTGRES_PASS=__CHANGE_ME__ \\")
@@ -193,7 +193,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 
 	// Payments
 	if paymentsProvider == "Stripe" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "PAYMENT_ENABLED: false", "PAYMENT_ENABLED: true")
+        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "PAYMENT_PROVIDER: local", "PAYMENT_PROVIDER: stripe")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_API_KEY: ${STRIPE_API_KEY}", "STRIPE_API_KEY: ${STRIPE_API_KEY}")
 		run_cmd = append(run_cmd, "STRIPE_API_KEY=__CHANGE_ME__ \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}", "STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}")
