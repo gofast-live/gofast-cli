@@ -96,8 +96,8 @@ func initialModel() model {
 		selectedProtocol:         "HTTP",
 		clients:                  []string{"SvelteKit", "Next.js", "None"},
 		selectedClient:           "SvelteKit",
-		startOptions:             []string{"Start the configuration", "Generate base project"},
-		selectedStartOption:      "Start the configuration",
+		startOptions:             []string{"Generate base project (SQLite, Mocked payments, Log emails, Local files)", "Start new configuration"},
+		selectedStartOption:      "Generate base project (SQLite, Mocked payments, Log emails, Local files)",
 		databases:                []string{"SQLite", "Turso", "PostgreSQL (local)", "PostgreSQL (remote)"},
 		selectedDatabase:         "SQLite",
 		paymentsProviders:        []string{"Local (mock)", "Stripe", "Lemon Squeezy (not implemented)", "Paddle (not implemented)"},
@@ -151,7 +151,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.step == 6 {
 				m.selectedStartOption = m.startOptions[m.focusIndex]
 				m.focusIndex = 0
-				if m.selectedStartOption == "Generate base project" {
+				if m.selectedStartOption == "Generate base project (SQLite, Mocked payments, Log emails, Local files)" {
 					m.step = 11
 					blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput, &m.projectNameInput})
 					m.projectNameInput.Focus()

@@ -45,7 +45,7 @@ func (m model) View() string {
 		} else if m.step == 5 {
 			b.WriteString("Choose a frontend framework\n\n")
 		} else if m.step == 6 {
-			b.WriteString("Do you want to generate base project? (with working secrets) \n\n")
+			b.WriteString("Do you want to generate a ready-to-run project with pre-filled test secrets? (don't forget to change them!)\n\n")
 		} else if m.step == 7 {
 			b.WriteString("Choose the database you want to use\n\n")
 		} else if m.step == 8 {
@@ -123,7 +123,13 @@ func (m model) View() string {
 		b.WriteString(successStyle.Render("Project setup successfully!"))
 		b.WriteRune('\n')
 		b.WriteRune('\n')
-		b.WriteString("Copy and replace the secrets in the following docker compose command to run the project:")
+		b.WriteString("Now jump into the project directory:")
+		b.WriteRune('\n')
+		b.WriteRune('\n')
+		b.WriteString(focusedStyle.Render("cd " + m.projectNameInput.Value()))
+		b.WriteRune('\n')
+		b.WriteRune('\n')
+		b.WriteString("Copy and paste the docker compose command into your terminal, change secrets and run it:")
 		b.WriteRune('\n')
 		b.WriteString("(Can be found in README.md)")
 		b.WriteRune('\n')
@@ -137,6 +143,9 @@ func (m model) View() string {
 		b.WriteString(successStyle.Render("Thank you for using GoFast :)!"))
 		b.WriteRune('\n')
 		b.WriteString(successStyle.Render("Checkout our discord server for any help, feedback or suggestions: https://discord.gg/zqXEzmhT"))
+		b.WriteRune('\n')
+		b.WriteRune('\n')
+		b.WriteString(focusedStyle.Render("Press enter to exit and start bulding the best project ever!"))
 	}
 
 	if m.err != nil {
