@@ -18,6 +18,12 @@ GOOS=windows GOARCH=amd64 go build -o gofast-windows-amd64.exe
 go install github.com/gofast-live/gofast-cli/cmd/gofast@latest
 ```
 
+Make sure that your `PATH` includes the Go bin directory. You can add it to your `~/.bashrc` or `~/.zshrc` file.
+
+```sh
+export PATH=$PATH:$(go env GOPATH)/bin
+```
+
 ### Download the binary
 
 Go to the [Releases](https://github.com/gofast-live/gofast-cli/releases) page and download the appropriate binary for your operating system.
