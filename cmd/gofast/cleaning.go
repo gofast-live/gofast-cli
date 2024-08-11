@@ -8,6 +8,8 @@ import (
 // TODO
 // Clean ports on docker-compose.yml
 // Clean github actions linting per setting
+// Clean libs on svelte and next
+// Clean proto.sh
 func cleaning(projectName string, protocol string, client string, start string, database string, paymentsProvider string, emailProvider string, filesProvider string) ([]string, error) {
 	// remove .git folder
 	_ = os.RemoveAll(projectName + "/.git")
