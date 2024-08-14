@@ -119,7 +119,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	}
 
 	var run_cmd []string
-	if start == "Generate base project (SQLite, Mocked payments, Log emails, Local files)" {
+	if start == "Generate base project (SQLite, Grafana Monitoring, Mocked payments, Local files, Log Emails)" {
 		run_cmd = append(run_cmd, "JWT_SECRET=gofast_is_the_best \\")
 		run_cmd = append(run_cmd, "GITHUB_CLIENT_ID=Iv23litoS0DJltaklISr \\")
 		run_cmd = append(run_cmd, "GITHUB_CLIENT_SECRET=c6ed4d8bc5bcb687162da0ea0d9bc614e31004a8 \\")
@@ -127,6 +127,8 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_SECRET=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 \\")
 		run_cmd = append(run_cmd, "EMAIL_FROM=admin@gofast.live \\")
 		run_cmd = append(run_cmd, "docker compose up --build")
+		run_cmd = append(run_cmd, "\n\n\n")
+        run_cmd = append(run_cmd, "For Grafana Monitoring, check the README.md file in /monitoring folder")
 		readme_file, _ := os.ReadFile(projectName + "/README.md")
 		readme_file_lines := strings.Split(string(readme_file), "\n")
 		readme_file_lines = append(readme_file_lines, "```bash")

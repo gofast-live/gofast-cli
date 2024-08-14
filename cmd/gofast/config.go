@@ -12,7 +12,7 @@ import (
 )
 
 type Config struct {
-	Email  string `json:"email"`
+	Email   string `json:"email"`
 	ApiKey string `json:"api_key"`
 }
 
@@ -95,10 +95,10 @@ func validateConfig() (string, error) {
 	if err != nil {
 		c.Email = ""
 		c.ApiKey = ""
-        err := saveToConfig(c.Email, c.ApiKey)
-        if err != nil {
-            return "", err
-        }
+		err := saveToConfig(c.Email, c.ApiKey)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// make http call with query email and header authorization with api key

@@ -23,6 +23,22 @@ var (
 	errStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
 	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	helpStyle    = blurredStyle
+
+	authStep             = 1
+	validateStep         = 2
+	startStep            = 3
+	protocolStep         = 4
+	clientStep           = 5
+	startOptionStep      = 6
+	databaseStep         = 7
+	paymentsProviderStep = 8
+	emailProviderStep    = 9
+	filesProviderStep    = 10
+	monitoringStep       = 11
+	projectNameStep      = 12
+	cleaningStep         = 13
+	finishStep           = 14
+	successStep          = 15
 )
 
 type (
@@ -58,6 +74,8 @@ type model struct {
 	selectedEmailProvider    string
 	filesProviders           []string
 	selectedFilesProvider    string
+	monitoringOptions        []string
+	selectedMonitoring       string
 	docker                   []string
 }
 
@@ -96,7 +114,7 @@ func initialModel() model {
 		selectedProtocol:         "HTTP",
 		clients:                  []string{"SvelteKit", "Next.js", "None"},
 		selectedClient:           "SvelteKit",
-		startOptions:             []string{"Generate base project (SQLite, Mocked payments, Log emails, Local files)", "Start new configuration"},
+		startOptions:             []string{"Generate base project (SQLite, Grafana Monitoring, Mocked payments, Local files, Log Emails)", "Start new configuration"},
 		selectedStartOption:      "Generate base project (SQLite, Mocked payments, Log emails, Local files)",
 		databases:                []string{"SQLite", "Turso", "PostgreSQL (local)", "PostgreSQL (remote)"},
 		selectedDatabase:         "SQLite",
@@ -106,6 +124,8 @@ func initialModel() model {
 		selectedEmailProvider:    "Local (log)",
 		filesProviders:           []string{"Local (folder)", "Cloudflare R2", "AWS S3", "Google Cloud Storage"},
 		selectedFilesProvider:    "Local (folder)",
+		monitoringOptions:        []string{"Include Grafana + Loki + Prometheus Monitoring", "None"},
+		selectedMonitoring:       "Include Grafana + Loki + Prometheus Monitoring",
 		docker:                   []string{},
 	}
 }
@@ -133,47 +153,47 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyEnter:
 			m.err = nil
-			if m.step == 1 {
+			if m.step == authStep {
 				email := m.emailInput.Value()
 				apiKey := m.apiKeyInput.Value()
 				return m, checkConfig(email, apiKey)
-			} else if m.step == 3 {
-				m.step = 4
+			} else if m.step == startStep {
+				m.step = protocolStep
 				return m, textinput.Blink
-			} else if m.step == 4 {
+			} else if m.step == protocolStep {
 				m.selectedProtocol = m.protocols[m.focusIndex]
 				m.focusIndex = 0
-				m.step = 5
-			} else if m.step == 5 {
+				m.step = clientStep
+			} else if m.step == clientStep {
 				m.selectedClient = m.clients[m.focusIndex]
 				m.focusIndex = 0
-				m.step = 6
-			} else if m.step == 6 {
+				m.step = startOptionStep
+			} else if m.step == startOptionStep {
 				m.selectedStartOption = m.startOptions[m.focusIndex]
 				m.focusIndex = 0
 				if m.selectedStartOption == "Generate base project (SQLite, Mocked payments, Log emails, Local files)" {
-					m.step = 11
+					m.step = projectNameStep
 					blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput, &m.projectNameInput})
 					m.projectNameInput.Focus()
 					m.projectNameInput.PromptStyle = focusedStyle
 					m.projectNameInput.TextStyle = focusedStyle
 					return m, textinput.Blink
 				} else {
-					m.step = 7
+					m.step = databaseStep
 				}
-			} else if m.step == 7 {
+			} else if m.step == databaseStep {
 				m.selectedDatabase = m.databases[m.focusIndex]
 				m.focusIndex = 0
-				m.step = 8
-			} else if m.step == 8 {
+				m.step = paymentsProviderStep
+			} else if m.step == paymentsProviderStep {
 				m.selectedPaymentsProvider = m.paymentsProviders[m.focusIndex]
 				m.focusIndex = 0
-				m.step = 9
-			} else if m.step == 9 {
+				m.step = emailProviderStep
+			} else if m.step == emailProviderStep {
 				m.selectedEmailProvider = m.emailsProviders[m.focusIndex]
 				m.focusIndex = 0
-				m.step = 10
-			} else if m.step == 10 {
+				m.step = filesProviderStep
+			} else if m.step == filesProviderStep {
 				blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
 				m.projectNameInput.Focus()
 				m.projectNameInput.PromptStyle = focusedStyle
@@ -181,9 +201,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				m.selectedFilesProvider = m.filesProviders[m.focusIndex]
 				m.focusIndex = 0
-				m.step = 11
+				m.step = monitoringStep
 				return m, textinput.Blink
-			} else if m.step == 11 {
+			} else if m.step == monitoringStep {
+				m.selectedMonitoring = m.monitoringOptions[m.focusIndex]
+				m.focusIndex = 0
+				m.step = projectNameStep
+			} else if m.step == projectNameStep {
 				projectName := m.projectNameInput.Value()
 				if projectName == "" {
 					return m, func() tea.Msg {
@@ -196,32 +220,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return errMsg(fmt.Errorf("Directory with the same name already exists"))
 					}
 				}
-				m.step = 12
+				m.step = cleaningStep
 				return m, m.copyRepo(m.token, projectName)
-			} else if m.step == 14 {
+			} else if m.step == finishStep {
 				return m, tea.Quit
 			}
 			return m, cmd
 
 		case tea.KeyTab, tea.KeyShiftTab, tea.KeyDown, tea.KeyUp:
-			if m.step == 1 {
+			if m.step == authStep {
 				cmd := m.toggleFocus([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
 				return m, cmd
-			} else if m.step == 4 || m.step == 5 || m.step == 6 || m.step == 7 || m.step == 8 || m.step == 9 || m.step == 10 {
+			} else if m.step == protocolStep || m.step == clientStep || m.step == startOptionStep || m.step == databaseStep || m.step == paymentsProviderStep || m.step == emailProviderStep || m.step == filesProviderStep {
 				var d []string
-				if m.step == 4 {
+				if m.step == protocolStep {
 					d = m.protocols
-				} else if m.step == 5 {
+				} else if m.step == clientStep {
 					d = m.clients
-				} else if m.step == 6 {
+				} else if m.step == startOptionStep {
 					d = m.startOptions
-				} else if m.step == 7 {
+				} else if m.step == databaseStep {
 					d = m.databases
-				} else if m.step == 8 {
+				} else if m.step == paymentsProviderStep {
 					d = m.paymentsProviders
-				} else if m.step == 9 {
+				} else if m.step == emailProviderStep {
 					d = m.emailsProviders
-				} else if m.step == 10 {
+				} else if m.step == filesProviderStep {
 					d = m.filesProviders
 				}
 				if tea.KeyDown == msg.Type || tea.KeyTab == msg.Type {
@@ -246,7 +270,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.emailInput.PromptStyle = focusedStyle
 			m.emailInput.TextStyle = focusedStyle
 			m.focusIndex = 0
-			m.step = 1
+			m.step = authStep
 			return m, textinput.Blink
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
@@ -255,21 +279,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tokenMsg:
 		token := string(msg)
 		if token == "" {
-			m.step = 1
+			m.step = authStep
 			return m, nil
 		}
 		m.token = token
-		m.step = 3
+		m.step = startStep
 		return m, nil
 	case errMsg:
 		m.err = msg
 		return m, nil
 	case configInvalid:
-		m.step = 1
+		m.step = authStep
 		m.err = msg.err
 		return m, nil
 	case configValid:
-		m.step = 2
+		m.step = startStep
 		cmd = m.getToken()
 		return m, cmd
 	case copyMsg:
@@ -277,11 +301,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 			return m, tea.Quit
 		} else {
-			m.step = 13
+			m.step = finishStep
 		}
 		return m, m.cleaningRepo()
 	case finishMsg:
-		m.step = 14
+		m.step = successStep
 		m.docker = msg.docker
 		return m, nil
 	}
