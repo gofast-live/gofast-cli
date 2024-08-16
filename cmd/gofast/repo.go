@@ -222,7 +222,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.step = cleaningStep
 				return m, m.copyRepo(m.token, projectName)
-			} else if m.step == finishStep {
+			} else if m.step == successStep {
 				return m, tea.Quit
 			}
 			return m, cmd
