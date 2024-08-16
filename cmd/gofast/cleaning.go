@@ -10,7 +10,7 @@ import (
 // Clean github actions linting per setting
 // Clean libs on svelte and next
 // Clean proto.sh
-func cleaning(projectName string, protocol string, client string, start string, database string, paymentsProvider string, emailProvider string, filesProvider string) ([]string, error) {
+func cleaning(projectName string, protocol string, client string, start string, database string, paymentsProvider string, emailProvider string, filesProvider string, selectedMonitoring string) ([]string, error) {
 	// remove .git folder
 	_ = os.RemoveAll(projectName + "/.git")
 
@@ -118,6 +118,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
 	}
 
+	// Base project
 	var run_cmd []string
 	if start == "Generate base project (SQLite, Grafana Monitoring, Mocked payments, Local files, Log Emails)" {
 		run_cmd = append(run_cmd, "JWT_SECRET=gofast_is_the_best \\")
@@ -128,7 +129,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		run_cmd = append(run_cmd, "EMAIL_FROM=admin@gofast.live \\")
 		run_cmd = append(run_cmd, "docker compose up --build")
 		run_cmd = append(run_cmd, "\n\n\n")
-        run_cmd = append(run_cmd, "For Grafana Monitoring, check the README.md file in /monitoring folder")
+		run_cmd = append(run_cmd, "For Grafana Monitoring, check the README.md file in /monitoring folder")
 		readme_file, _ := os.ReadFile(projectName + "/README.md")
 		readme_file_lines := strings.Split(string(readme_file), "\n")
 		readme_file_lines = append(readme_file_lines, "```bash")
@@ -152,8 +153,8 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_ID=__CHANGE_ME__ \\")
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_SECRET=__CHANGE_ME__ \\")
 	}
-
 	docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
+
 	// Database
 	if database != "SQLite" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "SQLITE_FILE: ./storage/local.db", "# SQLITE_FILE: ./storage/local.db")
@@ -197,7 +198,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 
 	// Payments
 	if paymentsProvider == "Stripe" {
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "PAYMENT_PROVIDER: local", "PAYMENT_PROVIDER: stripe")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "PAYMENT_PROVIDER: local", "PAYMENT_PROVIDER: stripe")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_API_KEY: ${STRIPE_API_KEY}", "STRIPE_API_KEY: ${STRIPE_API_KEY}")
 		run_cmd = append(run_cmd, "STRIPE_API_KEY=__CHANGE_ME__ \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}", "STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}")
@@ -207,8 +208,8 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		return nil, nil
 	}
 
-	run_cmd = append(run_cmd, "EMAIL_FROM=__CHANGE_ME__ \\")
 	// Emails
+	run_cmd = append(run_cmd, "EMAIL_FROM=__CHANGE_ME__ \\")
 	if emailProvider == "Postmark" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: postmark")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTMARK_API_KEY: ${POSTMARK_API_KEY}", "POSTMARK_API_KEY: ${POSTMARK_API_KEY}")
@@ -222,6 +223,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# RESEND_API_KEY: ${RESEND_API_KEY}", "RESEND_API_KEY: ${RESEND_API_KEY}")
 		run_cmd = append(run_cmd, "RESEND_API_KEY=__CHANGE_ME__ \\")
 	}
+
 	// Files
 	if filesProvider == "AWS S3" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: s3")
@@ -245,11 +247,28 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		run_cmd = append(run_cmd, "R2_SECRET_KEY=__CHANGE_ME__ \\")
 	}
 
+	// Monitoring
+	lines := strings.Split(docker_compose_file_str, "\n")
+	if selectedMonitoring == "No" {
+		_ = os.RemoveAll(projectName + "/monitoring")
+		// Remove last 34 lines from docker-compose.yml
+		var new_lines []string
+		if database != "PostgreSQL (local)" {
+			new_lines = lines[:len(lines)-34]
+		} else {
+			ten_last_lines := lines[len(lines)-10:]
+			new_lines = lines[:len(lines)-44]
+			new_lines = append(new_lines, ten_last_lines...)
+		}
+        new_lines = remove_lines_from_to(new_lines, "logging:", "command:")
+        new_lines = remove_lines_from_to(new_lines, "logging:", "command:")
+		docker_compose_file_str = strings.Join(new_lines, "\n")
+	}
+
 	err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
 	if err != nil {
 		return nil, err
 	}
-
 	// Append the cmd to Readme
 	run_cmd = append(run_cmd, "docker compose up --build")
 	readme_file, _ := os.ReadFile(projectName + "/README.md")

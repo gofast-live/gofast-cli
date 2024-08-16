@@ -97,6 +97,7 @@ func (m model) View() string {
 			b.WriteString("\n")
 		} else if m.step == databaseStep {
 		} else if m.step == paymentsProviderStep {
+            b.WriteString("\n")
 		} else if m.step == emailProviderStep {
 		} else if m.step == filesProviderStep {
 		} else if m.step == monitoringStep {

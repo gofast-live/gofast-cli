@@ -118,7 +118,7 @@ func initialModel() model {
 		selectedStartOption:      "Generate base project (SQLite, Mocked payments, Log emails, Local files)",
 		databases:                []string{"SQLite", "Turso", "PostgreSQL (local)", "PostgreSQL (remote)"},
 		selectedDatabase:         "SQLite",
-		paymentsProviders:        []string{"Local (mock)", "Stripe", "Lemon Squeezy (not implemented)", "Paddle (not implemented)"},
+		paymentsProviders:        []string{"Local (mock)", "Stripe", "Lemon Squeezy (not implemented)"},
 		selectedPaymentsProvider: "Local (mock)",
 		emailsProviders:          []string{"Local (log)", "Postmark", "Sendgrid", "Resend"},
 		selectedEmailProvider:    "Local (log)",
@@ -388,7 +388,7 @@ func (m *model) copyRepo(token string, projectName string) tea.Cmd {
 func (m *model) cleaningRepo() tea.Cmd {
 	return func() tea.Msg {
 		now := time.Now()
-		d, err := cleaning(m.projectNameInput.Value(), m.selectedProtocol, m.selectedClient, m.selectedStartOption, m.selectedDatabase, m.selectedPaymentsProvider, m.selectedEmailProvider, m.selectedFilesProvider)
+		d, err := cleaning(m.projectNameInput.Value(), m.selectedProtocol, m.selectedClient, m.selectedStartOption, m.selectedDatabase, m.selectedPaymentsProvider, m.selectedEmailProvider, m.selectedFilesProvider, m.selectedMonitoring)
 		if err != nil {
 			return errMsg(err)
 		}
