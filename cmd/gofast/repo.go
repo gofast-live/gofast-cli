@@ -124,8 +124,8 @@ func initialModel() model {
 		selectedEmailProvider:    "Local (log)",
 		filesProviders:           []string{"Local (folder)", "Cloudflare R2", "AWS S3", "Google Cloud Storage"},
 		selectedFilesProvider:    "Local (folder)",
-		monitoringOptions:        []string{"Include Grafana + Loki + Prometheus Monitoring", "None"},
-		selectedMonitoring:       "Include Grafana + Loki + Prometheus Monitoring",
+		monitoringOptions:        []string{"Grafana + Loki + Prometheus Monitoring", "No"},
+		selectedMonitoring:       "Grafana + Loki + Prometheus Monitoring",
 		docker:                   []string{},
 	}
 }
@@ -171,7 +171,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.step == startOptionStep {
 				m.selectedStartOption = m.startOptions[m.focusIndex]
 				m.focusIndex = 0
-				if m.selectedStartOption == "Generate base project (SQLite, Mocked payments, Log emails, Local files)" {
+				if m.selectedStartOption == "Generate base project (SQLite, Grafana Monitoring, Mocked payments, Local files, Log Emails)" {
 					m.step = projectNameStep
 					blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput, &m.projectNameInput})
 					m.projectNameInput.Focus()
@@ -194,19 +194,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.focusIndex = 0
 				m.step = filesProviderStep
 			} else if m.step == filesProviderStep {
-				blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
-				m.projectNameInput.Focus()
-				m.projectNameInput.PromptStyle = focusedStyle
-				m.projectNameInput.TextStyle = focusedStyle
-
 				m.selectedFilesProvider = m.filesProviders[m.focusIndex]
 				m.focusIndex = 0
 				m.step = monitoringStep
-				return m, textinput.Blink
 			} else if m.step == monitoringStep {
 				m.selectedMonitoring = m.monitoringOptions[m.focusIndex]
 				m.focusIndex = 0
 				m.step = projectNameStep
+
+				blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
+				m.projectNameInput.Focus()
+				m.projectNameInput.PromptStyle = focusedStyle
+				m.projectNameInput.TextStyle = focusedStyle
+				return m, textinput.Blink
 			} else if m.step == projectNameStep {
 				projectName := m.projectNameInput.Value()
 				if projectName == "" {
@@ -231,7 +231,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.step == authStep {
 				cmd := m.toggleFocus([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
 				return m, cmd
-			} else if m.step == protocolStep || m.step == clientStep || m.step == startOptionStep || m.step == databaseStep || m.step == paymentsProviderStep || m.step == emailProviderStep || m.step == filesProviderStep {
+			} else if m.step == protocolStep || m.step == clientStep || m.step == startOptionStep || m.step == databaseStep || m.step == paymentsProviderStep || m.step == emailProviderStep || m.step == filesProviderStep || m.step == monitoringStep {
 				var d []string
 				if m.step == protocolStep {
 					d = m.protocols
@@ -247,7 +247,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					d = m.emailsProviders
 				} else if m.step == filesProviderStep {
 					d = m.filesProviders
-				}
+				} else if m.step == monitoringStep {
+                    d = m.monitoringOptions
+                }
 				if tea.KeyDown == msg.Type || tea.KeyTab == msg.Type {
 					if m.focusIndex == len(d)-1 {
 						m.focusIndex = 0

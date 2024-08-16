@@ -45,7 +45,7 @@ func (m model) View() string {
 		} else if m.step == clientStep {
 			b.WriteString("Choose a frontend framework\n\n")
 		} else if m.step == startOptionStep {
-			b.WriteString("Do you want to generate a ready-to-run project with pre-filled test secrets? (don't forget to change them!)\n\n")
+			b.WriteString("Do you want to generate a ready-to-run project with pre-filled test secrets? (don't forget to change them later!)\n\n")
 		} else if m.step == databaseStep {
 			b.WriteString("Choose the database you want to use\n\n")
 		} else if m.step == paymentsProviderStep {
@@ -55,7 +55,7 @@ func (m model) View() string {
 		} else if m.step == filesProviderStep {
 			b.WriteString("Choose the storage provider you want to use\n\n")
 		} else if m.step == monitoringStep {
-			b.WriteString("Choose the monitoring provider you want to use\n\n")
+			b.WriteString("Do you want to enable monitoring?\n\n")
 		}
 		var s string
 		var d []string
@@ -99,7 +99,10 @@ func (m model) View() string {
 		} else if m.step == paymentsProviderStep {
 		} else if m.step == emailProviderStep {
 		} else if m.step == filesProviderStep {
-		}
+		} else if m.step == monitoringStep {
+            b.WriteString("\n")
+            b.WriteString("\n")
+        }
 	} else if m.step == projectNameStep {
 		b.WriteRune('\n')
 		b.WriteString("Enter the name of the project\n\n")
