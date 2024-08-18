@@ -129,7 +129,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		run_cmd = append(run_cmd, "EMAIL_FROM=admin@gofast.live \\")
 		run_cmd = append(run_cmd, "docker compose up --build")
 		run_cmd = append(run_cmd, "\n\n\n")
-		run_cmd = append(run_cmd, "For Grafana Monitoring, check the README.md file in /monitoring folder")
+		run_cmd = append(run_cmd, "For Grafana Monitoring, check the README.md file in `/grafana` folder")
 		readme_file, _ := os.ReadFile(projectName + "/README.md")
 		readme_file_lines := strings.Split(string(readme_file), "\n")
 		readme_file_lines = append(readme_file_lines, "```bash")
@@ -250,7 +250,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	// Monitoring
 	lines := strings.Split(docker_compose_file_str, "\n")
 	if selectedMonitoring == "No" {
-		_ = os.RemoveAll(projectName + "/monitoring")
+		_ = os.RemoveAll(projectName + "/grafana")
 		// Remove last 34 lines from docker-compose.yml
 		var new_lines []string
 		if database != "PostgreSQL (local)" {
