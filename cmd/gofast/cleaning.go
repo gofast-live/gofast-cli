@@ -68,7 +68,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		http_route_file_lines = remove_lines_from_to(http_route_file_lines, "// Auth Routes", "// End Routes")
 		var new_http_route_file_lines []string
 		for i, line := range http_route_file_lines {
-			if strings.Contains(line, "\"io\"") || strings.Contains(line, "\"strconv\"") || strings.Contains(line, "\"server/service/email\"") || strings.Contains(line, "\"server/service/file\"") || strings.Contains(line, "\"server/service/note\"") || strings.Contains(line, "\"server/service/payment\"") || strings.Contains(line, "\"server/service/user\"") {
+			if strings.Contains(line, "\"io\"") || strings.Contains(line, "\"strconv\"") || strings.Contains(line, "\"server/services/email\"") || strings.Contains(line, "\"server/services/file\"") || strings.Contains(line, "\"server/services/note\"") || strings.Contains(line, "\"server/services/payment\"") || strings.Contains(line, "\"server/services/user\"") {
 				continue
 			}
 			new_http_route_file_lines = append(new_http_route_file_lines, http_route_file_lines[i])
@@ -128,8 +128,8 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_SECRET=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 \\")
 		run_cmd = append(run_cmd, "EMAIL_FROM=admin@gofast.live \\")
 		run_cmd = append(run_cmd, "docker compose up --build")
-		run_cmd = append(run_cmd, "\n\n\n")
-		run_cmd = append(run_cmd, "For Grafana Monitoring, check the README.md file in `/grafana` folder")
+		run_cmd = append(run_cmd, "\n")
+		run_cmd = append(run_cmd, "For Grafana Monitoring, check the README.md in `/grafana` folder")
 		readme_file, _ := os.ReadFile(projectName + "/README.md")
 		readme_file_lines := strings.Split(string(readme_file), "\n")
 		readme_file_lines = append(readme_file_lines, "```bash")
@@ -159,7 +159,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	if database != "SQLite" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "SQLITE_FILE: ./storage/local.db", "# SQLITE_FILE: ./storage/local.db")
 	}
-	if database == "Turso" {
+	if database == "Turso with Embedded Replicas" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: sqlite", "DB_PROVIDER: turso")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# TURSO_URL: ${TURSO_URL}", "TURSO_URL: ${TURSO_URL}")
 		run_cmd = append(run_cmd, "TURSO_URL=__CHANGE_ME__ \\")
@@ -246,6 +246,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_SECRET_KEY: ${R2_SECRET_KEY}", "R2_SECRET_KEY: ${R2_SECRET_KEY}")
 		run_cmd = append(run_cmd, "R2_SECRET_KEY=__CHANGE_ME__ \\")
 	}
+	run_cmd = append(run_cmd, "docker compose up --build")
 
 	// Monitoring
 	lines := strings.Split(docker_compose_file_str, "\n")
@@ -260,17 +261,20 @@ func cleaning(projectName string, protocol string, client string, start string, 
 			new_lines = lines[:len(lines)-44]
 			new_lines = append(new_lines, ten_last_lines...)
 		}
-        new_lines = remove_lines_from_to(new_lines, "logging:", "command:")
-        new_lines = remove_lines_from_to(new_lines, "logging:", "command:")
+		new_lines = remove_lines_from_to(new_lines, "logging:", "command:")
+		new_lines = remove_lines_from_to(new_lines, "logging:", "command:")
 		docker_compose_file_str = strings.Join(new_lines, "\n")
+	} else {
+		run_cmd = append(run_cmd, "\n")
+		run_cmd = append(run_cmd, "For Grafana Monitoring, check the README.md in `/grafana` folder")
 	}
 
 	err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
 	if err != nil {
 		return nil, err
 	}
+
 	// Append the cmd to Readme
-	run_cmd = append(run_cmd, "docker compose up --build")
 	readme_file, _ := os.ReadFile(projectName + "/README.md")
 	readme_file_lines := strings.Split(string(readme_file), "\n")
 	readme_file_lines = append(readme_file_lines, "```bash")

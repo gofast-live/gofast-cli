@@ -150,7 +150,7 @@ func (m model) View() string {
 		b.WriteRune('\n')
 		b.WriteString(successStyle.Render("Thank you for using GoFast :)!"))
 		b.WriteRune('\n')
-		b.WriteString(successStyle.Render("Checkout our discord server for any help, feedback or suggestions: https://discord.gg/zqXEzmhT"))
+        b.WriteString(successStyle.Render("Checkout our discord server for any help, feedback or suggestions: https://discord.com/invite/hFqr2SuVXA"))
 		b.WriteRune('\n')
 		b.WriteRune('\n')
 		b.WriteString(focusedStyle.Render("Press enter to exit and start bulding the best project ever!"))
@@ -177,6 +177,6 @@ func (m model) View() string {
 	b.WriteString(helpStyle.Render(" quit"))
 	b.WriteRune('\n')
 	b.WriteRune('\n')
-	b.WriteString(helpStyle.Render("Join our discord server for help: https://discord.gg/zqXEzmhT"))
+	b.WriteString(helpStyle.Render("Join our discord server for help: https://discord.com/invite/hFqr2SuVXA"))
 	return b.String()
 }
