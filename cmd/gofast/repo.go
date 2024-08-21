@@ -156,6 +156,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.step == authStep {
 				email := m.emailInput.Value()
 				apiKey := m.apiKeyInput.Value()
+                m.focusIndex = 0
 				return m, checkConfig(email, apiKey)
 			} else if m.step == startStep {
 				m.step = protocolStep
