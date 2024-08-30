@@ -255,13 +255,12 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		// Remove last 34 lines from docker-compose.yml
 		var new_lines []string
 		if database != "PostgreSQL (local)" {
-			new_lines = lines[:len(lines)-34]
+			new_lines = lines[:len(lines)-33]
 		} else {
 			ten_last_lines := lines[len(lines)-10:]
-			new_lines = lines[:len(lines)-44]
+			new_lines = lines[:len(lines)-42]
 			new_lines = append(new_lines, ten_last_lines...)
 		}
-		new_lines = remove_lines_from_to(new_lines, "logging:", "command:")
 		new_lines = remove_lines_from_to(new_lines, "logging:", "command:")
 		docker_compose_file_str = strings.Join(new_lines, "\n")
 	} else {
