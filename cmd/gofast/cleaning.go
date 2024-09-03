@@ -165,6 +165,23 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		run_cmd = append(run_cmd, "TURSO_URL=__CHANGE_ME__ \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# TURSO_TOKEN: ${TURSO_TOKEN}", "TURSO_TOKEN: ${TURSO_TOKEN}")
 		run_cmd = append(run_cmd, "TURSO_TOKEN=__CHANGE_ME__ \\")
+		// change all $1, $2, $3, $4, $5 to $6 to ?1, ?2, ?3, ?4, ?5, ?6
+		store_files := []string{"/go/services/note/store.go", "/go/services/user/store.go", "/go/services/email/store.go", "/go/services/file/store.go"}
+		for _, file := range store_files {
+			store_file, _ := os.ReadFile(projectName + file)
+			store_file_lines := strings.Split(string(store_file), "\n")
+			var new_store_file_lines []string
+			for _, line := range store_file_lines {
+				line = strings.ReplaceAll(line, "$1", "?1")
+				line = strings.ReplaceAll(line, "$2", "?2")
+				line = strings.ReplaceAll(line, "$3", "?3")
+				line = strings.ReplaceAll(line, "$4", "?4")
+				line = strings.ReplaceAll(line, "$5", "?5")
+				line = strings.ReplaceAll(line, "$6", "?6")
+				new_store_file_lines = append(new_store_file_lines, line)
+			}
+			_ = os.WriteFile(projectName+file, []byte(strings.Join(new_store_file_lines, "\n")), 0644)
+		}
 	} else if database == "PostgreSQL (local)" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: sqlite", "DB_PROVIDER: postgres")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_HOST: ${POSTGRES_HOST}", "POSTGRES_HOST: ${POSTGRES_HOST}")
