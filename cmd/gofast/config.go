@@ -12,7 +12,7 @@ import (
 )
 
 type Config struct {
-	Email   string `json:"email"`
+	Email  string `json:"email"`
 	ApiKey string `json:"api_key"`
 }
 
@@ -75,20 +75,20 @@ type Response struct {
 	GithubToken string `json:"github_token"`
 }
 
-func validateConfig() (string, error) {
+func validateConfig() (email string, apiKey string, err error) {
 	path, err := os.UserConfigDir()
 	if err != nil {
-		return "", fmt.Errorf("Could not get user config dir")
+		return "", "", fmt.Errorf("Could not get user config dir")
 	}
 	config := path + "/gofast.json"
 	jsonFile, err := os.OpenFile(config, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		return "", fmt.Errorf("Could not open config file")
+		return "", "", fmt.Errorf("Could not open config file")
 	}
 	defer jsonFile.Close()
 	data, err := io.ReadAll(jsonFile)
 	if err != nil {
-		return "", fmt.Errorf("Could not read config file")
+		return "", "", fmt.Errorf("Could not read config file")
 	}
 	var c Config
 	err = json.Unmarshal(data, &c)
@@ -97,7 +97,7 @@ func validateConfig() (string, error) {
 		c.ApiKey = ""
 		err := saveToConfig(c.Email, c.ApiKey)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 	}
 
@@ -105,7 +105,7 @@ func validateConfig() (string, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", SERVER_URL, nil)
 	if err != nil {
-		return "", fmt.Errorf("Could not create request")
+		return "", "", fmt.Errorf("Could not create request")
 	}
 	req.Header.Add("Authorization", "Bearer "+c.ApiKey)
 	q := req.URL.Query()
@@ -113,16 +113,16 @@ func validateConfig() (string, error) {
 	req.URL.RawQuery = q.Encode()
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("Could not make request")
+		return "", "", fmt.Errorf("Could not make request")
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("Invalid credentials")
+		return "", "", fmt.Errorf("Invalid credentials")
 	}
 	var r Response
 	err = json.NewDecoder(resp.Body).Decode(&r)
 	if err != nil {
-		return "", fmt.Errorf("Could not decode response")
+		return "", "", fmt.Errorf("Could not decode response")
 	}
-	return r.GithubToken, nil
+	return c.Email, c.ApiKey, nil
 }
