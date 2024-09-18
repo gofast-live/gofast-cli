@@ -31,8 +31,40 @@ func checkConfig(email string, apiKey string) tea.Cmd {
 		if err != nil {
 			return errMsg(err)
 		}
-		return configValid("")
+		err = validateConfig(email, apiKey)
+		if err != nil {
+			return errMsg(err)
+		}
+		return authMsg{email, apiKey}
 	}
+}
+
+func readConfig() (email string, apiKey string, err error) {
+	path, err := os.UserConfigDir()
+	if err != nil {
+        panic(err)
+	}
+	config := path + "/gofast.json"
+	jsonFile, err := os.OpenFile(config, os.O_CREATE|os.O_RDWR, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer jsonFile.Close()
+	data, err := io.ReadAll(jsonFile)
+	if err != nil {
+		panic(err)
+	}
+	var c Config
+	err = json.Unmarshal(data, &c)
+	if err != nil {
+		c.Email = ""
+		c.ApiKey = ""
+		err := saveToConfig(c.Email, c.ApiKey)
+		if err != nil {
+			return "", "", err
+		}
+	}
+	return c.Email, c.ApiKey, nil
 }
 
 func saveToConfig(email string, apiKey string) error {
@@ -71,58 +103,23 @@ func saveToConfig(email string, apiKey string) error {
 	return nil
 }
 
-type Response struct {
-	GithubToken string `json:"github_token"`
-}
-
-func validateConfig() (email string, apiKey string, err error) {
-	path, err := os.UserConfigDir()
-	if err != nil {
-		return "", "", fmt.Errorf("Could not get user config dir")
-	}
-	config := path + "/gofast.json"
-	jsonFile, err := os.OpenFile(config, os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		return "", "", fmt.Errorf("Could not open config file")
-	}
-	defer jsonFile.Close()
-	data, err := io.ReadAll(jsonFile)
-	if err != nil {
-		return "", "", fmt.Errorf("Could not read config file")
-	}
-	var c Config
-	err = json.Unmarshal(data, &c)
-	if err != nil {
-		c.Email = ""
-		c.ApiKey = ""
-		err := saveToConfig(c.Email, c.ApiKey)
-		if err != nil {
-			return "", "", err
-		}
-	}
-
-	// make http call with query email and header authorization with api key
+func validateConfig(email string, apiKey string) error {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", SERVER_URL, nil)
+	req, err := http.NewRequest("GET", SERVER_URL+"/repo", nil)
 	if err != nil {
-		return "", "", fmt.Errorf("Could not create request")
+		return fmt.Errorf("Could not create request")
 	}
-	req.Header.Add("Authorization", "Bearer "+c.ApiKey)
+	req.Header.Add("Authorization", "Bearer "+apiKey)
 	q := req.URL.Query()
-	q.Add("email", c.Email)
+	q.Add("email", email)
 	req.URL.RawQuery = q.Encode()
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", "", fmt.Errorf("Could not make request")
+		return fmt.Errorf("Could not make request")
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return "", "", fmt.Errorf("Invalid credentials")
+		return fmt.Errorf("Invalid credentials")
 	}
-	var r Response
-	err = json.NewDecoder(resp.Body).Decode(&r)
-	if err != nil {
-		return "", "", fmt.Errorf("Could not decode response")
-	}
-	return c.Email, c.ApiKey, nil
+	return nil
 }

@@ -4,10 +4,9 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
-	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -18,7 +17,6 @@ import (
 
 var (
 	SERVER_URL   = "https://admin.gofast.live/api"
-	GITHUB_URL   = "@github.com/gofast-live/gofast-app.git"
 	noStyle      = lipgloss.NewStyle()
 	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("032"))
 	blurredStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
@@ -46,8 +44,6 @@ var (
 
 type (
 	errMsg        error
-	configValid   string
-	configInvalid struct{ err error }
 	authMsg       struct{ email, apiKey string }
 	copyMsg       struct{ err error }
 	finishMsg     struct{ docker []string }
@@ -139,9 +135,11 @@ func initialModel() model {
 
 func (m model) Init() tea.Cmd {
 	var validate = func() tea.Msg {
-		email, apiKey, err := validateConfig()
-		m.email = email
-		m.apiKey = apiKey
+		email, apiKey, err := readConfig()
+		if err != nil {
+			return authMsg{email: "", apiKey: ""}
+		}
+		err = validateConfig(email, apiKey)
 		if err != nil {
 			return authMsg{email: "", apiKey: ""}
 		}
@@ -299,14 +297,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		m.err = msg
 		return m, nil
-	case configInvalid:
-		m.step = authStep
-		m.err = msg.err
-		return m, nil
-	case configValid:
-		m.step = startStep
-		cmd = m.getToken()
-		return m, cmd
 	case copyMsg:
 		if msg.err != nil {
 			m.err = msg.err
@@ -362,27 +352,7 @@ func (m *model) toggleFocus(inputs []*textinput.Model) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-func (m *model) getToken() tea.Cmd {
-	return func() tea.Msg {
-		// min 500ms
-		now := time.Now()
-		email, apiKey, err := validateConfig()
-		elapsed := time.Since(now)
-		if elapsed < 500*time.Millisecond {
-			time.Sleep(time.Second - elapsed)
-		}
-		if err != nil {
-			return configInvalid{err}
-		}
-		return authMsg{email: email, apiKey: apiKey}
-	}
-}
-
 func (m *model) downloadRepo(email string, apiKey string, projectName string) tea.Cmd {
-	log.Println("downloadRepo")
-	log.Println("email", email)
-	log.Println("apiKey", apiKey)
-
 	return func() tea.Msg {
 		client := http.Client{}
 		req, err := http.NewRequest("GET", SERVER_URL+"/download?email="+email, nil)
@@ -426,31 +396,46 @@ func (m *model) downloadRepo(email string, apiKey string, projectName string) te
 			}
 			defer src.Close()
 
+			if file.FileInfo().IsDir() {
+				err := os.MkdirAll(file.Name, os.ModePerm)
+				if err != nil {
+					return errMsg(err)
+				}
+				continue
+			}
+
 			dst, err := os.Create(file.Name)
 			if err != nil {
 				return errMsg(err)
 			}
 			defer dst.Close()
 
-			_, err = io.Copy(dst, src)
-			if err != nil {
-				return errMsg(err)
-			}
 		}
-		return copyMsg{err: nil}
-	}
-}
 
-func (m *model) copyRepo(token string, projectName string) tea.Cmd {
-	return func() tea.Msg {
-		authURL := fmt.Sprintf("https://%s%s", token, GITHUB_URL)
-		c := exec.Command("git", "clone", "--depth", "1", authURL, projectName)
-		c.Stdout = os.Stdout
-		err := c.Start()
+		// remove the zip file
+		err = os.Remove("gofast-app.zip")
 		if err != nil {
 			return errMsg(err)
 		}
-		return copyMsg{err: c.Wait()}
+
+		// find and rename the folder `gofast-live-gofast-app-...` to the project name
+		files, err := os.ReadDir(".")
+		if err != nil {
+			return errMsg(err)
+		}
+		for _, f := range files {
+			if f.IsDir() {
+				if strings.HasPrefix(f.Name(), "gofast-live-gofast-app-") {
+					err := os.Rename(f.Name(), projectName)
+					if err != nil {
+						return errMsg(err)
+					}
+					break
+				}
+			}
+		}
+
+		return copyMsg{err: nil}
 	}
 }
 
