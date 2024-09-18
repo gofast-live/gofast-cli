@@ -140,7 +140,8 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		if err != nil {
 			return nil, err
 		}
-		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
+        new_lines := remove_lines_from_num_to_num(docker_compose_lines, len(docker_compose_lines)-57, len(docker_compose_lines)-48)
+		docker_compose_file_str = strings.Join(new_lines, "\n")
 		err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
 		if err != nil {
 			return nil, err
@@ -209,7 +210,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	}
 	if database != "PostgreSQL (local)" {
 		lines := strings.Split(docker_compose_file_str, "\n")
-		new_lines := lines[:len(lines)-10]
+        new_lines := remove_lines_from_num_to_num(lines, len(lines)-57, len(lines)-48)
 		docker_compose_file_str = strings.Join(new_lines, "\n")
 	}
 
@@ -274,15 +275,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	lines := strings.Split(docker_compose_file_str, "\n")
 	if selectedMonitoring == "No" {
 		_ = os.RemoveAll(projectName + "/grafana")
-		// Remove last 34 lines from docker-compose.yml
-		var new_lines []string
-		if database != "PostgreSQL (local)" {
-			new_lines = lines[:len(lines)-33]
-		} else {
-			ten_last_lines := lines[len(lines)-10:]
-			new_lines = lines[:len(lines)-42]
-			new_lines = append(new_lines, ten_last_lines...)
-		}
+        new_lines := lines[:len(lines)-47]
 		new_lines = remove_lines_from_to(new_lines, "logging:", "command:")
 		docker_compose_file_str = strings.Join(new_lines, "\n")
 	} else {
@@ -347,4 +340,14 @@ func replace_http(directory string, files []string) {
 		}
 		_ = os.WriteFile(directory+"/"+file, []byte(strings.Join(lines, "\n")), 0644)
 	}
+}
+
+func remove_lines_from_num_to_num(lines []string, from int, to int) []string {
+    var new_lines []string
+    for i, line := range lines {
+        if i < from || i > to {
+            new_lines = append(new_lines, line)
+        }
+    }
+    return new_lines
 }
