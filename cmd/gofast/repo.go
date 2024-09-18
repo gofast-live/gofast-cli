@@ -410,6 +410,10 @@ func (m *model) downloadRepo(email string, apiKey string, projectName string) te
 			}
 			defer dst.Close()
 
+            _, err = io.Copy(dst, src)
+            if err != nil {
+                return errMsg(err)
+            }
 		}
 
 		// remove the zip file
