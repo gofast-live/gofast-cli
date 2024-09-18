@@ -68,7 +68,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		http_route_file_lines = remove_lines_from_to(http_route_file_lines, "// Auth Routes", "// End Routes")
 		var new_http_route_file_lines []string
 		for i, line := range http_route_file_lines {
-			if strings.Contains(line, "\"io\"") || strings.Contains(line, "\"strconv\"") || strings.Contains(line, "\"server/services/email\"") || strings.Contains(line, "\"server/services/file\"") || strings.Contains(line, "\"server/services/note\"") || strings.Contains(line, "\"server/services/payment\"") || strings.Contains(line, "\"server/services/user\"") {
+			if strings.Contains(line, "\"io\"") || strings.Contains(line, "\"strconv\"") || strings.Contains(line, "\"server/services/email\"") || strings.Contains(line, "\"server/services/file\"") || strings.Contains(line, "\"server/services/note\"") || strings.Contains(line, "\"server/services/payment\"") || strings.Contains(line, "\"server/services/auth\"") {
 				continue
 			}
 			new_http_route_file_lines = append(new_http_route_file_lines, http_route_file_lines[i])
@@ -167,7 +167,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# TURSO_TOKEN: ${TURSO_TOKEN}", "TURSO_TOKEN: ${TURSO_TOKEN}")
 		run_cmd = append(run_cmd, "TURSO_TOKEN=__CHANGE_ME__ \\")
 		// change all $1, $2, $3, $4, $5 to $6 to ?1, ?2, ?3, ?4, ?5, ?6
-		store_files := []string{"/go/services/note/store.go", "/go/services/user/store.go", "/go/services/email/store.go", "/go/services/file/store.go"}
+		store_files := []string{"/go/services/note/store.go", "/go/services/auth/store.go", "/go/services/email/store.go", "/go/services/file/store.go"}
 		for _, file := range store_files {
 			store_file, _ := os.ReadFile(projectName + file)
 			store_file_lines := strings.Split(string(store_file), "\n")
