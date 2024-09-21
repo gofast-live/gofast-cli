@@ -43,10 +43,10 @@ var (
 )
 
 type (
-	errMsg        error
-	authMsg       struct{ email, apiKey string }
-	copyMsg       struct{ err error }
-	finishMsg     struct{ docker []string }
+	errMsg    error
+	authMsg   struct{ email, apiKey string }
+	copyMsg   struct{ err error }
+	finishMsg struct{ docker []string }
 )
 
 type model struct {
@@ -354,74 +354,21 @@ func (m *model) toggleFocus(inputs []*textinput.Model) tea.Cmd {
 
 func (m *model) downloadRepo(email string, apiKey string, projectName string) tea.Cmd {
 	return func() tea.Msg {
-		client := http.Client{}
-		req, err := http.NewRequest("GET", SERVER_URL+"/download?email="+email, nil)
+		// get the file
+		err := getFile(email, apiKey)
 		if err != nil {
 			return errMsg(err)
 		}
-		req.Header.Set("Authorization", "bearer "+apiKey)
-		resp, err := client.Do(req)
+		// unzip the file
+		err = unzipFile()
 		if err != nil {
 			return errMsg(err)
 		}
-		if resp.StatusCode != http.StatusOK {
-			return errMsg(fmt.Errorf("Error downloading repo"))
-		}
-		defer resp.Body.Close()
-		// save the file to the disk
-		_, err = os.Create("gofast-app.zip")
-		if err != nil {
-			return errMsg(err)
-		}
-		file, err := os.OpenFile("gofast-app.zip", os.O_WRONLY, 0644)
-		if err != nil {
-			return errMsg(err)
-		}
-		defer file.Close()
-		_, err = io.Copy(file, resp.Body)
-		if err != nil {
-			return errMsg(err)
-		}
-
-		// unzip the file as project name
-		archive, err := zip.OpenReader("gofast-app.zip")
-		if err != nil {
-			return errMsg(err)
-		}
-		defer archive.Close()
-		for _, file := range archive.File {
-			src, err := file.Open()
-			if err != nil {
-				return errMsg(err)
-			}
-			defer src.Close()
-
-			if file.FileInfo().IsDir() {
-				err := os.MkdirAll(file.Name, os.ModePerm)
-				if err != nil {
-					return errMsg(err)
-				}
-				continue
-			}
-
-			dst, err := os.Create(file.Name)
-			if err != nil {
-				return errMsg(err)
-			}
-			defer dst.Close()
-
-            _, err = io.Copy(dst, src)
-            if err != nil {
-                return errMsg(err)
-            }
-		}
-
 		// remove the zip file
 		err = os.Remove("gofast-app.zip")
 		if err != nil {
 			return errMsg(err)
 		}
-
 		// find and rename the folder `gofast-live-gofast-app-...` to the project name
 		files, err := os.ReadDir(".")
 		if err != nil {
@@ -441,6 +388,76 @@ func (m *model) downloadRepo(email string, apiKey string, projectName string) te
 
 		return copyMsg{err: nil}
 	}
+}
+
+// get the file
+func getFile(email string, apiKey string) error {
+	client := http.Client{}
+	req, err := http.NewRequest("GET", SERVER_URL+"/download?email="+email, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "bearer "+apiKey)
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Error downloading repo")
+	}
+	defer resp.Body.Close()
+
+	// save the file to the disk
+	_, err = os.Create("gofast-app.zip")
+	if err != nil {
+		return err
+	}
+	file, err := os.OpenFile("gofast-app.zip", os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = io.Copy(file, resp.Body)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// unzip the file
+func unzipFile() error {
+	archive, err := zip.OpenReader("gofast-app.zip")
+	if err != nil {
+		return err
+	}
+	defer archive.Close()
+	for _, file := range archive.File {
+		src, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer src.Close()
+
+		if file.FileInfo().IsDir() {
+			err := os.MkdirAll(file.Name, os.ModePerm)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+
+		dst, err := os.Create(file.Name)
+		if err != nil {
+			return err
+		}
+		defer dst.Close()
+
+		_, err = io.Copy(dst, src)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (m *model) cleaningRepo() tea.Cmd {
