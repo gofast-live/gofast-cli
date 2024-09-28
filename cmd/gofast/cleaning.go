@@ -31,9 +31,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		_ = os.RemoveAll(projectName + "/go/grpc")
 		_ = os.RemoveAll(projectName + "/svelte/src/lib/proto")
 		_ = os.RemoveAll(projectName + "/svelte/src/lib/server/grpc.ts")
-		for _, file := range []string{"email_service_grpc.ts", "note_service_grpc.ts", "payment_service_grpc.ts", "user_service_grpc.ts"} {
-			_ = os.RemoveAll(projectName + "/svelte/src/lib/server/services/" + file)
-		}
+
 		_ = os.RemoveAll(projectName + "/next/app/lib/proto")
 		_ = os.RemoveAll(projectName + "/next/app/lib/server/grpc.ts")
 		for _, file := range []string{"email_service_grpc.ts", "note_service_grpc.ts", "payment_service_grpc.ts", "user_service_grpc.ts"} {
@@ -54,10 +52,6 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		}
 		_ = os.WriteFile(projectName+"/go/main.go", []byte(strings.Join(new_main_file_lines, "\n")), 0644)
 	} else if protocol == "gRPC" {
-		// Remove HTTP files from Svelte and Next.js
-		for _, file := range []string{"email_service_http.ts", "note_service_http.ts", "payment_service_http.ts", "user_service_http.ts"} {
-			_ = os.Remove(projectName + "/svelte/src/lib/server/services/" + file)
-		}
 		for _, file := range []string{"email_service_http.ts", "note_service_http.ts", "payment_service_http.ts", "user_service_http.ts"} {
 			_ = os.Remove(projectName + "/next/app/lib/server/services/" + file)
 		}
@@ -75,8 +69,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		}
 		_ = os.WriteFile(projectName+"/go/http/route.go", []byte(strings.Join(new_http_route_file_lines, "\n")), 0644)
 
-		// Replace _http with _grpc in Svelte and Next.js
-		replace_http(projectName+"/svelte/src/", []string{
+		replace("http", "grpc", projectName+"/svelte/src/", []string{
 			"hooks.server.ts",
 			"routes/auth/+page.server.ts",
 			"routes/auth/[provider]/+page.server.ts",
@@ -85,7 +78,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 			"routes/(app)/emails/+page.server.ts",
 			"routes/(app)/payments/+page.server.ts",
 		})
-		replace_http(projectName+"/next/app/", []string{
+		replace("_http", "_grpc", projectName+"/next/app/", []string{
 			"auth/auth_form.tsx",
 			"auth/[provider]/route.ts",
 			"(app)/layout.tsx",
@@ -140,7 +133,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		if err != nil {
 			return nil, err
 		}
-        new_lines := remove_lines_from_num_to_num(docker_compose_lines, len(docker_compose_lines)-57, len(docker_compose_lines)-48)
+		new_lines := remove_lines_from_num_to_num(docker_compose_lines, len(docker_compose_lines)-57, len(docker_compose_lines)-48)
 		docker_compose_file_str = strings.Join(new_lines, "\n")
 		err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
 		if err != nil {
@@ -210,7 +203,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	}
 	if database != "PostgreSQL (local)" {
 		lines := strings.Split(docker_compose_file_str, "\n")
-        new_lines := remove_lines_from_num_to_num(lines, len(lines)-57, len(lines)-48)
+		new_lines := remove_lines_from_num_to_num(lines, len(lines)-57, len(lines)-48)
 		docker_compose_file_str = strings.Join(new_lines, "\n")
 	}
 
@@ -275,7 +268,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	lines := strings.Split(docker_compose_file_str, "\n")
 	if selectedMonitoring == "No" {
 		_ = os.RemoveAll(projectName + "/grafana")
-        new_lines := lines[:len(lines)-47]
+		new_lines := lines[:len(lines)-47]
 		new_lines = remove_lines_from_to(new_lines, "logging:", "command:")
 		docker_compose_file_str = strings.Join(new_lines, "\n")
 	} else {
@@ -329,13 +322,13 @@ func remove_lines_from_to(lines []string, from string, to string) []string {
 	return new_lines
 }
 
-func replace_http(directory string, files []string) {
+func replace(in string, out string, directory string, files []string) {
 	for _, file := range files {
 		content, _ := os.ReadFile(directory + file)
 		lines := strings.Split(string(content), "\n")
 		for i, line := range lines {
-			if strings.Contains(line, "_http") {
-				lines[i] = strings.ReplaceAll(line, "_http", "_grpc")
+			if strings.Contains(line, in) {
+				lines[i] = strings.ReplaceAll(line, in, out)
 			}
 		}
 		_ = os.WriteFile(directory+"/"+file, []byte(strings.Join(lines, "\n")), 0644)
@@ -343,11 +336,11 @@ func replace_http(directory string, files []string) {
 }
 
 func remove_lines_from_num_to_num(lines []string, from int, to int) []string {
-    var new_lines []string
-    for i, line := range lines {
-        if i < from || i > to {
-            new_lines = append(new_lines, line)
-        }
-    }
-    return new_lines
+	var new_lines []string
+	for i, line := range lines {
+		if i < from || i > to {
+			new_lines = append(new_lines, line)
+		}
+	}
+	return new_lines
 }
