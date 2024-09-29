@@ -1,5 +1,6 @@
 name: Lint Go
 on:
+  pull_request:
   push:
     branches:
       - main
