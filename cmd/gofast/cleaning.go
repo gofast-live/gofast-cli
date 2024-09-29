@@ -78,6 +78,20 @@ func cleaning(projectName string, protocol string, client string, start string, 
 			"routes/(app)/emails/+page.server.ts",
 			"routes/(app)/payments/+page.server.ts",
 		})
+		replace("\"auth\"", "\"Auth\"", projectName+"/svelte/src/", []string{"hooks.server.ts"})
+		replace("\"auth-login\"", "\"AuthLogin\"", projectName+"/svelte/src/", []string{"routes/auth/+page.server.ts"})
+        replace("\"auth-callback\"", "\"AuthCallback\"", projectName+"/svelte/src/", []string{"routes/auth/[provider]/+page.server.ts"})
+        replace("\"notes\"", "\"GetNotesByUserId\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
+        replace("\"notes\"", "\"InsertNote\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
+        replace("\"notes\"", "\"GetNoteById\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/[note_id]/+page.server.ts"})
+        replace("\"notes\"", "\"UpdateNoteById\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/[note_id]/+page.server.ts"})
+        replace("\"notes\"", "\"DeleteNoteById\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/[note_id]/+page.server.ts"})
+        replace("\"emails\"", "\"GetEmailsByUserId\"", projectName+"/svelte/src/", []string{"routes/(app)/emails/+page.server.ts"})
+        replace("\"emails\"", "\"SendEmail\"", projectName+"/svelte/src/", []string{"routes/(app)/emails/+page.server.ts"})
+        replace("\"payments-checkout\"", "\"CreatePaymentCheckout\"", projectName+"/svelte/src/", []string{"routes/(app)/payments/+page.server.ts"})
+        replace("\"payments-portal\"", "\"CreatePaymentPortal\"", projectName+"/svelte/src/", []string{"routes/(app)/payments/+page.server.ts"})
+
+
 		replace("_http", "_grpc", projectName+"/next/app/", []string{
 			"auth/auth_form.tsx",
 			"auth/[provider]/route.ts",
@@ -329,6 +343,7 @@ func replace(in string, out string, directory string, files []string) {
 		for i, line := range lines {
 			if strings.Contains(line, in) {
 				lines[i] = strings.ReplaceAll(line, in, out)
+				break
 			}
 		}
 		_ = os.WriteFile(directory+"/"+file, []byte(strings.Join(lines, "\n")), 0644)
