@@ -393,7 +393,7 @@ func (m *model) downloadRepo(email string, apiKey string, projectName string) te
 // get the file
 func getFile(email string, apiKey string) error {
 	client := http.Client{}
-	req, err := http.NewRequest("GET", SERVER_URL+"/test?email="+email, nil)
+	req, err := http.NewRequest("GET", SERVER_URL+"/main?email="+email, nil)
 	if err != nil {
 		return err
 	}
