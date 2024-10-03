@@ -34,7 +34,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 
 		_ = os.RemoveAll(projectName + "/next/app/lib/proto")
 		_ = os.RemoveAll(projectName + "/next/app/lib/server/grpc.ts")
-		for _, file := range []string{"email_service_grpc.ts", "note_service_grpc.ts", "payment_service_grpc.ts", "user_service_grpc.ts"} {
+		for _, file := range []string{"email_service_grpc.ts", "note_service_grpc.ts", "payment_service_grpc.ts", "auth_service_grpc.ts"} {
 			_ = os.RemoveAll(projectName + "/next/app/lib/services/" + file)
 		}
 
@@ -52,7 +52,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		}
 		_ = os.WriteFile(projectName+"/go/main.go", []byte(strings.Join(new_main_file_lines, "\n")), 0644)
 	} else if protocol == "gRPC" {
-		for _, file := range []string{"email_service_http.ts", "note_service_http.ts", "payment_service_http.ts", "user_service_http.ts"} {
+		for _, file := range []string{"email_service_http.ts", "note_service_http.ts", "payment_service_http.ts", "auth_service_http.ts"} {
 			_ = os.Remove(projectName + "/next/app/lib/server/services/" + file)
 		}
 
