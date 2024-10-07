@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -354,6 +355,15 @@ func (m *model) toggleFocus(inputs []*textinput.Model) tea.Cmd {
 
 func (m *model) downloadRepo(email string, apiKey string, projectName string) tea.Cmd {
 	return func() tea.Msg {
+		// If test env, copy ../gofast-app to the current directory
+		if os.Getenv("TEST") == "true" {
+			cmd := exec.Command("cp", "-r", "../gofast-app", "./"+projectName)
+			err := cmd.Run()
+			if err != nil {
+				return errMsg(err)
+			}
+			return copyMsg{err: nil}
+		}
 		// get the file
 		err := getFile(email, apiKey)
 		if err != nil {
@@ -426,6 +436,9 @@ func getFile(email string, apiKey string) error {
 
 // unzip the file
 func unzipFile() error {
+	if os.Getenv("TEST") == "true" {
+		return nil
+	}
 	archive, err := zip.OpenReader("gofast-app.zip")
 	if err != nil {
 		return err
