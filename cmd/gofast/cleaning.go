@@ -64,7 +64,6 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		for i, line := range http_route_file_lines {
 			if strings.Contains(line, "\"io\"") ||
 				strings.Contains(line, "\"strconv\"") ||
-				strings.Contains(line, "\"strings\"") ||
 				strings.Contains(line, "\"server/services/email\"") ||
                 strings.Contains(line, "\"server/services/file\"") ||
                 strings.Contains(line, "\"server/services/note\"") ||
@@ -85,9 +84,9 @@ func cleaning(projectName string, protocol string, client string, start string, 
 			"routes/(app)/emails/+page.server.ts",
 			"routes/(app)/payments/+page.server.ts",
 		})
-		replace("\"auth\"", "\"Auth\"", projectName+"/svelte/src/", []string{"hooks.server.ts"})
 		replace("\"auth-login\"", "\"AuthLogin\"", projectName+"/svelte/src/", []string{"routes/auth/+page.server.ts"})
 		replace("\"auth-callback\"", "\"AuthCallback\"", projectName+"/svelte/src/", []string{"routes/auth/[provider]/+page.server.ts"})
+		replace("\"auth-refresh\"", "\"AuthRefresh\"", projectName+"/svelte/src/", []string{"hooks.server.ts"})
 		replace("\"notes\"", "\"GetNotesByUserId\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
 		replace("\"notes\"", "\"InsertNote\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
 		replace("\"notes\"", "\"GetNoteById\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/[note_id]/+page.server.ts"})
@@ -100,18 +99,23 @@ func cleaning(projectName string, protocol string, client string, start string, 
 
 		replace("_http", "_grpc", projectName+"/next/app/", []string{
 			"auth/auth_form.tsx",
+			"auth/refresh/route.ts",
 			"auth/[provider]/route.ts",
 			"(app)/layout.tsx",
 			"(app)/page.tsx",
 			"(app)/notes/page.tsx",
+			"(app)/notes/page.tsx",
 			"(app)/notes/insert_note_form.tsx",
+			"(app)/notes/[note_id]/page.tsx",
 			"(app)/notes/[note_id]/page.tsx",
 			"(app)/notes/[note_id]/update_note_form.tsx",
 			"(app)/notes/[note_id]/delete_note_form.tsx",
 			"(app)/emails/page.tsx",
+			"(app)/emails/page.tsx",
 			"(app)/emails/send_email_form.tsx",
 			"(app)/payments/page.tsx",
 			"(app)/payments/billing_form.tsx",
+			"(app)/files/page.tsx",
 		})
 	}
 
@@ -134,7 +138,6 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	// Base project
 	var run_cmd []string
 	if start == "Generate base project (SQLite, Grafana Monitoring, Mocked payments, Local files, Log Emails)" {
-		run_cmd = append(run_cmd, "JWT_SECRET=gofast_is_the_best \\")
 		run_cmd = append(run_cmd, "GITHUB_CLIENT_ID=Iv23litoS0DJltaklISr \\")
 		run_cmd = append(run_cmd, "GITHUB_CLIENT_SECRET=c6ed4d8bc5bcb687162da0ea0d9bc614e31004a8 \\")
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_ID=646089287190-m252eqv203c3fsv1gt1m29nkq2t6lrp6.apps.googleusercontent.com \\")
@@ -161,7 +164,6 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		}
 		return run_cmd, nil
 	} else {
-		run_cmd = append(run_cmd, "JWT_SECRET=__CHANGE_ME__ \\")
 		run_cmd = append(run_cmd, "GITHUB_CLIENT_ID=__CHANGE_ME__ \\")
 		run_cmd = append(run_cmd, "GITHUB_CLIENT_SECRET=__CHANGE_ME__ \\")
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_ID=__CHANGE_ME__ \\")
