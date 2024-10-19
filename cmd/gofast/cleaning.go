@@ -87,6 +87,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		replace("\"auth-login\"", "\"AuthLogin\"", projectName+"/svelte/src/", []string{"routes/auth/+page.server.ts"})
 		replace("\"auth-callback\"", "\"AuthCallback\"", projectName+"/svelte/src/", []string{"routes/auth/[provider]/+page.server.ts"})
 		replace("\"auth-refresh\"", "\"AuthRefresh\"", projectName+"/svelte/src/", []string{"hooks.server.ts"})
+        replace("\"notes_count\"", "\"CountNotesByUserId\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
 		replace("\"notes\"", "\"GetNotesByUserId\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
 		replace("\"notes\"", "\"InsertNote\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
 		replace("\"notes\"", "\"GetNoteById\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/[note_id]/+page.server.ts"})
