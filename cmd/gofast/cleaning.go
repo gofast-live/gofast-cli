@@ -64,11 +64,12 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		for i, line := range http_route_file_lines {
 			if strings.Contains(line, "\"io\"") ||
 				strings.Contains(line, "\"strconv\"") ||
+				strings.Contains(line, "\"server/services/auth\"") ||
+				strings.Contains(line, "\"server/services/user\"") ||
 				strings.Contains(line, "\"server/services/email\"") ||
-                strings.Contains(line, "\"server/services/file\"") ||
-                strings.Contains(line, "\"server/services/note\"") ||
-                strings.Contains(line, "\"server/services/payment\"") ||
-                strings.Contains(line, "\"server/services/auth\"") {
+				strings.Contains(line, "\"server/services/file\"") ||
+				strings.Contains(line, "\"server/services/note\"") ||
+				strings.Contains(line, "\"server/services/payment\"") {
 				continue
 			}
 			new_http_route_file_lines = append(new_http_route_file_lines, http_route_file_lines[i])
@@ -87,7 +88,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		replace("\"auth-login\"", "\"AuthLogin\"", projectName+"/svelte/src/", []string{"routes/auth/+page.server.ts"})
 		replace("\"auth-callback\"", "\"AuthCallback\"", projectName+"/svelte/src/", []string{"routes/auth/[provider]/+page.server.ts"})
 		replace("\"auth-refresh\"", "\"AuthRefresh\"", projectName+"/svelte/src/", []string{"hooks.server.ts"})
-        replace("\"notes_count\"", "\"CountNotesByUserId\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
+		replace("\"notes_count\"", "\"CountNotesByUserId\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
 		replace("\"notes\"", "\"GetNotesByUserId\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
 		replace("\"notes\"", "\"InsertNote\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
 		replace("\"notes\"", "\"GetNoteById\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/[note_id]/+page.server.ts"})
