@@ -124,7 +124,7 @@ func initialModel() model {
 		selectedDatabase:         "SQLite",
 		paymentsProviders:        []string{"Local (mock)", "Stripe", "Lemon Squeezy"},
 		selectedPaymentsProvider: "Local (mock)",
-		emailsProviders:          []string{"Local (log)", "Postmark", "Sendgrid", "Resend"},
+		emailsProviders:          []string{"Local (log)", "Postmark", "Sendgrid", "Resend", "AWS SES"},
 		selectedEmailProvider:    "Local (log)",
 		filesProviders:           []string{"Local (folder)", "Cloudflare R2", "AWS S3", "Google Cloud Storage"},
 		selectedFilesProvider:    "Local (folder)",

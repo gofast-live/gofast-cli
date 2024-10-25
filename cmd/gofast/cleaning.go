@@ -262,6 +262,14 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: resend")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# RESEND_API_KEY: ${RESEND_API_KEY}", "RESEND_API_KEY: ${RESEND_API_KEY}")
 		run_cmd = append(run_cmd, "RESEND_API_KEY=__CHANGE_ME__ \\")
+	} else if emailProvider == "AWS SES" {
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: ses")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# SES_REGION: ${SES_REGION}", "SES_REGION: ${SES_REGION}")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# SES_ACCESS_KEY: ${SES_ACCESS_KEY}", "SES_ACCESS_KEY: ${SES_ACCESS_KEY}")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# SES_SECRET_KEY: ${SES_SECRET_KEY}", "SES_SECRET_KEY: ${SES_SECRET_KEY}")
+		run_cmd = append(run_cmd, "SES_REGION=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "SES_ACCESS_KEY=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "SES_SECRET_KEY=__CHANGE_ME__ \\")
 	}
 
 	// Files
