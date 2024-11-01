@@ -184,7 +184,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# TURSO_TOKEN: ${TURSO_TOKEN}", "TURSO_TOKEN: ${TURSO_TOKEN}")
 		run_cmd = append(run_cmd, "TURSO_TOKEN=__CHANGE_ME__ \\")
 		// change all $1, $2, $3, $4, $5 to $6 to ?1, ?2, ?3, ?4, ?5, ?6
-		store_files := []string{"/go/services/note/store.go", "/go/services/auth/store.go", "/go/services/email/store.go", "/go/services/file/store.go"}
+		store_files := []string{"/go/services/note/store.go", "/go/services/user/store.go", "/go/services/email/store.go", "/go/services/file/store.go"}
 		for _, file := range store_files {
 			store_file, _ := os.ReadFile(projectName + file)
 			store_file_lines := strings.Split(string(store_file), "\n")
