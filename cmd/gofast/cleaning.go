@@ -23,6 +23,33 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "  container_name: gofast-", "  container_name: "+projectName+"-")
 	docker_compose_lines := strings.Split(docker_compose_file_str, "\n")
 
+	// Client
+	if client == "None" {
+		_ = os.RemoveAll(projectName + "/svelte")
+		_ = os.RemoveAll(projectName + "/next")
+        _ = os.RemoveAll(projectName + "/vue")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  postgres:")
+	} else if client == "SvelteKit" {
+		_ = os.RemoveAll(projectName + "/next")
+        _ = os.RemoveAll(projectName + "/vue")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  next:", "  postgres:")
+	} else if client == "Next.js" {
+		_ = os.RemoveAll(projectName + "/svelte")
+        _ = os.RemoveAll(projectName + "/vue")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  next:")
+        docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  vue:", "  postgres:")
+		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "- 3001:3000", "- 3000:3000")
+		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
+	} else if client == "Vue.js" {
+        _ = os.RemoveAll(projectName + "/svelte")
+        _ = os.RemoveAll(projectName + "/next")
+        docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  vue:")
+        docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
+        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "- 3002:3000", "- 3000:3000")
+        docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
+    }
+
 	// Protocol
 	if protocol == "HTTP" {
 		_ = os.RemoveAll(projectName + "/scripts/proto.sh")
@@ -52,22 +79,18 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		}
 		_ = os.WriteFile(projectName+"/go/main.go", []byte(strings.Join(new_main_file_lines, "\n")), 0644)
 	} else if protocol == "gRPC" {
-		for _, file := range []string{"email_service_http.ts", "note_service_http.ts", "payment_service_http.ts", "auth_service_http.ts"} {
+		for _, file := range []string{"email_service_http.ts", "note_service_http.ts", "payment_service_http.ts"} {
 			_ = os.Remove(projectName + "/next/app/lib/server/services/" + file)
 		}
 
 		// Clean HTTP routes
 		http_route_file, _ := os.ReadFile(projectName + "/go/http/route.go")
 		http_route_file_lines := strings.Split(string(http_route_file), "\n")
-		http_route_file_lines = remove_lines_from_to(http_route_file_lines, "// Auth Routes", "// End Routes")
+		http_route_file_lines = remove_lines_from_to(http_route_file_lines, "// Note Routes", "// File Routes")
 		var new_http_route_file_lines []string
 		for i, line := range http_route_file_lines {
 			if strings.Contains(line, "\"io\"") ||
 				strings.Contains(line, "\"strconv\"") ||
-				strings.Contains(line, "\"server/services/auth\"") ||
-				strings.Contains(line, "\"server/services/user\"") ||
-				strings.Contains(line, "\"server/services/email\"") ||
-				strings.Contains(line, "\"server/services/file\"") ||
 				strings.Contains(line, "\"server/services/note\"") ||
 				strings.Contains(line, "\"server/services/payment\"") {
 				continue
@@ -78,17 +101,15 @@ func cleaning(projectName string, protocol string, client string, start string, 
 
 		replace("http", "grpc", projectName+"/svelte/src/", []string{
 			"hooks.server.ts",
-			"routes/auth/+page.server.ts",
-			"routes/auth/[provider]/+page.server.ts",
 			"routes/(app)/notes/+page.server.ts",
 			"routes/(app)/notes/[note_id]/+page.server.ts",
 			"routes/(app)/emails/+page.server.ts",
 			"routes/(app)/payments/+page.server.ts",
 		})
-		replace("\"auth-login\"", "\"AuthLogin\"", projectName+"/svelte/src/", []string{"routes/auth/+page.server.ts"})
-		replace("\"auth-callback\"", "\"AuthCallback\"", projectName+"/svelte/src/", []string{"routes/auth/[provider]/+page.server.ts"})
+		// replace("\"auth-login\"", "\"AuthLogin\"", projectName+"/svelte/src/", []string{"routes/auth/+page.server.ts"})
+		// replace("\"auth-callback\"", "\"AuthCallback\"", projectName+"/svelte/src/", []string{"routes/auth/[provider]/+page.server.ts"})
 		replace("\"auth-refresh\"", "\"AuthRefresh\"", projectName+"/svelte/src/", []string{"hooks.server.ts"})
-		replace("\"notes_count\"", "\"CountNotesByUserId\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
+		replace("\"notes-count\"", "\"CountNotesByUserId\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
 		replace("\"notes\"", "\"GetNotesByUserId\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
 		replace("\"notes\"", "\"InsertNote\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
 		replace("\"notes\"", "\"GetNoteById\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/[note_id]/+page.server.ts"})
@@ -100,9 +121,8 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		replace("\"payments-portal\"", "\"CreatePaymentPortal\"", projectName+"/svelte/src/", []string{"routes/(app)/payments/+page.server.ts"})
 
 		replace("_http", "_grpc", projectName+"/next/app/", []string{
-			"auth/auth_form.tsx",
+			// "auth/auth_form.tsx",
 			"auth/refresh/route.ts",
-			"auth/[provider]/route.ts",
 			"(app)/layout.tsx",
 			"(app)/page.tsx",
 			"(app)/notes/page.tsx",
@@ -119,22 +139,6 @@ func cleaning(projectName string, protocol string, client string, start string, 
 			"(app)/payments/billing_form.tsx",
 			"(app)/files/page.tsx",
 		})
-	}
-
-	// Client
-	if client == "None" {
-		_ = os.RemoveAll(projectName + "/svelte")
-		_ = os.RemoveAll(projectName + "/next")
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  postgres:")
-	} else if client == "SvelteKit" {
-		_ = os.RemoveAll(projectName + "/next")
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  next:", "  postgres:")
-	} else if client == "Next.js" {
-		_ = os.RemoveAll(projectName + "/svelte")
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  next:")
-		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "- 3001:3000", "- 3000:3000")
-		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
 	}
 
 	// Base project

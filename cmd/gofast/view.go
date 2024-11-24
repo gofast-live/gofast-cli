@@ -40,10 +40,10 @@ func (m model) View() string {
 		b.WriteRune('\n')
 	} else if m.step == protocolStep || m.step == clientStep || m.step == startOptionStep || m.step == databaseStep || m.step == paymentsProviderStep || m.step == emailProviderStep || m.step == filesProviderStep || m.step == monitoringStep {
 		b.WriteRune('\n')
-		if m.step == protocolStep {
-			b.WriteString("Choose the protocol you want to use\n\n")
-		} else if m.step == clientStep {
+		if m.step == clientStep {
 			b.WriteString("Choose a frontend framework\n\n")
+		} else if m.step == protocolStep {
+			b.WriteString("Choose the protocol you want to use\n\n")
 		} else if m.step == startOptionStep {
 			b.WriteString("Do you want to generate a ready-to-run project with pre-filled test secrets? (don't forget to change them later!)\n\n")
 		} else if m.step == databaseStep {
@@ -59,10 +59,10 @@ func (m model) View() string {
 		}
 		var s string
 		var d []string
-		if m.step == protocolStep {
-			d = m.protocols
-		} else if m.step == clientStep {
+		if m.step == clientStep {
 			d = m.clients
+		} else if m.step == protocolStep {
+			d = m.protocols
 		} else if m.step == startOptionStep {
 			d = m.startOptions
 		} else if m.step == databaseStep {
@@ -88,22 +88,22 @@ func (m model) View() string {
 			s += cursor + " [" + checked + "] " + c + "\n"
 		}
 		b.WriteString(s)
-		if m.step == protocolStep {
+		if m.step == clientStep {
+			b.WriteString("")
+		} else if m.step == protocolStep {
 			b.WriteString("\n\n")
-		} else if m.step == clientStep {
-			b.WriteString("\n")
 		} else if m.step == startOptionStep {
 			b.WriteString("\n")
 			b.WriteString("\n")
 		} else if m.step == databaseStep {
 		} else if m.step == paymentsProviderStep {
-            b.WriteString("\n")
+			b.WriteString("\n")
 		} else if m.step == emailProviderStep {
 		} else if m.step == filesProviderStep {
 		} else if m.step == monitoringStep {
-            b.WriteString("\n")
-            b.WriteString("\n")
-        }
+			b.WriteString("\n")
+			b.WriteString("\n")
+		}
 	} else if m.step == projectNameStep {
 		b.WriteRune('\n')
 		b.WriteString("Enter the name of the project\n\n")
@@ -150,7 +150,7 @@ func (m model) View() string {
 		b.WriteRune('\n')
 		b.WriteString(successStyle.Render("Thank you for using GoFast :)!"))
 		b.WriteRune('\n')
-        b.WriteString(successStyle.Render("Checkout our discord server for any help, feedback or suggestions: https://discord.com/invite/hFqr2SuVXA"))
+		b.WriteString(successStyle.Render("Checkout our discord server for any help, feedback or suggestions: https://discord.com/invite/hFqr2SuVXA"))
 		b.WriteRune('\n')
 		b.WriteRune('\n')
 		b.WriteString(focusedStyle.Render("Press enter to exit and start bulding the best project ever!"))

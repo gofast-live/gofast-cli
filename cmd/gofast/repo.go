@@ -29,8 +29,8 @@ var (
 	authStep             = 1
 	validateStep         = 2
 	startStep            = 3
-	protocolStep         = 4
-	clientStep           = 5
+	clientStep           = 4
+	protocolStep         = 5
 	startOptionStep      = 6
 	databaseStep         = 7
 	paymentsProviderStep = 8
@@ -62,10 +62,10 @@ type model struct {
 	projectNameInput textinput.Model
 	err              error
 
-	protocols                []string
-	selectedProtocol         string
 	clients                  []string
 	selectedClient           string
+	protocols                []string
+	selectedProtocol         string
 	startOptions             []string
 	selectedStartOption      string
 	databases                []string
@@ -114,10 +114,10 @@ func initialModel() model {
 		projectNameInput: pi,
 		err:              nil,
 
+		clients:                  []string{"SvelteKit", "Next.js", "Vue.js", "None"},
+		selectedClient:           "SvelteKit",
 		protocols:                []string{"HTTP", "gRPC"},
 		selectedProtocol:         "HTTP",
-		clients:                  []string{"SvelteKit", "Next.js", "None"},
-		selectedClient:           "SvelteKit",
 		startOptions:             []string{"Generate base project (SQLite, Grafana Monitoring, Mocked payments, Local files, Log Emails)", "Start new configuration"},
 		selectedStartOption:      "Generate base project (SQLite, Mocked payments, Log emails, Local files)",
 		databases:                []string{"SQLite", "Turso with Embedded Replicas", "PostgreSQL (local)", "PostgreSQL (remote)"},
@@ -164,14 +164,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.focusIndex = 0
 				return m, checkConfig(email, apiKey)
 			} else if m.step == startStep {
-				m.step = protocolStep
-				return m, textinput.Blink
-			} else if m.step == protocolStep {
-				m.selectedProtocol = m.protocols[m.focusIndex]
-				m.focusIndex = 0
 				m.step = clientStep
+				return m, textinput.Blink
 			} else if m.step == clientStep {
 				m.selectedClient = m.clients[m.focusIndex]
+				m.focusIndex = 0
+				m.step = protocolStep
+			} else if m.step == protocolStep {
+                if m.protocols[m.focusIndex] == "gRPC" {
+                    return m, func() tea.Msg {
+                        return errMsg(fmt.Errorf("gRPC is not supported for Vue yet"))
+                    }
+                }
+				m.selectedProtocol = m.protocols[m.focusIndex]
 				m.focusIndex = 0
 				m.step = startOptionStep
 			} else if m.step == startOptionStep {
