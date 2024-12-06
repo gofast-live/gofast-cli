@@ -27,28 +27,28 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	if client == "None" {
 		_ = os.RemoveAll(projectName + "/svelte")
 		_ = os.RemoveAll(projectName + "/next")
-        _ = os.RemoveAll(projectName + "/vue")
+		_ = os.RemoveAll(projectName + "/vue")
 		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  postgres:")
 	} else if client == "SvelteKit" {
 		_ = os.RemoveAll(projectName + "/next")
-        _ = os.RemoveAll(projectName + "/vue")
+		_ = os.RemoveAll(projectName + "/vue")
 		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  next:", "  postgres:")
 	} else if client == "Next.js" {
 		_ = os.RemoveAll(projectName + "/svelte")
-        _ = os.RemoveAll(projectName + "/vue")
+		_ = os.RemoveAll(projectName + "/vue")
 		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  next:")
-        docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  vue:", "  postgres:")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  vue:", "  postgres:")
 		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "- 3001:3000", "- 3000:3000")
 		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
 	} else if client == "Vue.js" {
-        _ = os.RemoveAll(projectName + "/svelte")
-        _ = os.RemoveAll(projectName + "/next")
-        docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  vue:")
-        docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "- 3002:3000", "- 3000:3000")
-        docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
-    }
+		_ = os.RemoveAll(projectName + "/svelte")
+		_ = os.RemoveAll(projectName + "/next")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  vue:")
+		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "- 3002:3000", "- 3000:3000")
+		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
+	}
 
 	// Protocol
 	if protocol == "HTTP" {
@@ -297,7 +297,22 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		run_cmd = append(run_cmd, "R2_ACCESS_KEY=__CHANGE_ME__ \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_SECRET_KEY: ${R2_SECRET_KEY}", "R2_SECRET_KEY: ${R2_SECRET_KEY}")
 		run_cmd = append(run_cmd, "R2_SECRET_KEY=__CHANGE_ME__ \\")
+	} else if filesProvider == "Google Cloud Storage" {
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: gcs")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
+		run_cmd = append(run_cmd, "BUCKET_NAME=__CHANGE_ME__ \\")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}", "GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}")
+		run_cmd = append(run_cmd, "GOOGLE_APPLICATION_CREDENTIALS=__CHANGE_ME__ \\")
+	} else if filesProvider == "Azure Blob Storage" {
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: azblob")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
+		run_cmd = append(run_cmd, "BUCKET_NAME=__CHANGE_ME__ \\")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# AZBLOB_ACCOUNT_NAME: ${AZBLOB_ACCOUNT_NAME}", "AZBLOB_ACCOUNT_NAME: ${AZBLOB_ACCOUNT_NAME}")
+		run_cmd = append(run_cmd, "AZBLOB_ACCOUNT_NAME=__CHANGE_ME__ \\")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# AZBLOB_ACCOUNT_KEY: ${AZBLOB_ACCOUNT_KEY}", "AZBLOB_ACCOUNT_KEY: ${AZBLOB_ACCOUNT_KEY}")
+		run_cmd = append(run_cmd, "AZBLOB_ACCOUNT_KEY=__CHANGE_ME__ \\")
 	}
+
 	run_cmd = append(run_cmd, "docker compose up --build")
 
 	// Monitoring

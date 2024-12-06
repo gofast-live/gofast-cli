@@ -126,7 +126,7 @@ func initialModel() model {
 		selectedPaymentsProvider: "Local (mock)",
 		emailsProviders:          []string{"Local (log)", "Postmark", "Sendgrid", "Resend", "AWS SES"},
 		selectedEmailProvider:    "Local (log)",
-		filesProviders:           []string{"Local (folder)", "Cloudflare R2", "AWS S3", "Google Cloud Storage"},
+		filesProviders:           []string{"Local (folder)", "Cloudflare R2", "AWS S3", "Google Cloud Storage", "Azure Blob Storage"},
 		selectedFilesProvider:    "Local (folder)",
 		monitoringOptions:        []string{"Grafana + Loki + Prometheus Monitoring", "No"},
 		selectedMonitoring:       "Grafana + Loki + Prometheus Monitoring",
