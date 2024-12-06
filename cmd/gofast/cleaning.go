@@ -86,7 +86,11 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		// Clean HTTP routes
 		http_route_file, _ := os.ReadFile(projectName + "/go/http/route.go")
 		http_route_file_lines := strings.Split(string(http_route_file), "\n")
-		http_route_file_lines = remove_lines_from_to(http_route_file_lines, "// Note Routes", "// File Routes")
+		http_route_file_lines = remove_lines_from_to(
+			http_route_file_lines,
+			"func setupNotesRoutes(mux *http.ServeMux, storage *storage.Storage) {",
+			"func setupFilesRoutes(mux *http.ServeMux, storage *storage.Storage) {",
+		)
 		var new_http_route_file_lines []string
 		for i, line := range http_route_file_lines {
 			if strings.Contains(line, "\"io\"") ||
