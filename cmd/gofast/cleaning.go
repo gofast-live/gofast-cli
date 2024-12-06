@@ -103,6 +103,18 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		}
 		_ = os.WriteFile(projectName+"/go/http/route.go", []byte(strings.Join(new_http_route_file_lines, "\n")), 0644)
 
+		server_route_file, _ := os.ReadFile(projectName + "/go/http/server.go")
+		var new_server_route_file_lines []string
+		for _, line := range strings.Split(string(server_route_file), "\n") {
+			if strings.Contains(line, "setupNotesRoutes") ||
+				strings.Contains(line, "setupPaymentsRoutes") ||
+				strings.Contains(line, "setupEmailsRoutes") {
+				continue
+			}
+			new_server_route_file_lines = append(new_server_route_file_lines, line)
+		}
+		_ = os.WriteFile(projectName+"/go/http/server.go", []byte(strings.Join(new_server_route_file_lines, "\n")), 0644)
+
 		replace("http", "grpc", projectName+"/svelte/src/", []string{
 			"hooks.server.ts",
 			"routes/(app)/notes/+page.server.ts",

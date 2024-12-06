@@ -171,7 +171,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.focusIndex = 0
 				m.step = protocolStep
 			} else if m.step == protocolStep {
-                if m.protocols[m.focusIndex] == "gRPC" {
+                if m.selectedClient == "Vue.js" && m.protocols[m.focusIndex] == "gRPC" {
                     return m, func() tea.Msg {
                         return errMsg(fmt.Errorf("gRPC is not supported for Vue yet"))
                     }
