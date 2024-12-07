@@ -216,6 +216,8 @@ func cleaning(projectName string, protocol string, client string, start string, 
 				line = strings.ReplaceAll(line, "$4", "?4")
 				line = strings.ReplaceAll(line, "$5", "?5")
 				line = strings.ReplaceAll(line, "$6", "?6")
+				line = strings.ReplaceAll(line, "$7", "?7")
+				line = strings.ReplaceAll(line, "$8", "?8")
 				new_store_file_lines = append(new_store_file_lines, line)
 			}
 			_ = os.WriteFile(projectName+file, []byte(strings.Join(new_store_file_lines, "\n")), 0644)
