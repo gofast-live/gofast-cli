@@ -55,90 +55,85 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		_ = os.RemoveAll(projectName + "/scripts/proto.sh")
 		_ = os.RemoveAll(projectName + "/proto")
 		_ = os.RemoveAll(projectName + "/go/proto")
-		_ = os.RemoveAll(projectName + "/go/grpc")
-		_ = os.RemoveAll(projectName + "/svelte/src/lib/proto")
+		_ = os.RemoveAll(projectName + "/go/service_user/grpc")
+		_ = os.RemoveAll(projectName + "/go/service_note/grpc")
+		_ = os.RemoveAll(projectName + "/svelte/proto")
 		_ = os.RemoveAll(projectName + "/svelte/src/lib/server/grpc.ts")
 
-		_ = os.RemoveAll(projectName + "/next/app/lib/proto")
+		_ = os.RemoveAll(projectName + "/next/proto")
 		_ = os.RemoveAll(projectName + "/next/app/lib/server/grpc.ts")
-		for _, file := range []string{"email_service_grpc.ts", "note_service_grpc.ts", "payment_service_grpc.ts", "auth_service_grpc.ts"} {
-			_ = os.RemoveAll(projectName + "/next/app/lib/services/" + file)
+		for _, file := range []string{"email_service_grpc.ts", "note_service_grpc.ts", "payment_service_grpc.ts"} {
+			_ = os.Remove(projectName + "/svelte/src/lib/server/services/" + file)
+			_ = os.Remove(projectName + "/next/app/lib/services/" + file)
 		}
 
 		docker_compose_lines = remove_line(docker_compose_lines, "GRPC_PORT")
+		docker_compose_lines = remove_line(docker_compose_lines, "GRPC_PORT")
 
 		// Remove gRPC from main.go
-		mainFileContent, _ := os.ReadFile(projectName + "/go/main.go")
-		main_file_lines := strings.Split(string(mainFileContent), "\n")
-		var new_main_file_lines []string
-		for i, line := range main_file_lines {
-			if strings.Contains(line, "\"server/grpc\"") || strings.Contains(line, "grpc.RunGRPC") || strings.Contains(line, "Run the gRPC server") {
-				continue
+		for _, file := range []string{"/go/service_user/main.go", "/go/service_note/main.go"} {
+			mainFileContent, _ := os.ReadFile(projectName + file)
+			main_file_lines := strings.Split(string(mainFileContent), "\n")
+			var new_main_file_lines []string
+			for i, line := range main_file_lines {
+				if strings.Contains(line, "\"server/grpc\"") || strings.Contains(line, "grpc.RunGRPC") || strings.Contains(line, "Run the gRPC server") {
+					continue
+				}
+				new_main_file_lines = append(new_main_file_lines, main_file_lines[i])
 			}
-			new_main_file_lines = append(new_main_file_lines, main_file_lines[i])
+			_ = os.WriteFile(projectName+file, []byte(strings.Join(new_main_file_lines, "\n")), 0644)
 		}
-		_ = os.WriteFile(projectName+"/go/main.go", []byte(strings.Join(new_main_file_lines, "\n")), 0644)
 	} else if protocol == "gRPC" {
 		for _, file := range []string{"email_service_http.ts", "note_service_http.ts", "payment_service_http.ts"} {
+			_ = os.Remove(projectName + "/svelte/src/lib/server/services/" + file)
 			_ = os.Remove(projectName + "/next/app/lib/server/services/" + file)
 		}
 
 		// Clean HTTP routes
-		http_route_file, _ := os.ReadFile(projectName + "/go/http/route.go")
-		http_route_file_lines := strings.Split(string(http_route_file), "\n")
-		http_route_file_lines = remove_lines_from_to(
-			http_route_file_lines,
-			"func setupNotesRoutes(mux *http.ServeMux, storage *storage.Storage) {",
-			"func setupFilesRoutes(mux *http.ServeMux, storage *storage.Storage) {",
-		)
-		var new_http_route_file_lines []string
-		for i, line := range http_route_file_lines {
-			if strings.Contains(line, "\"io\"") ||
-				strings.Contains(line, "\"strconv\"") ||
-				strings.Contains(line, "\"server/services/note\"") ||
-				strings.Contains(line, "\"server/services/payment\"") {
-				continue
+		for _, file := range []string{"/go/service_user/http/route.go", "/go/service_note/http/route.go"} {
+			http_route_file, _ := os.ReadFile(projectName + file)
+			http_route_file_lines := strings.Split(string(http_route_file), "\n")
+			http_route_file_lines = remove_lines_from_to(
+				http_route_file_lines,
+				"func setupNotesRoutes(mux *http.ServeMux, storage *storage.Storage) {",
+				"func setupFilesRoutes(mux *http.ServeMux, storage *storage.Storage) {",
+			)
+			var new_http_route_file_lines []string
+			for i, line := range http_route_file_lines {
+				if strings.Contains(line, "\"io\"") ||
+					strings.Contains(line, "\"strconv\"") ||
+					strings.Contains(line, "\"server/services/note\"") ||
+					strings.Contains(line, "\"server/services/payment\"") {
+					continue
+				}
+				new_http_route_file_lines = append(new_http_route_file_lines, http_route_file_lines[i])
 			}
-			new_http_route_file_lines = append(new_http_route_file_lines, http_route_file_lines[i])
+			_ = os.WriteFile(projectName+file, []byte(strings.Join(new_http_route_file_lines, "\n")), 0644)
 		}
-		_ = os.WriteFile(projectName+"/go/http/route.go", []byte(strings.Join(new_http_route_file_lines, "\n")), 0644)
 
-		server_route_file, _ := os.ReadFile(projectName + "/go/http/server.go")
-		var new_server_route_file_lines []string
-		for _, line := range strings.Split(string(server_route_file), "\n") {
-			if strings.Contains(line, "setupNotesRoutes") ||
-				strings.Contains(line, "setupPaymentsRoutes") ||
-				strings.Contains(line, "setupEmailsRoutes") {
-				continue
+		for _, file := range []string{"/go/service_user/http/server.go", "/go/service_note/http/server.go"} {
+			server_route_file, _ := os.ReadFile(projectName + file)
+			var new_server_route_file_lines []string
+			for _, line := range strings.Split(string(server_route_file), "\n") {
+				if strings.Contains(line, "setupNotesRoutes") ||
+					strings.Contains(line, "setupPaymentsRoutes") ||
+					strings.Contains(line, "setupEmailsRoutes") {
+					continue
+				}
+				new_server_route_file_lines = append(new_server_route_file_lines, line)
 			}
-			new_server_route_file_lines = append(new_server_route_file_lines, line)
+			_ = os.WriteFile(projectName+file, []byte(strings.Join(new_server_route_file_lines, "\n")), 0644)
 		}
-		_ = os.WriteFile(projectName+"/go/http/server.go", []byte(strings.Join(new_server_route_file_lines, "\n")), 0644)
 
-		replace("http", "grpc", projectName+"/svelte/src/", []string{
+		replace("_http", "_grpc", projectName+"/svelte/src/", []string{
 			"hooks.server.ts",
 			"routes/(app)/notes/+page.server.ts",
 			"routes/(app)/notes/[note_id]/+page.server.ts",
 			"routes/(app)/emails/+page.server.ts",
 			"routes/(app)/payments/+page.server.ts",
 		})
-		// replace("\"auth-login\"", "\"AuthLogin\"", projectName+"/svelte/src/", []string{"routes/auth/+page.server.ts"})
-		// replace("\"auth-callback\"", "\"AuthCallback\"", projectName+"/svelte/src/", []string{"routes/auth/[provider]/+page.server.ts"})
-		replace("\"auth-refresh\"", "\"AuthRefresh\"", projectName+"/svelte/src/", []string{"hooks.server.ts"})
-		replace("\"notes-count\"", "\"CountNotesByUserID\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
-		replace("\"notes\"", "\"GetNotesByUserID\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
-		replace("\"notes\"", "\"InsertNote\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/+page.server.ts"})
-		replace("\"notes\"", "\"GetNoteByID\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/[note_id]/+page.server.ts"})
-		replace("\"notes\"", "\"UpdateNoteByID\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/[note_id]/+page.server.ts"})
-		replace("\"notes\"", "\"DeleteNoteByID\"", projectName+"/svelte/src/", []string{"routes/(app)/notes/[note_id]/+page.server.ts"})
-		replace("\"emails\"", "\"GetEmailsByUserID\"", projectName+"/svelte/src/", []string{"routes/(app)/emails/+page.server.ts"})
-		replace("\"emails\"", "\"SendEmail\"", projectName+"/svelte/src/", []string{"routes/(app)/emails/+page.server.ts"})
-		replace("\"payments-checkout\"", "\"CreatePaymentCheckout\"", projectName+"/svelte/src/", []string{"routes/(app)/payments/+page.server.ts"})
-		replace("\"payments-portal\"", "\"CreatePaymentPortal\"", projectName+"/svelte/src/", []string{"routes/(app)/payments/+page.server.ts"})
 
 		replace("_http", "_grpc", projectName+"/next/app/", []string{
-			// "auth/auth_form.tsx",
-			"auth/refresh/route.ts",
 			"(app)/layout.tsx",
 			"(app)/page.tsx",
 			"(app)/notes/page.tsx",
