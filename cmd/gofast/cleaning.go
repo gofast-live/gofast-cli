@@ -57,6 +57,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		_ = os.RemoveAll(projectName + "/go/proto")
 		_ = os.RemoveAll(projectName + "/go/service_user/grpc")
 		_ = os.RemoveAll(projectName + "/go/service_note/grpc")
+		_ = os.RemoveAll(projectName + "/go/service_note/domain/user/grpc.go")
 		_ = os.RemoveAll(projectName + "/svelte/proto")
 		_ = os.RemoveAll(projectName + "/svelte/src/lib/server/grpc.ts")
 
@@ -64,7 +65,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		_ = os.RemoveAll(projectName + "/next/app/lib/server/grpc.ts")
 		for _, file := range []string{"email_service_grpc.ts", "note_service_grpc.ts", "payment_service_grpc.ts"} {
 			_ = os.Remove(projectName + "/svelte/src/lib/server/services/" + file)
-			_ = os.Remove(projectName + "/next/app/lib/services/" + file)
+			_ = os.Remove(projectName + "/next/app/lib/server/services/" + file)
 		}
 
 		docker_compose_lines = remove_line(docker_compose_lines, "GRPC_PORT")
@@ -76,7 +77,10 @@ func cleaning(projectName string, protocol string, client string, start string, 
 			main_file_lines := strings.Split(string(mainFileContent), "\n")
 			var new_main_file_lines []string
 			for i, line := range main_file_lines {
-				if strings.Contains(line, "\"server/grpc\"") || strings.Contains(line, "grpc.RunGRPC") || strings.Contains(line, "Run the gRPC server") {
+				if strings.Contains(line, "\"server/service_user/grpc\"") ||
+					strings.Contains(line, "\"server/service_note/grpc\"") ||
+					strings.Contains(line, "grpc.RunGRPC") ||
+					strings.Contains(line, "Run the gRPC server") {
 					continue
 				}
 				new_main_file_lines = append(new_main_file_lines, main_file_lines[i])
@@ -84,38 +88,62 @@ func cleaning(projectName string, protocol string, client string, start string, 
 			_ = os.WriteFile(projectName+file, []byte(strings.Join(new_main_file_lines, "\n")), 0644)
 		}
 	} else if protocol == "gRPC" {
+		_ = os.RemoveAll(projectName + "/go/service_note/domain/user/http.go")
 		for _, file := range []string{"email_service_http.ts", "note_service_http.ts", "payment_service_http.ts"} {
 			_ = os.Remove(projectName + "/svelte/src/lib/server/services/" + file)
 			_ = os.Remove(projectName + "/next/app/lib/server/services/" + file)
 		}
 
-		// Clean HTTP routes
-		for _, file := range []string{"/go/service_user/http/route.go", "/go/service_note/http/route.go"} {
-			http_route_file, _ := os.ReadFile(projectName + file)
-			http_route_file_lines := strings.Split(string(http_route_file), "\n")
-			http_route_file_lines = remove_lines_from_to(
-				http_route_file_lines,
-				"func setupNotesRoutes(mux *http.ServeMux, storage *storage.Storage) {",
-				"func setupFilesRoutes(mux *http.ServeMux, storage *storage.Storage) {",
-			)
-			var new_http_route_file_lines []string
-			for i, line := range http_route_file_lines {
-				if strings.Contains(line, "\"io\"") ||
-					strings.Contains(line, "\"strconv\"") ||
-					strings.Contains(line, "\"server/services/note\"") ||
-					strings.Contains(line, "\"server/services/payment\"") {
-					continue
-				}
-				new_http_route_file_lines = append(new_http_route_file_lines, http_route_file_lines[i])
+		// Clean User Service HTTP routes
+		new_http_route_file_lines := []string{}
+		file := "/go/service_user/http/route.go"
+		http_route_file, _ := os.ReadFile(projectName + file)
+		http_route_file_lines := strings.Split(string(http_route_file), "\n")
+		http_route_file_lines = remove_lines_from_to(
+			http_route_file_lines,
+			"func setupUsersRoutes(mux *http.ServeMux, cfg *config.UserConfig, storage *storage.Storage) {",
+			"// End",
+		)
+		for i, line := range http_route_file_lines {
+			if strings.Contains(line, "\"server/service_user/domain/payment\"") {
+				continue
 			}
-			_ = os.WriteFile(projectName+file, []byte(strings.Join(new_http_route_file_lines, "\n")), 0644)
+			new_http_route_file_lines = append(new_http_route_file_lines, http_route_file_lines[i])
 		}
+		_ = os.WriteFile(projectName+file, []byte(strings.Join(new_http_route_file_lines, "\n")), 0644)
+
+		// Clean Note Service HTTP routes
+		file = "/go/service_note/http/route.go"
+		http_route_file, _ = os.ReadFile(projectName + file)
+		http_route_file_lines = strings.Split(string(http_route_file), "\n")
+		http_route_file_lines = remove_lines_from_to(
+			http_route_file_lines,
+			"func extractAccessToken(r *http.Request) string {",
+			"func setupAuthRoutes(mux *http.ServeMux, cfg *config.NoteConfig, storage *storage.Storage) {",
+		)
+		http_route_file_lines = remove_lines_from_to(
+			http_route_file_lines,
+			"func setupNotesRoutes(mux *http.ServeMux, cfg *config.NoteConfig, storage *storage.Storage) {",
+			"// End",
+		)
+		new_http_route_file_lines = []string{}
+		for i, line := range http_route_file_lines {
+			if strings.Contains(line, "\"strconv\"") ||
+				strings.Contains(line, "\"server/auth\"") ||
+				strings.Contains(line, "\"server/service_note/domain/note\"") ||
+				strings.Contains(line, "\"server/service_note/domain/user\"") {
+				continue
+			}
+			new_http_route_file_lines = append(new_http_route_file_lines, http_route_file_lines[i])
+		}
+		_ = os.WriteFile(projectName+file, []byte(strings.Join(new_http_route_file_lines, "\n")), 0644)
 
 		for _, file := range []string{"/go/service_user/http/server.go", "/go/service_note/http/server.go"} {
 			server_route_file, _ := os.ReadFile(projectName + file)
 			var new_server_route_file_lines []string
 			for _, line := range strings.Split(string(server_route_file), "\n") {
 				if strings.Contains(line, "setupNotesRoutes") ||
+					strings.Contains(line, "setupUsersRoutes") ||
 					strings.Contains(line, "setupPaymentsRoutes") ||
 					strings.Contains(line, "setupEmailsRoutes") {
 					continue
@@ -125,8 +153,9 @@ func cleaning(projectName string, protocol string, client string, start string, 
 			_ = os.WriteFile(projectName+file, []byte(strings.Join(new_server_route_file_lines, "\n")), 0644)
 		}
 
+		replace("GetUserByIDbyHTTP", "GetUserByIDbyGRPC", projectName+"/go/service_note/domain/user/", []string{"service.go"})
+
 		replace("_http", "_grpc", projectName+"/svelte/src/", []string{
-			"hooks.server.ts",
 			"routes/(app)/notes/+page.server.ts",
 			"routes/(app)/notes/[note_id]/+page.server.ts",
 			"routes/(app)/emails/+page.server.ts",
@@ -134,21 +163,15 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		})
 
 		replace("_http", "_grpc", projectName+"/next/app/", []string{
-			"(app)/layout.tsx",
-			"(app)/page.tsx",
-			"(app)/notes/page.tsx",
 			"(app)/notes/page.tsx",
 			"(app)/notes/insert_note_form.tsx",
-			"(app)/notes/[note_id]/page.tsx",
 			"(app)/notes/[note_id]/page.tsx",
 			"(app)/notes/[note_id]/update_note_form.tsx",
 			"(app)/notes/[note_id]/delete_note_form.tsx",
 			"(app)/emails/page.tsx",
-			"(app)/emails/page.tsx",
 			"(app)/emails/send_email_form.tsx",
 			"(app)/payments/page.tsx",
 			"(app)/payments/billing_form.tsx",
-			"(app)/files/page.tsx",
 		})
 	}
 
