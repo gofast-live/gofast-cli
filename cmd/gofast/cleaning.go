@@ -186,6 +186,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		run_cmd = append(run_cmd, "docker compose up --build")
 		run_cmd = append(run_cmd, "\n")
 		run_cmd = append(run_cmd, "For Grafana Monitoring, check the README.md in `/grafana` folder")
+		run_cmd = append(run_cmd, "For Kubernetes Deployment + Monitoring, check the README.md in `/kube` folder")
 		readme_file, _ := os.ReadFile(projectName + "/README.md")
 		readme_file_lines := strings.Split(string(readme_file), "\n")
 		readme_file_lines = append(readme_file_lines, "```bash")
@@ -370,6 +371,8 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		_ = os.RemoveAll(projectName + "/grafana")
 		new_lines := remove_lines_from_to(lines, "logging:", "command:")
 		docker_compose_file_str = strings.Join(new_lines, "\n")
+        run_cmd = append(run_cmd, "\n")
+        run_cmd = append(run_cmd, "For Kubernetes Deployment + Monitoring, check the README.md in `/kube` folder")
 	}
 
 	err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
