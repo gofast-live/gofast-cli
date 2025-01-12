@@ -278,6 +278,8 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		run_cmd = append(run_cmd, "STRIPE_API_KEY=__CHANGE_ME__ \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}", "STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}")
 		run_cmd = append(run_cmd, "STRIPE_PRICE_ID=__CHANGE_ME__ \\")
+        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}", "STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}")
+        run_cmd = append(run_cmd, "STRIPE_WEBHOOK_SECRET=__CHANGE_ME__ \\")
 	} else if paymentsProvider == "Lemon Squeezy" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "PAYMENT_PROVIDER: local", "PAYMENT_PROVIDER: lemon")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# LEMON_API_KEY: ${LEMON_API_KEY}", "LEMON_API_KEY: ${LEMON_API_KEY}")
@@ -286,6 +288,8 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		run_cmd = append(run_cmd, "LEMON_VARIANT_ID=__CHANGE_ME__ \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# LEMON_STORE_ID: ${LEMON_STORE_ID}", "LEMON_STORE_ID: ${LEMON_STORE_ID}")
 		run_cmd = append(run_cmd, "LEMON_STORE_ID=__CHANGE_ME__ \\")
+        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# LEMON_WEBHOOK_SECRET: ${LEMON_WEBHOOK_SECRET}", "LEMON_WEBHOOK_SECRET: ${LEMON_WEBHOOK_SECRET}")
+        run_cmd = append(run_cmd, "LEMON_WEBHOOK_SECRET=__CHANGE_ME__ \\")
 	}
 
 	// Emails
