@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 )
@@ -196,7 +197,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		if err != nil {
 			return nil, err
 		}
-		new_lines := remove_lines_from_to(docker_compose_lines, "  postgres:", "  prometheus:")
+		new_lines := remove_lines_from_to(docker_compose_lines, "  postgres:", "# end")
 		docker_compose_file_str = strings.Join(new_lines, "\n")
 		err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
 		if err != nil {
@@ -267,7 +268,7 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	}
 	if database != "PostgreSQL (local)" {
 		lines := strings.Split(docker_compose_file_str, "\n")
-		new_lines := remove_lines_from_to(lines, "  postgres:", "  prometheus:")
+		new_lines := remove_lines_from_to(lines, "  postgres:", "# end")
 		docker_compose_file_str = strings.Join(new_lines, "\n")
 	}
 
@@ -355,12 +356,17 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	lines := strings.Split(docker_compose_file_str, "\n")
 	if selectedMonitoring == "No" {
 		_ = os.RemoveAll(projectName + "/grafana")
-		new_lines := remove_lines_from_to(lines, "  prometheus:", "  # end")
-		new_lines = remove_lines_from_to(new_lines, "logging:", "command:")
+		_ = os.RemoveAll(projectName + "/kube")
+		new_lines := remove_lines_from_to(lines, "logging:", "command:")
 		docker_compose_file_str = strings.Join(new_lines, "\n")
-	} else {
+	} else if selectedMonitoring == "Grafana + Loki + Prometheus Monitoring using Docker" {
+		_ = os.RemoveAll(projectName + "/kube")
 		run_cmd = append(run_cmd, "\n")
 		run_cmd = append(run_cmd, "For Grafana Monitoring, check the README.md in `/grafana` folder")
+	} else {
+		_ = os.RemoveAll(projectName + "/grafana")
+		new_lines := remove_lines_from_to(lines, "logging:", "command:")
+		docker_compose_file_str = strings.Join(new_lines, "\n")
 	}
 
 	err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)

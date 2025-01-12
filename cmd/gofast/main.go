@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-    // Uncomment the following lines to log to a file
+	// Uncomment the following lines to log to a file
 	// f, err := tea.LogToFile("debug.log", "debug")
 	// if err != nil {
 	// 	fmt.Println("fatal:", err)

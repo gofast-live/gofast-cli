@@ -55,7 +55,7 @@ func (m model) View() string {
 		} else if m.step == filesProviderStep {
 			b.WriteString("Choose the storage provider you want to use\n\n")
 		} else if m.step == monitoringStep {
-			b.WriteString("Do you want to enable monitoring?\n\n")
+			b.WriteString("Choose your deployment/monitoring option\n\n")
 		}
 		var s string
 		var d []string

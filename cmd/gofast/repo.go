@@ -128,8 +128,8 @@ func initialModel() model {
 		selectedEmailProvider:    "Local (log)",
 		filesProviders:           []string{"Local (folder)", "Cloudflare R2", "AWS S3", "Google Cloud Storage", "Azure Blob Storage"},
 		selectedFilesProvider:    "Local (folder)",
-		monitoringOptions:        []string{"Grafana + Loki + Prometheus Monitoring", "No"},
-		selectedMonitoring:       "Grafana + Loki + Prometheus Monitoring",
+		monitoringOptions:        []string{"Kubernetes + VictoriaMetrics Monitoring", "Grafana + Loki + Prometheus Monitoring using Docker", "No"},
+		selectedMonitoring:       "Kubernetes + VictoriaMetrics Monitoring",
 		docker:                   []string{},
 	}
 }
@@ -171,11 +171,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.focusIndex = 0
 				m.step = protocolStep
 			} else if m.step == protocolStep {
-                if m.selectedClient == "Vue.js" && m.protocols[m.focusIndex] == "gRPC" {
-                    return m, func() tea.Msg {
-                        return errMsg(fmt.Errorf("gRPC is not supported for Vue yet"))
-                    }
-                }
+				if m.selectedClient == "Vue.js" && m.protocols[m.focusIndex] == "gRPC" {
+					return m, func() tea.Msg {
+						return errMsg(fmt.Errorf("gRPC is not supported for Vue yet"))
+					}
+				}
 				m.selectedProtocol = m.protocols[m.focusIndex]
 				m.focusIndex = 0
 				m.step = startOptionStep
