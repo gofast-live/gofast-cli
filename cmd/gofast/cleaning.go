@@ -5,12 +5,7 @@ import (
 	"strings"
 )
 
-// TODO
-// Clean ports on docker-compose.yml
-// Clean github actions linting per setting
-// Clean libs on svelte and next
-// Clean proto.sh
-func cleaning(projectName string, protocol string, client string, start string, database string, paymentsProvider string, emailProvider string, filesProvider string, selectedMonitoring string) ([]string, error) {
+func cleaning(projectName string, client string, start string, database string, paymentsProvider string, emailProvider string, filesProvider string, selectedMonitoring string) ([]string, error) {
 	// remove .git folder
 	_ = os.RemoveAll(projectName + "/.git")
 
@@ -39,140 +34,15 @@ func cleaning(projectName string, protocol string, client string, start string, 
 		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  next:")
 		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  vue:", "  postgres:")
 		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "- 3001:3000", "- 3000:3000")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3001", "3000")
 		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
 	} else if client == "Vue.js" {
 		_ = os.RemoveAll(projectName + "/svelte")
 		_ = os.RemoveAll(projectName + "/next")
 		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  vue:")
 		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "- 3002:3000", "- 3000:3000")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3002", "3000")
 		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
-	}
-
-	// Protocol
-	if protocol == "HTTP" {
-		_ = os.RemoveAll(projectName + "/scripts/proto.sh")
-		_ = os.RemoveAll(projectName + "/proto")
-		_ = os.RemoveAll(projectName + "/go/proto")
-		_ = os.RemoveAll(projectName + "/go/service_user/grpc")
-		_ = os.RemoveAll(projectName + "/go/service_note/grpc")
-		_ = os.RemoveAll(projectName + "/go/service_note/domain/user/grpc.go")
-		_ = os.RemoveAll(projectName + "/svelte/proto")
-		_ = os.RemoveAll(projectName + "/svelte/src/lib/server/grpc.ts")
-
-		_ = os.RemoveAll(projectName + "/next/proto")
-		_ = os.RemoveAll(projectName + "/next/app/lib/server/grpc.ts")
-		for _, file := range []string{"email_service_grpc.ts", "note_service_grpc.ts", "payment_service_grpc.ts"} {
-			_ = os.Remove(projectName + "/svelte/src/lib/server/services/" + file)
-			_ = os.Remove(projectName + "/next/app/lib/server/services/" + file)
-		}
-
-		docker_compose_lines = remove_line(docker_compose_lines, "GRPC_PORT")
-		docker_compose_lines = remove_line(docker_compose_lines, "GRPC_PORT")
-
-		// Remove gRPC from main.go
-		for _, file := range []string{"/go/service_user/main.go", "/go/service_note/main.go"} {
-			mainFileContent, _ := os.ReadFile(projectName + file)
-			main_file_lines := strings.Split(string(mainFileContent), "\n")
-			var new_main_file_lines []string
-			for i, line := range main_file_lines {
-				if strings.Contains(line, "\"server/service_user/grpc\"") ||
-					strings.Contains(line, "\"server/service_note/grpc\"") ||
-					strings.Contains(line, "grpc.RunGRPC") ||
-					strings.Contains(line, "Run the gRPC server") {
-					continue
-				}
-				new_main_file_lines = append(new_main_file_lines, main_file_lines[i])
-			}
-			_ = os.WriteFile(projectName+file, []byte(strings.Join(new_main_file_lines, "\n")), 0644)
-		}
-	} else if protocol == "gRPC" {
-		_ = os.RemoveAll(projectName + "/go/service_note/domain/user/http.go")
-		for _, file := range []string{"email_service_http.ts", "note_service_http.ts", "payment_service_http.ts"} {
-			_ = os.Remove(projectName + "/svelte/src/lib/server/services/" + file)
-			_ = os.Remove(projectName + "/next/app/lib/server/services/" + file)
-		}
-
-		// Clean User Service HTTP routes
-		new_http_route_file_lines := []string{}
-		file := "/go/service_user/http/route.go"
-		http_route_file, _ := os.ReadFile(projectName + file)
-		http_route_file_lines := strings.Split(string(http_route_file), "\n")
-		http_route_file_lines = remove_lines_from_to(
-			http_route_file_lines,
-			"func setupUsersRoutes(mux *http.ServeMux, cfg *config.UserConfig, storage *storage.Storage) {",
-			"// End",
-		)
-		for i, line := range http_route_file_lines {
-			if strings.Contains(line, "\"server/service_user/domain/payment\"") {
-				continue
-			}
-			new_http_route_file_lines = append(new_http_route_file_lines, http_route_file_lines[i])
-		}
-		_ = os.WriteFile(projectName+file, []byte(strings.Join(new_http_route_file_lines, "\n")), 0644)
-
-		// Clean Note Service HTTP routes
-		file = "/go/service_note/http/route.go"
-		http_route_file, _ = os.ReadFile(projectName + file)
-		http_route_file_lines = strings.Split(string(http_route_file), "\n")
-		http_route_file_lines = remove_lines_from_to(
-			http_route_file_lines,
-			"func extractAccessToken(r *http.Request) string {",
-			"func setupAuthRoutes(mux *http.ServeMux, cfg *config.NoteConfig, storage *storage.Storage) {",
-		)
-		http_route_file_lines = remove_lines_from_to(
-			http_route_file_lines,
-			"func setupNotesRoutes(mux *http.ServeMux, cfg *config.NoteConfig, storage *storage.Storage) {",
-			"// End",
-		)
-		new_http_route_file_lines = []string{}
-		for i, line := range http_route_file_lines {
-			if strings.Contains(line, "\"strconv\"") ||
-				strings.Contains(line, "\"server/auth\"") ||
-				strings.Contains(line, "\"server/service_note/domain/note\"") ||
-				strings.Contains(line, "\"server/service_note/domain/user\"") {
-				continue
-			}
-			new_http_route_file_lines = append(new_http_route_file_lines, http_route_file_lines[i])
-		}
-		_ = os.WriteFile(projectName+file, []byte(strings.Join(new_http_route_file_lines, "\n")), 0644)
-
-		for _, file := range []string{"/go/service_user/http/server.go", "/go/service_note/http/server.go"} {
-			server_route_file, _ := os.ReadFile(projectName + file)
-			var new_server_route_file_lines []string
-			for _, line := range strings.Split(string(server_route_file), "\n") {
-				if strings.Contains(line, "setupNotesRoutes") ||
-					strings.Contains(line, "setupUsersRoutes") ||
-					strings.Contains(line, "setupPaymentsRoutes") ||
-					strings.Contains(line, "setupEmailsRoutes") {
-					continue
-				}
-				new_server_route_file_lines = append(new_server_route_file_lines, line)
-			}
-			_ = os.WriteFile(projectName+file, []byte(strings.Join(new_server_route_file_lines, "\n")), 0644)
-		}
-
-		replace("GetUserByIDbyHTTP", "GetUserByIDbyGRPC", projectName+"/go/service_note/domain/user/", []string{"service.go"})
-
-		replace("_http", "_grpc", projectName+"/svelte/src/", []string{
-			"routes/(app)/notes/+page.server.ts",
-			"routes/(app)/notes/[note_id]/+page.server.ts",
-			"routes/(app)/emails/+page.server.ts",
-			"routes/(app)/payments/+page.server.ts",
-		})
-
-		replace("_http", "_grpc", projectName+"/next/app/", []string{
-			"(app)/notes/page.tsx",
-			"(app)/notes/insert_note_form.tsx",
-			"(app)/notes/[note_id]/page.tsx",
-			"(app)/notes/[note_id]/update_note_form.tsx",
-			"(app)/notes/[note_id]/delete_note_form.tsx",
-			"(app)/emails/page.tsx",
-			"(app)/emails/send_email_form.tsx",
-			"(app)/payments/page.tsx",
-			"(app)/payments/billing_form.tsx",
-		})
 	}
 
 	// Base project
@@ -394,16 +264,6 @@ func cleaning(projectName string, protocol string, client string, start string, 
 	return run_cmd, nil
 }
 
-func remove_line(lines []string, to_remove string) []string {
-	var new_lines []string
-	for _, line := range lines {
-		if !strings.Contains(line, to_remove) {
-			new_lines = append(new_lines, line)
-		}
-	}
-	return new_lines
-}
-
 func remove_lines_from_to(lines []string, from string, to string) []string {
 	var new_lines []string
 	var found bool
@@ -419,18 +279,4 @@ func remove_lines_from_to(lines []string, from string, to string) []string {
 		}
 	}
 	return new_lines
-}
-
-func replace(in string, out string, directory string, files []string) {
-	for _, file := range files {
-		content, _ := os.ReadFile(directory + file)
-		lines := strings.Split(string(content), "\n")
-		for i, line := range lines {
-			if strings.Contains(line, in) {
-				lines[i] = strings.ReplaceAll(line, in, out)
-				break
-			}
-		}
-		_ = os.WriteFile(directory+"/"+file, []byte(strings.Join(lines, "\n")), 0644)
-	}
 }

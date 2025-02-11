@@ -38,12 +38,10 @@ func (m model) View() string {
 		b.WriteString(successStyle.Render("Press enter to start the configuration"))
 		b.WriteRune('\n')
 		b.WriteRune('\n')
-	} else if m.step == protocolStep || m.step == clientStep || m.step == startOptionStep || m.step == databaseStep || m.step == paymentsProviderStep || m.step == emailProviderStep || m.step == filesProviderStep || m.step == monitoringStep {
+	} else if m.step == clientStep || m.step == startOptionStep || m.step == databaseStep || m.step == paymentsProviderStep || m.step == emailProviderStep || m.step == filesProviderStep || m.step == monitoringStep {
 		b.WriteRune('\n')
 		if m.step == clientStep {
 			b.WriteString("Choose a frontend framework\n\n")
-		} else if m.step == protocolStep {
-			b.WriteString("Choose the protocol you want to use\n\n")
 		} else if m.step == startOptionStep {
 			b.WriteString("Do you want to generate a ready-to-run project with pre-filled test secrets? (don't forget to change them later!)\n\n")
 		} else if m.step == databaseStep {
@@ -61,8 +59,6 @@ func (m model) View() string {
 		var d []string
 		if m.step == clientStep {
 			d = m.clients
-		} else if m.step == protocolStep {
-			d = m.protocols
 		} else if m.step == startOptionStep {
 			d = m.startOptions
 		} else if m.step == databaseStep {
@@ -90,8 +86,6 @@ func (m model) View() string {
 		b.WriteString(s)
 		if m.step == clientStep {
 			b.WriteString("")
-		} else if m.step == protocolStep {
-			b.WriteString("\n\n")
 		} else if m.step == startOptionStep {
 			b.WriteString("\n")
 			b.WriteString("\n")

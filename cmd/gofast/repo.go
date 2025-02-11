@@ -30,17 +30,16 @@ var (
 	validateStep         = 2
 	startStep            = 3
 	clientStep           = 4
-	protocolStep         = 5
-	startOptionStep      = 6
-	databaseStep         = 7
-	paymentsProviderStep = 8
-	emailProviderStep    = 9
-	filesProviderStep    = 10
-	monitoringStep       = 11
-	projectNameStep      = 12
-	cleaningStep         = 13
-	finishStep           = 14
-	successStep          = 15
+	startOptionStep      = 5
+	databaseStep         = 6
+	paymentsProviderStep = 7
+	emailProviderStep    = 8
+	filesProviderStep    = 9
+	monitoringStep       = 10
+	projectNameStep      = 11
+	cleaningStep         = 12
+	finishStep           = 13
+	successStep          = 14
 )
 
 type (
@@ -64,8 +63,6 @@ type model struct {
 
 	clients                  []string
 	selectedClient           string
-	protocols                []string
-	selectedProtocol         string
 	startOptions             []string
 	selectedStartOption      string
 	databases                []string
@@ -116,8 +113,6 @@ func initialModel() model {
 
 		clients:                  []string{"SvelteKit", "Next.js", "Vue.js", "None"},
 		selectedClient:           "SvelteKit",
-		protocols:                []string{"HTTP", "gRPC"},
-		selectedProtocol:         "HTTP",
 		startOptions:             []string{"Generate base project (SQLite, Grafana Monitoring, Mocked payments, Local files, Log Emails)", "Start new configuration"},
 		selectedStartOption:      "Generate base project (SQLite, Mocked payments, Log emails, Local files)",
 		databases:                []string{"SQLite", "Turso with Embedded Replicas", "PostgreSQL (local)", "PostgreSQL (remote)"},
@@ -168,15 +163,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, textinput.Blink
 			} else if m.step == clientStep {
 				m.selectedClient = m.clients[m.focusIndex]
-				m.focusIndex = 0
-				m.step = protocolStep
-			} else if m.step == protocolStep {
-				if m.selectedClient == "Vue.js" && m.protocols[m.focusIndex] == "gRPC" {
-					return m, func() tea.Msg {
-						return errMsg(fmt.Errorf("gRPC is not supported for Vue yet"))
-					}
-				}
-				m.selectedProtocol = m.protocols[m.focusIndex]
 				m.focusIndex = 0
 				m.step = startOptionStep
 			} else if m.step == startOptionStep {
@@ -242,11 +228,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.step == authStep {
 				cmd := m.toggleFocus([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
 				return m, cmd
-			} else if m.step == protocolStep || m.step == clientStep || m.step == startOptionStep || m.step == databaseStep || m.step == paymentsProviderStep || m.step == emailProviderStep || m.step == filesProviderStep || m.step == monitoringStep {
+			} else if m.step == clientStep || m.step == startOptionStep || m.step == databaseStep || m.step == paymentsProviderStep || m.step == emailProviderStep || m.step == filesProviderStep || m.step == monitoringStep {
 				var d []string
-				if m.step == protocolStep {
-					d = m.protocols
-				} else if m.step == clientStep {
+				if m.step == clientStep {
 					d = m.clients
 				} else if m.step == startOptionStep {
 					d = m.startOptions
@@ -481,7 +465,7 @@ func unzipFile() error {
 func (m *model) cleaningRepo() tea.Cmd {
 	return func() tea.Msg {
 		now := time.Now()
-		d, err := cleaning(m.projectNameInput.Value(), m.selectedProtocol, m.selectedClient, m.selectedStartOption, m.selectedDatabase, m.selectedPaymentsProvider, m.selectedEmailProvider, m.selectedFilesProvider, m.selectedMonitoring)
+		d, err := cleaning(m.projectNameInput.Value(), m.selectedClient, m.selectedStartOption, m.selectedDatabase, m.selectedPaymentsProvider, m.selectedEmailProvider, m.selectedFilesProvider, m.selectedMonitoring)
 		if err != nil {
 			return errMsg(err)
 		}
