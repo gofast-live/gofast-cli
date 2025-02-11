@@ -23,23 +23,23 @@ func cleaning(projectName string, client string, start string, database string, 
 		_ = os.RemoveAll(projectName + "/svelte")
 		_ = os.RemoveAll(projectName + "/next")
 		_ = os.RemoveAll(projectName + "/vue")
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  postgres:")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  postgres:", false)
 	} else if client == "SvelteKit" {
 		_ = os.RemoveAll(projectName + "/next")
 		_ = os.RemoveAll(projectName + "/vue")
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  next:", "  postgres:")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  next:", "  postgres:", false)
 	} else if client == "Next.js" {
 		_ = os.RemoveAll(projectName + "/svelte")
 		_ = os.RemoveAll(projectName + "/vue")
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  next:")
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  vue:", "  postgres:")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  next:", false)
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  vue:", "  postgres:", false)
 		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3001", "3000")
 		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
 	} else if client == "Vue.js" {
 		_ = os.RemoveAll(projectName + "/svelte")
 		_ = os.RemoveAll(projectName + "/next")
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  vue:")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  vue:", false)
 		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3002", "3000")
 		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
@@ -67,7 +67,7 @@ func cleaning(projectName string, client string, start string, database string, 
 		if err != nil {
 			return nil, err
 		}
-		new_lines := remove_lines_from_to(docker_compose_lines, "  postgres:", "# end")
+		new_lines := remove_lines_from_to(docker_compose_lines, "  postgres:", "# end", false)
 		docker_compose_file_str = strings.Join(new_lines, "\n")
 		err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
 		if err != nil {
@@ -93,7 +93,7 @@ func cleaning(projectName string, client string, start string, database string, 
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# TURSO_TOKEN: ${TURSO_TOKEN}", "TURSO_TOKEN: ${TURSO_TOKEN}")
 		run_cmd = append(run_cmd, "TURSO_TOKEN=__CHANGE_ME__ \\")
 		// change all $1, $2, $3, $4, $5 to $6 to ?1, ?2, ?3, ?4, ?5, ?6
-		store_files := []string{"/go/services/note/store.go", "/go/services/user/store.go", "/go/services/email/store.go", "/go/services/file/store.go"}
+		store_files := []string{"/service-go-user/domain/note/store.go", "/service-go-user/domain/user/store.go", "/service-go-user/domain/email/store.go", "/service-go-user/domain/file/store.go"}
 		for _, file := range store_files {
 			store_file, _ := os.ReadFile(projectName + file)
 			store_file_lines := strings.Split(string(store_file), "\n")
@@ -138,7 +138,7 @@ func cleaning(projectName string, client string, start string, database string, 
 	}
 	if database != "PostgreSQL (local)" {
 		lines := strings.Split(docker_compose_file_str, "\n")
-		new_lines := remove_lines_from_to(lines, "  postgres:", "# end")
+		new_lines := remove_lines_from_to(lines, "  postgres:", "# end", false)
 		docker_compose_file_str = strings.Join(new_lines, "\n")
 	}
 
@@ -231,7 +231,7 @@ func cleaning(projectName string, client string, start string, database string, 
 	if selectedMonitoring == "No" {
 		_ = os.RemoveAll(projectName + "/grafana")
 		_ = os.RemoveAll(projectName + "/kube")
-		new_lines := remove_lines_from_to(lines, "logging:", "command:")
+        new_lines := remove_lines_from_to(lines, "logging:", "loki-retries:", true)
 		docker_compose_file_str = strings.Join(new_lines, "\n")
 	} else if selectedMonitoring == "Grafana + Loki + Prometheus Monitoring using Docker" {
 		_ = os.RemoveAll(projectName + "/kube")
@@ -239,7 +239,7 @@ func cleaning(projectName string, client string, start string, database string, 
 		run_cmd = append(run_cmd, "For Grafana Monitoring, check the README.md in `/grafana` folder")
 	} else {
 		_ = os.RemoveAll(projectName + "/grafana")
-		new_lines := remove_lines_from_to(lines, "logging:", "command:")
+		new_lines := remove_lines_from_to(lines, "logging:", "loki-retries:", true)
 		docker_compose_file_str = strings.Join(new_lines, "\n")
         run_cmd = append(run_cmd, "\n")
         run_cmd = append(run_cmd, "For Kubernetes Deployment + Monitoring, check the README.md in `/kube` folder")
@@ -264,7 +264,7 @@ func cleaning(projectName string, client string, start string, database string, 
 	return run_cmd, nil
 }
 
-func remove_lines_from_to(lines []string, from string, to string) []string {
+func remove_lines_from_to(lines []string, from string, to string, removeTo bool) []string {
 	var new_lines []string
 	var found bool
 	for i, line := range lines {
@@ -273,6 +273,9 @@ func remove_lines_from_to(lines []string, from string, to string) []string {
 		}
 		if strings.Contains(line, to) {
 			found = false
+            if removeTo {
+                continue
+            }
 		}
 		if !found {
 			new_lines = append(new_lines, lines[i])
