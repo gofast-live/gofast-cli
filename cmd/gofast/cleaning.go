@@ -54,14 +54,14 @@ func cleaning(projectName string, client string, start string, database string, 
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_SECRET=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 \\")
 		run_cmd = append(run_cmd, "EMAIL_FROM=admin@gofast.live \\")
 		run_cmd = append(run_cmd, "docker compose up --build")
-		run_cmd = append(run_cmd, "\n")
-		run_cmd = append(run_cmd, "For Grafana Monitoring, check the README.md in `/grafana` folder")
-		run_cmd = append(run_cmd, "For Kubernetes Deployment + Monitoring, check the README.md in `/kube` folder")
 		readme_file, _ := os.ReadFile(projectName + "/README.md")
 		readme_file_lines := strings.Split(string(readme_file), "\n")
 		readme_file_lines = append(readme_file_lines, "```bash")
 		readme_file_lines = append(readme_file_lines, run_cmd...)
 		readme_file_lines = append(readme_file_lines, "```")
+		readme_file_lines = append(readme_file_lines, "")
+		readme_file_lines = append(readme_file_lines, "For Grafana Monitoring, check the README.md in `/grafana` folder.")
+		readme_file_lines = append(readme_file_lines, "For Kubernetes Deployment + Monitoring, check the README.md in `/kube` folder.")
 		readme_file_str := strings.Join(readme_file_lines, "\n")
 		err = os.WriteFile(projectName+"/README.md", []byte(readme_file_str), 0644)
 		if err != nil {
@@ -224,7 +224,6 @@ func cleaning(projectName string, client string, start string, database string, 
 		run_cmd = append(run_cmd, "AZBLOB_ACCOUNT_KEY=__CHANGE_ME__ \\")
 	}
 
-	run_cmd = append(run_cmd, "docker compose up --build")
 
 	// Monitoring
 	lines := strings.Split(docker_compose_file_str, "\n")
@@ -235,14 +234,10 @@ func cleaning(projectName string, client string, start string, database string, 
 		docker_compose_file_str = strings.Join(new_lines, "\n")
 	} else if selectedMonitoring == "Grafana + Loki + Prometheus Monitoring using Docker" {
 		_ = os.RemoveAll(projectName + "/kube")
-		run_cmd = append(run_cmd, "\n")
-		run_cmd = append(run_cmd, "For Grafana Monitoring, check the README.md in `/grafana` folder")
 	} else {
 		_ = os.RemoveAll(projectName + "/grafana")
 		new_lines := remove_lines_from_to(lines, "logging:", "loki-retries:", true)
 		docker_compose_file_str = strings.Join(new_lines, "\n")
-        run_cmd = append(run_cmd, "\n")
-        run_cmd = append(run_cmd, "For Kubernetes Deployment + Monitoring, check the README.md in `/kube` folder")
 	}
 
 	err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
@@ -251,11 +246,15 @@ func cleaning(projectName string, client string, start string, database string, 
 	}
 
 	// Append the cmd to Readme
+	run_cmd = append(run_cmd, "docker compose up --build")
 	readme_file, _ := os.ReadFile(projectName + "/README.md")
 	readme_file_lines := strings.Split(string(readme_file), "\n")
 	readme_file_lines = append(readme_file_lines, "```bash")
 	readme_file_lines = append(readme_file_lines, run_cmd...)
 	readme_file_lines = append(readme_file_lines, "```")
+    readme_file_lines = append(readme_file_lines, "")
+    readme_file_lines = append(readme_file_lines, "For Grafana Monitoring, check the README.md in `/grafana` folder.")
+    readme_file_lines = append(readme_file_lines, "For Kubernetes Deployment + Monitoring, check the README.md in `/kube` folder.")
 	readme_file_str := strings.Join(readme_file_lines, "\n")
 	err = os.WriteFile(projectName+"/README.md", []byte(readme_file_str), 0644)
 	if err != nil {
