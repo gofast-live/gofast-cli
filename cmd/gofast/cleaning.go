@@ -56,6 +56,12 @@ func cleaning(projectName string, client string, start string, database string, 
 		run_cmd = append(run_cmd, "docker compose up --build")
 		readme_file, _ := os.ReadFile(projectName + "/README.md")
 		readme_file_lines := strings.Split(string(readme_file), "\n")
+		readme_file_lines = append(readme_file_lines, "Generate new JWT keys for the project:")
+		readme_file_lines = append(readme_file_lines, "```bash")
+		readme_file_lines = append(readme_file_lines, "cd scripts && sh key.sh")
+		readme_file_lines = append(readme_file_lines, "```")
+		readme_file_lines = append(readme_file_lines, "")
+		readme_file_lines = append(readme_file_lines, "Spin up the project:")
 		readme_file_lines = append(readme_file_lines, "```bash")
 		readme_file_lines = append(readme_file_lines, run_cmd...)
 		readme_file_lines = append(readme_file_lines, "```")
@@ -149,8 +155,8 @@ func cleaning(projectName string, client string, start string, database string, 
 		run_cmd = append(run_cmd, "STRIPE_API_KEY=__CHANGE_ME__ \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}", "STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}")
 		run_cmd = append(run_cmd, "STRIPE_PRICE_ID=__CHANGE_ME__ \\")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}", "STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}")
-        run_cmd = append(run_cmd, "STRIPE_WEBHOOK_SECRET=__CHANGE_ME__ \\")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}", "STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}")
+		run_cmd = append(run_cmd, "STRIPE_WEBHOOK_SECRET=__CHANGE_ME__ \\")
 	} else if paymentsProvider == "Lemon Squeezy" {
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "PAYMENT_PROVIDER: local", "PAYMENT_PROVIDER: lemon")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# LEMON_API_KEY: ${LEMON_API_KEY}", "LEMON_API_KEY: ${LEMON_API_KEY}")
@@ -159,8 +165,8 @@ func cleaning(projectName string, client string, start string, database string, 
 		run_cmd = append(run_cmd, "LEMON_VARIANT_ID=__CHANGE_ME__ \\")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# LEMON_STORE_ID: ${LEMON_STORE_ID}", "LEMON_STORE_ID: ${LEMON_STORE_ID}")
 		run_cmd = append(run_cmd, "LEMON_STORE_ID=__CHANGE_ME__ \\")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# LEMON_WEBHOOK_SECRET: ${LEMON_WEBHOOK_SECRET}", "LEMON_WEBHOOK_SECRET: ${LEMON_WEBHOOK_SECRET}")
-        run_cmd = append(run_cmd, "LEMON_WEBHOOK_SECRET=__CHANGE_ME__ \\")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# LEMON_WEBHOOK_SECRET: ${LEMON_WEBHOOK_SECRET}", "LEMON_WEBHOOK_SECRET: ${LEMON_WEBHOOK_SECRET}")
+		run_cmd = append(run_cmd, "LEMON_WEBHOOK_SECRET=__CHANGE_ME__ \\")
 	}
 
 	// Emails
@@ -224,13 +230,12 @@ func cleaning(projectName string, client string, start string, database string, 
 		run_cmd = append(run_cmd, "AZBLOB_ACCOUNT_KEY=__CHANGE_ME__ \\")
 	}
 
-
 	// Monitoring
 	lines := strings.Split(docker_compose_file_str, "\n")
 	if selectedMonitoring == "No" {
 		_ = os.RemoveAll(projectName + "/grafana")
 		_ = os.RemoveAll(projectName + "/kube")
-        new_lines := remove_lines_from_to(lines, "logging:", "loki-retries:", true)
+		new_lines := remove_lines_from_to(lines, "logging:", "loki-retries:", true)
 		docker_compose_file_str = strings.Join(new_lines, "\n")
 	} else if selectedMonitoring == "Grafana + Loki + Prometheus Monitoring using Docker" {
 		_ = os.RemoveAll(projectName + "/kube")
@@ -249,12 +254,18 @@ func cleaning(projectName string, client string, start string, database string, 
 	run_cmd = append(run_cmd, "docker compose up --build")
 	readme_file, _ := os.ReadFile(projectName + "/README.md")
 	readme_file_lines := strings.Split(string(readme_file), "\n")
+	readme_file_lines = append(readme_file_lines, "Generate new JWT keys for the project:")
+	readme_file_lines = append(readme_file_lines, "```bash")
+	readme_file_lines = append(readme_file_lines, "cd scripts && sh key.sh")
+	readme_file_lines = append(readme_file_lines, "```")
+	readme_file_lines = append(readme_file_lines, "")
+	readme_file_lines = append(readme_file_lines, "Spin up the project:")
 	readme_file_lines = append(readme_file_lines, "```bash")
 	readme_file_lines = append(readme_file_lines, run_cmd...)
 	readme_file_lines = append(readme_file_lines, "```")
-    readme_file_lines = append(readme_file_lines, "")
-    readme_file_lines = append(readme_file_lines, "For Grafana Monitoring, check the README.md in `/grafana` folder.")
-    readme_file_lines = append(readme_file_lines, "For Kubernetes Deployment + Monitoring, check the README.md in `/kube` folder.")
+	readme_file_lines = append(readme_file_lines, "")
+	readme_file_lines = append(readme_file_lines, "For Grafana Monitoring, check the README.md in `/grafana` folder.")
+	readme_file_lines = append(readme_file_lines, "For Kubernetes Deployment + Monitoring, check the README.md in `/kube` folder.")
 	readme_file_str := strings.Join(readme_file_lines, "\n")
 	err = os.WriteFile(projectName+"/README.md", []byte(readme_file_str), 0644)
 	if err != nil {
@@ -272,9 +283,9 @@ func remove_lines_from_to(lines []string, from string, to string, removeTo bool)
 		}
 		if strings.Contains(line, to) {
 			found = false
-            if removeTo {
-                continue
-            }
+			if removeTo {
+				continue
+			}
 		}
 		if !found {
 			new_lines = append(new_lines, lines[i])
