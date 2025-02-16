@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func cleaning(projectName string, client string, start string, database string, paymentsProvider string, emailProvider string, filesProvider string, selectedMonitoring string) ([]string, error) {
+func cleaning(projectName string, client string, start string, paymentsProvider string, emailProvider string, filesProvider string, selectedMonitoring string) ([]string, error) {
 	// remove .git folder
 	_ = os.RemoveAll(projectName + "/.git")
 
@@ -42,16 +42,20 @@ func cleaning(projectName string, client string, start string, database string, 
 		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  vue:", false)
 		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3002", "3000")
-		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
 	}
 
 	// Base project
 	var run_cmd []string
-	if start == "Generate base project (SQLite, Grafana Monitoring, Mocked payments, Local files, Log Emails)" {
+	if start == "Generate base project (Local PostgreSQL, Grafana Monitoring, Mocked payments, Local files, Log Emails)" {
 		run_cmd = append(run_cmd, "GITHUB_CLIENT_ID=Iv23litoS0DJltaklISr \\")
 		run_cmd = append(run_cmd, "GITHUB_CLIENT_SECRET=c6ed4d8bc5bcb687162da0ea0d9bc614e31004a8 \\")
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_ID=646089287190-m252eqv203c3fsv1gt1m29nkq2t6lrp6.apps.googleusercontent.com \\")
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_SECRET=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 \\")
+        run_cmd = append(run_cmd, "POSTGRES_HOST=postgres \\")
+        run_cmd = append(run_cmd, "POSTGRES_PORT=5432 \\")
+        run_cmd = append(run_cmd, "POSTGRES_DB=postgres \\")
+        run_cmd = append(run_cmd, "POSTGRES_PASS=postgres \\")
+        run_cmd = append(run_cmd, "POSTGRES_USER=postgres \\")
 		run_cmd = append(run_cmd, "EMAIL_FROM=admin@gofast.live \\")
 		run_cmd = append(run_cmd, "docker compose up --build")
 		readme_file, _ := os.ReadFile(projectName + "/README.md")
@@ -73,8 +77,6 @@ func cleaning(projectName string, client string, start string, database string, 
 		if err != nil {
 			return nil, err
 		}
-		new_lines := remove_lines_from_to(docker_compose_lines, "  postgres:", "# end", false)
-		docker_compose_file_str = strings.Join(new_lines, "\n")
 		err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
 		if err != nil {
 			return nil, err
@@ -87,66 +89,6 @@ func cleaning(projectName string, client string, start string, database string, 
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_SECRET=__CHANGE_ME__ \\")
 	}
 	docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
-
-	// Database
-	if database != "SQLite" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "SQLITE_FILE: ./storage/local.db", "# SQLITE_FILE: ./storage/local.db")
-	}
-	if database == "Turso with Embedded Replicas" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: sqlite", "DB_PROVIDER: turso")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# TURSO_URL: ${TURSO_URL}", "TURSO_URL: ${TURSO_URL}")
-		run_cmd = append(run_cmd, "TURSO_URL=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# TURSO_TOKEN: ${TURSO_TOKEN}", "TURSO_TOKEN: ${TURSO_TOKEN}")
-		run_cmd = append(run_cmd, "TURSO_TOKEN=__CHANGE_ME__ \\")
-		// change all $1, $2, $3, $4, $5 to $6 to ?1, ?2, ?3, ?4, ?5, ?6
-		store_files := []string{"/service-go-user/domain/note/store.go", "/service-go-user/domain/user/store.go", "/service-go-user/domain/email/store.go", "/service-go-user/domain/file/store.go"}
-		for _, file := range store_files {
-			store_file, _ := os.ReadFile(projectName + file)
-			store_file_lines := strings.Split(string(store_file), "\n")
-			var new_store_file_lines []string
-			for _, line := range store_file_lines {
-				line = strings.ReplaceAll(line, "$1", "?1")
-				line = strings.ReplaceAll(line, "$2", "?2")
-				line = strings.ReplaceAll(line, "$3", "?3")
-				line = strings.ReplaceAll(line, "$4", "?4")
-				line = strings.ReplaceAll(line, "$5", "?5")
-				line = strings.ReplaceAll(line, "$6", "?6")
-				line = strings.ReplaceAll(line, "$7", "?7")
-				line = strings.ReplaceAll(line, "$8", "?8")
-				new_store_file_lines = append(new_store_file_lines, line)
-			}
-			_ = os.WriteFile(projectName+file, []byte(strings.Join(new_store_file_lines, "\n")), 0644)
-		}
-	} else if database == "PostgreSQL (local)" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: sqlite", "DB_PROVIDER: postgres")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_HOST: ${POSTGRES_HOST}", "POSTGRES_HOST: ${POSTGRES_HOST}")
-		run_cmd = append(run_cmd, "POSTGRES_HOST=postgres \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PORT: ${POSTGRES_PORT}", "POSTGRES_PORT: ${POSTGRES_PORT}")
-		run_cmd = append(run_cmd, "POSTGRES_PORT=5432 \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_DB: ${POSTGRES_DB}", "POSTGRES_DB: ${POSTGRES_DB}")
-		run_cmd = append(run_cmd, "POSTGRES_DB=postgres \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PASS: ${POSTGRES_PASS}", "POSTGRES_PASS: ${POSTGRES_PASS}")
-		run_cmd = append(run_cmd, "POSTGRES_PASS=postgres \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_USER: ${POSTGRES_USER}", "POSTGRES_USER: ${POSTGRES_USER}")
-		run_cmd = append(run_cmd, "POSTGRES_USER=postgres \\")
-	} else if database == "PostgreSQL (remote)" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "DB_PROVIDER: sqlite", "DB_PROVIDER: postgres")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_HOST: ${POSTGRES_HOST}", "POSTGRES_HOST: ${POSTGRES_HOST}")
-		run_cmd = append(run_cmd, "POSTGRES_HOST=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PORT: ${POSTGRES_PORT}", "POSTGRES_PORT: ${POSTGRES_PORT}")
-		run_cmd = append(run_cmd, "POSTGRES_PORT=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_DB: ${POSTGRES_DB}", "POSTGRES_DB: ${POSTGRES_DB}")
-		run_cmd = append(run_cmd, "POSTGRES_DB=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_PASS: ${POSTGRES_PASS}", "POSTGRES_PASS: ${POSTGRES_PASS}")
-		run_cmd = append(run_cmd, "POSTGRES_PASS=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTGRES_USER: ${POSTGRES_USER}", "POSTGRES_USER: ${POSTGRES_USER}")
-		run_cmd = append(run_cmd, "POSTGRES_USER=__CHANGE_ME__ \\")
-	}
-	if database != "PostgreSQL (local)" {
-		lines := strings.Split(docker_compose_file_str, "\n")
-		new_lines := remove_lines_from_to(lines, "  postgres:", "# end", false)
-		docker_compose_file_str = strings.Join(new_lines, "\n")
-	}
 
 	// Payments
 	if paymentsProvider == "Stripe" {
@@ -251,6 +193,11 @@ func cleaning(projectName string, client string, start string, database string, 
 	}
 
 	// Append the cmd to Readme
+    run_cmd = append(run_cmd, "POSTGRES_HOST=postgres \\")
+    run_cmd = append(run_cmd, "POSTGRES_PORT=5432 \\")
+    run_cmd = append(run_cmd, "POSTGRES_DB=postgres \\")
+    run_cmd = append(run_cmd, "POSTGRES_PASS=postgres \\")
+    run_cmd = append(run_cmd, "POSTGRES_USER=postgres \\")
 	run_cmd = append(run_cmd, "docker compose up --build")
 	readme_file, _ := os.ReadFile(projectName + "/README.md")
 	readme_file_lines := strings.Split(string(readme_file), "\n")

@@ -31,15 +31,14 @@ var (
 	startStep            = 3
 	clientStep           = 4
 	startOptionStep      = 5
-	databaseStep         = 6
-	paymentsProviderStep = 7
-	emailProviderStep    = 8
-	filesProviderStep    = 9
-	monitoringStep       = 10
-	projectNameStep      = 11
-	cleaningStep         = 12
-	finishStep           = 13
-	successStep          = 14
+	paymentsProviderStep = 6
+	emailProviderStep    = 7
+	filesProviderStep    = 8
+	monitoringStep       = 9
+	projectNameStep      = 10
+	cleaningStep         = 11
+	finishStep           = 12
+	successStep          = 13
 )
 
 type (
@@ -65,8 +64,6 @@ type model struct {
 	selectedClient           string
 	startOptions             []string
 	selectedStartOption      string
-	databases                []string
-	selectedDatabase         string
 	paymentsProviders        []string
 	selectedPaymentsProvider string
 	emailsProviders          []string
@@ -113,10 +110,8 @@ func initialModel() model {
 
 		clients:                  []string{"SvelteKit", "Next.js", "Vue.js", "None"},
 		selectedClient:           "SvelteKit",
-		startOptions:             []string{"Generate base project (SQLite, Grafana Monitoring, Mocked payments, Local files, Log Emails)", "Start new configuration"},
-		selectedStartOption:      "Generate base project (SQLite, Mocked payments, Log emails, Local files)",
-		databases:                []string{"SQLite", "PostgreSQL (local)", "PostgreSQL (remote)", "Turso with Embedded Replicas" },
-		selectedDatabase:         "SQLite",
+		startOptions:             []string{"Generate base project (Local PostgreSQL, Grafana Monitoring, Mocked payments, Local files, Log Emails)", "Start new configuration"},
+		selectedStartOption:      "Generate base project (Local PostgreSQL, Grafana Monitoring, Mocked payments, Local files, Log Emails)",
 		paymentsProviders:        []string{"Local (mock)", "Stripe", "Lemon Squeezy"},
 		selectedPaymentsProvider: "Local (mock)",
 		emailsProviders:          []string{"Local (log)", "Postmark", "Sendgrid", "Resend", "AWS SES"},
@@ -168,7 +163,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.step == startOptionStep {
 				m.selectedStartOption = m.startOptions[m.focusIndex]
 				m.focusIndex = 0
-				if m.selectedStartOption == "Generate base project (SQLite, Grafana Monitoring, Mocked payments, Local files, Log Emails)" {
+				if m.selectedStartOption == "Generate base project (Local PostgreSQL, Grafana Monitoring, Mocked payments, Local files, Log Emails)" {
 					m.step = projectNameStep
 					blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput, &m.projectNameInput})
 					m.projectNameInput.Focus()
@@ -176,12 +171,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.projectNameInput.TextStyle = focusedStyle
 					return m, textinput.Blink
 				} else {
-					m.step = databaseStep
+                    m.focusIndex = 0
+					m.step = paymentsProviderStep
 				}
-			} else if m.step == databaseStep {
-				m.selectedDatabase = m.databases[m.focusIndex]
-				m.focusIndex = 0
-				m.step = paymentsProviderStep
 			} else if m.step == paymentsProviderStep {
 				m.selectedPaymentsProvider = m.paymentsProviders[m.focusIndex]
 				m.focusIndex = 0
@@ -228,14 +220,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.step == authStep {
 				cmd := m.toggleFocus([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
 				return m, cmd
-			} else if m.step == clientStep || m.step == startOptionStep || m.step == databaseStep || m.step == paymentsProviderStep || m.step == emailProviderStep || m.step == filesProviderStep || m.step == monitoringStep {
+			} else if m.step == clientStep || m.step == startOptionStep || m.step == paymentsProviderStep || m.step == emailProviderStep || m.step == filesProviderStep || m.step == monitoringStep {
 				var d []string
 				if m.step == clientStep {
 					d = m.clients
 				} else if m.step == startOptionStep {
 					d = m.startOptions
-				} else if m.step == databaseStep {
-					d = m.databases
 				} else if m.step == paymentsProviderStep {
 					d = m.paymentsProviders
 				} else if m.step == emailProviderStep {
@@ -465,7 +455,7 @@ func unzipFile() error {
 func (m *model) cleaningRepo() tea.Cmd {
 	return func() tea.Msg {
 		now := time.Now()
-		d, err := cleaning(m.projectNameInput.Value(), m.selectedClient, m.selectedStartOption, m.selectedDatabase, m.selectedPaymentsProvider, m.selectedEmailProvider, m.selectedFilesProvider, m.selectedMonitoring)
+		d, err := cleaning(m.projectNameInput.Value(), m.selectedClient, m.selectedStartOption, m.selectedPaymentsProvider, m.selectedEmailProvider, m.selectedFilesProvider, m.selectedMonitoring)
 		if err != nil {
 			return errMsg(err)
 		}
