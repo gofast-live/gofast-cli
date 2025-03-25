@@ -203,7 +203,7 @@ func cleaning(projectName string, client string, start string, paymentsProvider 
 	readme_file_lines := strings.Split(string(readme_file), "\n")
 	readme_file_lines = append(readme_file_lines, "Generate new JWT keys for the project:")
 	readme_file_lines = append(readme_file_lines, "```bash")
-	readme_file_lines = append(readme_file_lines, "cd scripts && sh key.sh")
+	readme_file_lines = append(readme_file_lines, "sh scripts/key.sh")
 	readme_file_lines = append(readme_file_lines, "```")
 	readme_file_lines = append(readme_file_lines, "")
 	readme_file_lines = append(readme_file_lines, "Spin up the project:")
