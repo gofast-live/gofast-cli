@@ -34,14 +34,14 @@ func cleaning(projectName string, client string, start string, paymentsProvider 
 		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  next:", false)
 		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  vue:", "  postgres:", false)
 		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3001", "3000")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3003", "3000")
 		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
 	} else if client == "Vue.js" {
 		_ = os.RemoveAll(projectName + "/service-svelte")
 		_ = os.RemoveAll(projectName + "/service-next")
 		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  vue:", false)
 		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3002", "3000")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3004", "3000")
 	}
 
 	// Base project
