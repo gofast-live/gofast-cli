@@ -112,7 +112,7 @@ func initialModel() model {
 		selectedClient:           "SvelteKit",
 		startOptions:             []string{"Generate base project (Local PostgreSQL, Grafana Monitoring, Mocked payments, Local files, Log Emails)", "Start new configuration"},
 		selectedStartOption:      "Generate base project (Local PostgreSQL, Grafana Monitoring, Mocked payments, Local files, Log Emails)",
-		paymentsProviders:        []string{"Local (mock)", "Stripe", "Lemon Squeezy"},
+		paymentsProviders:        []string{"Local (mock)", "Stripe"},
 		selectedPaymentsProvider: "Local (mock)",
 		emailsProviders:          []string{"Local (log)", "Postmark", "Sendgrid", "Resend", "AWS SES"},
 		selectedEmailProvider:    "Local (log)",
