@@ -65,7 +65,7 @@ func cleaning(projectName string, client string, start string, paymentsProvider 
 		readme_file_lines := strings.Split(string(readme_file), "\n")
 		readme_file_lines = append(readme_file_lines, "Generate new JWT keys for the project:")
 		readme_file_lines = append(readme_file_lines, "```bash")
-		readme_file_lines = append(readme_file_lines, "sh scripts/key.sh")
+		readme_file_lines = append(readme_file_lines, "sh scripts/keys.sh")
 		readme_file_lines = append(readme_file_lines, "```")
 		readme_file_lines = append(readme_file_lines, "")
 		readme_file_lines = append(readme_file_lines, "Make sure you have the loki plugin installed:")
@@ -217,7 +217,7 @@ func cleaning(projectName string, client string, start string, paymentsProvider 
 	readme_file_lines := strings.Split(string(readme_file), "\n")
 	readme_file_lines = append(readme_file_lines, "Generate new JWT keys for the project:")
 	readme_file_lines = append(readme_file_lines, "```bash")
-	readme_file_lines = append(readme_file_lines, "sh scripts/key.sh")
+	readme_file_lines = append(readme_file_lines, "sh scripts/keys.sh")
 	readme_file_lines = append(readme_file_lines, "```")
 	readme_file_lines = append(readme_file_lines, "")
 	if selectedMonitoring == "Grafana + Loki + Prometheus Monitoring using Docker" {
