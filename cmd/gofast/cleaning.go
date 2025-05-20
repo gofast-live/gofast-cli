@@ -49,28 +49,28 @@ func cleaning(projectName string, client string, start string, paymentsProvider 
 
 	// Base project
 	var run_cmd []string
-	if start == "Generate base project (Local PostgreSQL, Grafana Monitoring, Mocked payments, Local files, Log Emails)" {
+	if start == "Generate base project (Local PostgreSQL, Mocked payments, Log Emails, Local files)" {
 		run_cmd = append(run_cmd, "GITHUB_CLIENT_ID=Iv23litoS0DJltaklISr \\")
 		run_cmd = append(run_cmd, "GITHUB_CLIENT_SECRET=c6ed4d8bc5bcb687162da0ea0d9bc614e31004a8 \\")
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_ID=646089287190-m252eqv203c3fsv1gt1m29nkq2t6lrp6.apps.googleusercontent.com \\")
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_SECRET=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 \\")
+		run_cmd = append(run_cmd, "DATABASE_PROVIDER=postgres \\")
 		run_cmd = append(run_cmd, "POSTGRES_HOST=postgres \\")
 		run_cmd = append(run_cmd, "POSTGRES_PORT=5432 \\")
 		run_cmd = append(run_cmd, "POSTGRES_DB=postgres \\")
 		run_cmd = append(run_cmd, "POSTGRES_PASS=postgres \\")
 		run_cmd = append(run_cmd, "POSTGRES_USER=postgres \\")
+		run_cmd = append(run_cmd, "PAYMENT_PROVIDER=local \\")
+		run_cmd = append(run_cmd, "EMAIL_PROVIDER=local \\")
 		run_cmd = append(run_cmd, "EMAIL_FROM=admin@gofast.live \\")
+		run_cmd = append(run_cmd, "FILE_PROVIDER=local \\")
+		run_cmd = append(run_cmd, "LOCAL_FILE_DIR=/file \\")
 		run_cmd = append(run_cmd, "docker compose up --build")
 		readme_file, _ := os.ReadFile(projectName + "/README.md")
 		readme_file_lines := strings.Split(string(readme_file), "\n")
 		readme_file_lines = append(readme_file_lines, "Generate new JWT keys for the project:")
 		readme_file_lines = append(readme_file_lines, "```bash")
 		readme_file_lines = append(readme_file_lines, "sh scripts/keys.sh")
-		readme_file_lines = append(readme_file_lines, "```")
-		readme_file_lines = append(readme_file_lines, "")
-		readme_file_lines = append(readme_file_lines, "Make sure you have the loki plugin installed:")
-		readme_file_lines = append(readme_file_lines, "```bash")
-		readme_file_lines = append(readme_file_lines, "docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions")
 		readme_file_lines = append(readme_file_lines, "```")
 		readme_file_lines = append(readme_file_lines, "")
 		readme_file_lines = append(readme_file_lines, "Spin up the project:")
@@ -113,97 +113,75 @@ func cleaning(projectName string, client string, start string, paymentsProvider 
 	}
 
 	// Payments
-	if paymentsProvider == "Stripe" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "PAYMENT_PROVIDER: local", "PAYMENT_PROVIDER: stripe")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_API_KEY: ${STRIPE_API_KEY}", "STRIPE_API_KEY: ${STRIPE_API_KEY}")
+	if paymentsProvider == "Local (mock)" {
+		run_cmd = append(run_cmd, "PAYMENT_PROVIDER=local \\")
+	} else if paymentsProvider == "Stripe" {
+		run_cmd = append(run_cmd, "PAYMENT_PROVIDER=stripe \\")
 		run_cmd = append(run_cmd, "STRIPE_API_KEY=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_PRICE_ID_BASIC: ${STRIPE_PRICE_ID_BASIC}", "STRIPE_PRICE_ID_BASIC: ${STRIPE_PRICE_ID_BASIC}")
 		run_cmd = append(run_cmd, "STRIPE_PRICE_ID_BASIC=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_PRICE_ID_PREMIUM: ${STRIPE_PRICE_ID_PREMIUM}", "STRIPE_PRICE_ID_PREMIUM: ${STRIPE_PRICE_ID_PREMIUM}")
 		run_cmd = append(run_cmd, "STRIPE_PRICE_ID_PREMIUM=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}", "STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}")
 		run_cmd = append(run_cmd, "STRIPE_WEBHOOK_SECRET=__CHANGE_ME__ \\")
 	}
 
 	// Emails
-	run_cmd = append(run_cmd, "EMAIL_FROM=__CHANGE_ME__ \\")
-	if emailProvider == "Postmark" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: postmark")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# POSTMARK_API_KEY: ${POSTMARK_API_KEY}", "POSTMARK_API_KEY: ${POSTMARK_API_KEY}")
+	if emailProvider == "Local (log)" {
+		run_cmd = append(run_cmd, "EMAIL_PROVIDER=local \\")
+	} else if emailProvider == "Postmark" {
+		run_cmd = append(run_cmd, "EMAIL_PROVIDER=postmark \\")
 		run_cmd = append(run_cmd, "POSTMARK_API_KEY=__CHANGE_ME__ \\")
 	} else if emailProvider == "Sendgrid" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: sendgrid")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# SENDGRID_API_KEY: ${SENDGRID_API_KEY}", "SENDGRID_API_KEY: ${SENDGRID_API_KEY}")
+		run_cmd = append(run_cmd, "EMAIL_PROVIDER=sendgrid \\")
 		run_cmd = append(run_cmd, "SENDGRID_API_KEY=__CHANGE_ME__ \\")
 	} else if emailProvider == "Resend" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: resend")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# RESEND_API_KEY: ${RESEND_API_KEY}", "RESEND_API_KEY: ${RESEND_API_KEY}")
+		run_cmd = append(run_cmd, "EMAIL_PROVIDER=resend \\")
 		run_cmd = append(run_cmd, "RESEND_API_KEY=__CHANGE_ME__ \\")
 	} else if emailProvider == "AWS SES" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "EMAIL_PROVIDER: local", "EMAIL_PROVIDER: ses")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# SES_REGION: ${SES_REGION}", "SES_REGION: ${SES_REGION}")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# SES_ACCESS_KEY: ${SES_ACCESS_KEY}", "SES_ACCESS_KEY: ${SES_ACCESS_KEY}")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# SES_SECRET_KEY: ${SES_SECRET_KEY}", "SES_SECRET_KEY: ${SES_SECRET_KEY}")
+		run_cmd = append(run_cmd, "EMAIL_PROVIDER=ses \\")
 		run_cmd = append(run_cmd, "SES_REGION=__CHANGE_ME__ \\")
 		run_cmd = append(run_cmd, "SES_ACCESS_KEY=__CHANGE_ME__ \\")
 		run_cmd = append(run_cmd, "SES_SECRET_KEY=__CHANGE_ME__ \\")
 	}
+	run_cmd = append(run_cmd, "EMAIL_FROM=__CHANGE_ME__ \\")
 
 	// Files
-	if filesProvider == "AWS S3" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: s3")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
-		run_cmd = append(run_cmd, "BUCKET_NAME=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# S3_REGION: ${S3_REGION}", "S3_REGION: ${S3_REGION}")
+	if filesProvider == "Local (folder)" {
+		run_cmd = append(run_cmd, "FILE_PROVIDER=local \\")
+		run_cmd = append(run_cmd, "LOCAL_FILE_DIR=/file \\")
+	} else if filesProvider == "AWS S3" {
+		run_cmd = append(run_cmd, "FILE_PROVIDER=s3 \\")
 		run_cmd = append(run_cmd, "S3_REGION=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# S3_ACCESS_KEY: ${S3_ACCESS_KEY}", "S3_ACCESS_KEY: ${S3_ACCESS_KEY}")
 		run_cmd = append(run_cmd, "S3_ACCESS_KEY=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# S3_SECRET_KEY: ${S3_SECRET_KEY}", "S3_SECRET_KEY: ${S3_SECRET_KEY}")
 		run_cmd = append(run_cmd, "S3_SECRET_KEY=__CHANGE_ME__ \\")
 	} else if filesProvider == "Cloudflare R2" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: r2")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
-		run_cmd = append(run_cmd, "BUCKET_NAME=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_ENDPOINT: ${R2_ENDPOINT}", "R2_ENDPOINT: ${R2_ENDPOINT}")
+		run_cmd = append(run_cmd, "FILE_PROVIDER=r2 \\")
 		run_cmd = append(run_cmd, "R2_ENDPOINT=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_ACCESS_KEY: ${R2_ACCESS_KEY}", "R2_ACCESS_KEY: ${R2_ACCESS_KEY}")
 		run_cmd = append(run_cmd, "R2_ACCESS_KEY=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# R2_SECRET_KEY: ${R2_SECRET_KEY}", "R2_SECRET_KEY: ${R2_SECRET_KEY}")
 		run_cmd = append(run_cmd, "R2_SECRET_KEY=__CHANGE_ME__ \\")
 	} else if filesProvider == "Google Cloud Storage" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: gcs")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
-		run_cmd = append(run_cmd, "BUCKET_NAME=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}", "GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}")
+		run_cmd = append(run_cmd, "FILE_PROVIDER=gcs \\")
 		run_cmd = append(run_cmd, "GOOGLE_APPLICATION_CREDENTIALS=__CHANGE_ME__ \\")
 	} else if filesProvider == "Azure Blob Storage" {
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "FILE_PROVIDER: local", "FILE_PROVIDER: azblob")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# BUCKET_NAME: ${BUCKET_NAME}", "BUCKET_NAME: ${BUCKET_NAME}")
-		run_cmd = append(run_cmd, "BUCKET_NAME=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# AZBLOB_ACCOUNT_NAME: ${AZBLOB_ACCOUNT_NAME}", "AZBLOB_ACCOUNT_NAME: ${AZBLOB_ACCOUNT_NAME}")
+		run_cmd = append(run_cmd, "FILE_PROVIDER=azblob \\")
 		run_cmd = append(run_cmd, "AZBLOB_ACCOUNT_NAME=__CHANGE_ME__ \\")
-		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "# AZBLOB_ACCOUNT_KEY: ${AZBLOB_ACCOUNT_KEY}", "AZBLOB_ACCOUNT_KEY: ${AZBLOB_ACCOUNT_KEY}")
 		run_cmd = append(run_cmd, "AZBLOB_ACCOUNT_KEY=__CHANGE_ME__ \\")
 	}
-
-	// Monitoring
-	lines := strings.Split(docker_compose_file_str, "\n")
-	if selectedMonitoring == "No" {
-		_ = os.RemoveAll(projectName + "/grafana")
-		_ = os.RemoveAll(projectName + "/kube")
-		new_lines := remove_lines_from_to(lines, "logging:", "loki-retries:", true)
-		docker_compose_file_str = strings.Join(new_lines, "\n")
-	} else if selectedMonitoring == "Grafana + Loki + Prometheus Monitoring using Docker" {
-		_ = os.RemoveAll(projectName + "/kube")
-	} else {
-		_ = os.RemoveAll(projectName + "/grafana")
-		new_lines := remove_lines_from_to(lines, "logging:", "loki-retries:", true)
-		docker_compose_file_str = strings.Join(new_lines, "\n")
+	if filesProvider != "Local" {
+		run_cmd = append(run_cmd, "BUCKET_NAME=__CHANGE_ME__ \\")
 	}
 
 	err = os.WriteFile(projectName+"/docker-compose.yml", []byte(docker_compose_file_str), 0644)
 	if err != nil {
 		return nil, err
+	}
+
+	// Monitoring
+	if selectedMonitoring == "Kubernetes + VictoriaMetrics Monitoring" {
+		_ = os.RemoveAll(projectName + "/grafana")
+	} else if selectedMonitoring == "Grafana + Loki + Prometheus Monitoring using Docker" {
+		_ = os.RemoveAll(projectName + "/kube")
+	} else {
+		_ = os.RemoveAll(projectName + "/kube")
+		_ = os.RemoveAll(projectName + "/grafana")
 	}
 
 	// Append the cmd to Readme
@@ -220,13 +198,6 @@ func cleaning(projectName string, client string, start string, paymentsProvider 
 	readme_file_lines = append(readme_file_lines, "sh scripts/keys.sh")
 	readme_file_lines = append(readme_file_lines, "```")
 	readme_file_lines = append(readme_file_lines, "")
-	if selectedMonitoring == "Grafana + Loki + Prometheus Monitoring using Docker" {
-		readme_file_lines = append(readme_file_lines, "Make sure you have the loki plugin installed:")
-		readme_file_lines = append(readme_file_lines, "```bash")
-		readme_file_lines = append(readme_file_lines, "docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions")
-		readme_file_lines = append(readme_file_lines, "```")
-		readme_file_lines = append(readme_file_lines, "")
-	}
 	readme_file_lines = append(readme_file_lines, "Spin up the project:")
 	readme_file_lines = append(readme_file_lines, "```bash")
 	readme_file_lines = append(readme_file_lines, run_cmd...)

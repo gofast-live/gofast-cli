@@ -110,8 +110,8 @@ func initialModel() model {
 
 		clients:                  []string{"SvelteKit", "Next.js", "Vue.js", "None"},
 		selectedClient:           "SvelteKit",
-		startOptions:             []string{"Generate base project (Local PostgreSQL, Grafana Monitoring, Mocked payments, Local files, Log Emails)", "Start new configuration"},
-		selectedStartOption:      "Generate base project (Local PostgreSQL, Grafana Monitoring, Mocked payments, Local files, Log Emails)",
+		startOptions:             []string{"Generate base project (Local PostgreSQL, Mocked payments, Log Emails, Local files)", "Start new configuration"},
+		selectedStartOption:      "Generate base project (Local PostgreSQL, Mocked payments, Local files, Log Emails)",
 		paymentsProviders:        []string{"Local (mock)", "Stripe"},
 		selectedPaymentsProvider: "Local (mock)",
 		emailsProviders:          []string{"Local (log)", "Postmark", "Sendgrid", "Resend", "AWS SES"},
@@ -163,7 +163,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.step == startOptionStep {
 				m.selectedStartOption = m.startOptions[m.focusIndex]
 				m.focusIndex = 0
-				if m.selectedStartOption == "Generate base project (Local PostgreSQL, Grafana Monitoring, Mocked payments, Local files, Log Emails)" {
+				if m.selectedStartOption == "Generate base project (Local PostgreSQL, Mocked payments, Log Emails, Local files)" {
 					m.step = projectNameStep
 					blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput, &m.projectNameInput})
 					m.projectNameInput.Focus()
