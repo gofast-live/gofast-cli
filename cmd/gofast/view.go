@@ -158,6 +158,9 @@ func (m model) View() string {
 	b.WriteString(helpStyle.Render(" quit"))
 	b.WriteRune('\n')
 	b.WriteRune('\n')
-	b.WriteString(helpStyle.Render("Join our discord server for help: https://discord.com/invite/hFqr2SuVXA"))
+	b.WriteString(helpStyle.Render("Join our discord server: https://discord.com/invite/hFqr2SuVXA"))
+	b.WriteRune('\n')
+	b.WriteRune('\n')
+	b.WriteString(helpStyle.Render("Version: " + VERSION))
 	return b.String()
 }

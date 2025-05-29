@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	SERVER_URL   = "https://admin.gofast.live/api"
+	SERVER_URL   = "https://admin.gofast.live"
+	VERSION      = "v1.1.0"
 	noStyle      = lipgloss.NewStyle()
 	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("032"))
 	blurredStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
@@ -171,7 +172,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.projectNameInput.TextStyle = focusedStyle
 					return m, textinput.Blink
 				} else {
-                    m.focusIndex = 0
+					m.focusIndex = 0
 					m.step = paymentsProviderStep
 				}
 			} else if m.step == paymentsProviderStep {
