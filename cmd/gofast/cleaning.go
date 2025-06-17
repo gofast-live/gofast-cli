@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func cleaning(projectName string, client string, start string, paymentsProvider string, emailProvider string, filesProvider string, selectedMonitoring string) ([]string, error) {
+func cleaning(projectName string, client string, start string, databaseProvider string, paymentsProvider string, emailProvider string, filesProvider string, selectedMonitoring string) ([]string, error) {
 	// remove .git folder
 	_ = os.RemoveAll(projectName + "/.git")
 
@@ -57,9 +57,9 @@ func cleaning(projectName string, client string, start string, paymentsProvider 
 		run_cmd = append(run_cmd, "DATABASE_PROVIDER=postgres \\")
 		run_cmd = append(run_cmd, "POSTGRES_HOST=postgres \\")
 		run_cmd = append(run_cmd, "POSTGRES_PORT=5432 \\")
-		run_cmd = append(run_cmd, "POSTGRES_DB=postgres \\")
-		run_cmd = append(run_cmd, "POSTGRES_PASSWORD=postgres \\")
+		run_cmd = append(run_cmd, "POSTGRES_DB=db \\")
 		run_cmd = append(run_cmd, "POSTGRES_USER=postgres \\")
+		run_cmd = append(run_cmd, "POSTGRES_PASSWORD=postgres \\")
 		run_cmd = append(run_cmd, "PAYMENT_PROVIDER=local \\")
 		run_cmd = append(run_cmd, "EMAIL_PROVIDER=local \\")
 		run_cmd = append(run_cmd, "EMAIL_FROM=admin@gofast.live \\")
@@ -73,6 +73,11 @@ func cleaning(projectName string, client string, start string, paymentsProvider 
 		readme_file_lines = append(readme_file_lines, "sh scripts/keys.sh")
 		readme_file_lines = append(readme_file_lines, "```")
 		readme_file_lines = append(readme_file_lines, "")
+		readme_file_lines = append(readme_file_lines, "Compile the SQL queries using sqlc:")
+		readme_file_lines = append(readme_file_lines, "```bash")
+		readme_file_lines = append(readme_file_lines, "sh scripts/sqlc.sh")
+		readme_file_lines = append(readme_file_lines, "```")
+		readme_file_lines = append(readme_file_lines, "")
 		readme_file_lines = append(readme_file_lines, "Spin up the project:")
 		readme_file_lines = append(readme_file_lines, "```bash")
 		readme_file_lines = append(readme_file_lines, run_cmd...)
@@ -82,6 +87,9 @@ func cleaning(projectName string, client string, start string, paymentsProvider 
 		readme_file_lines = append(readme_file_lines, "```bash")
 		readme_file_lines = append(readme_file_lines, "sh scripts/atlas.sh")
 		readme_file_lines = append(readme_file_lines, "```")
+		if databaseProvider == "Turso" {
+			readme_file_lines = append(readme_file_lines, "Turso needs TURSO_URL and TURSO_TOKEN environment variables to be set.")
+		}
 		readme_file_lines = append(readme_file_lines, "")
 		readme_file_lines = append(readme_file_lines, "Access the project at:")
 		readme_file_lines = append(readme_file_lines, "```bash")
@@ -110,6 +118,23 @@ func cleaning(projectName string, client string, start string, paymentsProvider 
 		run_cmd = append(run_cmd, "GITHUB_CLIENT_SECRET=__CHANGE_ME__ \\")
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_ID=__CHANGE_ME__ \\")
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_SECRET=__CHANGE_ME__ \\")
+	}
+
+	// Database
+	if databaseProvider == "PostgreSQL" {
+		run_cmd = append(run_cmd, "DATABASE_PROVIDER=postgres \\")
+		run_cmd = append(run_cmd, "POSTGRES_HOST=postgres \\")
+		run_cmd = append(run_cmd, "POSTGRES_PORT=5432 \\")
+		run_cmd = append(run_cmd, "POSTGRES_DB=db \\")
+		run_cmd = append(run_cmd, "POSTGRES_USER=postgres \\")
+		run_cmd = append(run_cmd, "POSTGRES_PASSWORD=postgres \\")
+	} else if databaseProvider == "SQLite" {
+		run_cmd = append(run_cmd, "DATABASE_PROVIDER=sqlite \\")
+		// need here to run a function that will change the line "DB_TYPE=${1:-postgres}" to "DB_TYPE=${1:-sqlite}" in the scripts/sqlc.sh and scripts/atlas.sh files ai!
+	} else if databaseProvider == "Turso" {
+		run_cmd = append(run_cmd, "DATABASE_PROVIDER=turso \\")
+		run_cmd = append(run_cmd, "TURSO_URL=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "TURSO_TOKEN=__CHANGE_ME__ \\")
 	}
 
 	// Payments
@@ -185,11 +210,6 @@ func cleaning(projectName string, client string, start string, paymentsProvider 
 	}
 
 	// Append the cmd to Readme
-	run_cmd = append(run_cmd, "POSTGRES_HOST=postgres \\")
-	run_cmd = append(run_cmd, "POSTGRES_PORT=5432 \\")
-	run_cmd = append(run_cmd, "POSTGRES_DB=postgres \\")
-	run_cmd = append(run_cmd, "POSTGRES_PASSWORD=postgres \\")
-	run_cmd = append(run_cmd, "POSTGRES_USER=postgres \\")
 	run_cmd = append(run_cmd, "docker compose up --build")
 	readme_file, _ := os.ReadFile(projectName + "/README.md")
 	readme_file_lines := strings.Split(string(readme_file), "\n")
