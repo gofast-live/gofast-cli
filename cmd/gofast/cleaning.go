@@ -181,8 +181,9 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 			return nil, err
 		}
 
-
-		// Modify docker-compose.yml for SQLite or Turso, remove postgres service, starts at "  postgres:", end at "      POSTGRES_DB: db", ai!
+		// Remove postgres service from docker-compose.yml if SQLite or Turso is selected
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  postgres:", "      POSTGRES_DB: db", true)
+		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
 	}
 
 	// Payments
