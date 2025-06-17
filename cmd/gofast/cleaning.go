@@ -130,7 +130,32 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 		run_cmd = append(run_cmd, "POSTGRES_PASSWORD=postgres \\")
 	} else if databaseProvider == "SQLite" {
 		run_cmd = append(run_cmd, "DATABASE_PROVIDER=sqlite \\")
-		// need here to run a function that will change the line "DB_TYPE=${1:-postgres}" to "DB_TYPE=${1:-sqlite}" in the scripts/sqlc.sh and scripts/atlas.sh files ai!
+
+		// Modify scripts/sqlc.sh
+		sqlcScriptPath := projectName + "/scripts/sqlc.sh"
+		sqlcScriptBytes, err := os.ReadFile(sqlcScriptPath)
+		if err != nil {
+			return nil, err
+		}
+		sqlcScriptContent := string(sqlcScriptBytes)
+		sqlcScriptContent = strings.ReplaceAll(sqlcScriptContent, "DB_TYPE=${1:-postgres}", "DB_TYPE=${1:-sqlite}")
+		err = os.WriteFile(sqlcScriptPath, []byte(sqlcScriptContent), 0644)
+		if err != nil {
+			return nil, err
+		}
+
+		// Modify scripts/atlas.sh
+		atlasScriptPath := projectName + "/scripts/atlas.sh"
+		atlasScriptBytes, err := os.ReadFile(atlasScriptPath)
+		if err != nil {
+			return nil, err
+		}
+		atlasScriptContent := string(atlasScriptBytes)
+		atlasScriptContent = strings.ReplaceAll(atlasScriptContent, "DB_TYPE=${1:-postgres}", "DB_TYPE=${1:-sqlite}")
+		err = os.WriteFile(atlasScriptPath, []byte(atlasScriptContent), 0644)
+		if err != nil {
+			return nil, err
+		}
 	} else if databaseProvider == "Turso" {
 		run_cmd = append(run_cmd, "DATABASE_PROVIDER=turso \\")
 		run_cmd = append(run_cmd, "TURSO_URL=__CHANGE_ME__ \\")
