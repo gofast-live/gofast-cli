@@ -130,7 +130,13 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 		run_cmd = append(run_cmd, "POSTGRES_PASSWORD=postgres \\")
 	} else if databaseProvider == "SQLite" {
 		run_cmd = append(run_cmd, "DATABASE_PROVIDER=sqlite \\")
+	} else if databaseProvider == "Turso" {
+		run_cmd = append(run_cmd, "DATABASE_PROVIDER=turso \\")
+		run_cmd = append(run_cmd, "TURSO_URL=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "TURSO_TOKEN=__CHANGE_ME__ \\")
+	}
 
+	if databaseProvider == "SQLite" || databaseProvider == "Turso" {
 		// Modify scripts/sqlc.sh
 		sqlcScriptPath := projectName + "/scripts/sqlc.sh"
 		sqlcScriptBytes, err := os.ReadFile(sqlcScriptPath)
@@ -151,15 +157,32 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 			return nil, err
 		}
 		atlasScriptContent := string(atlasScriptBytes)
-		atlasScriptContent = strings.ReplaceAll(atlasScriptContent, "DB_TYPE=${1:-postgres}", "DB_TYPE=${1:-sqlite}")
+		if databaseProvider == "Turso" {
+			atlasScriptContent = strings.ReplaceAll(atlasScriptContent, "DB_TYPE=${1:-postgres}", "DB_TYPE=${1:-turso}")
+		} else {
+			atlasScriptContent = strings.ReplaceAll(atlasScriptContent, "DB_TYPE=${1:-postgres}", "DB_TYPE=${1:-sqlite}")
+		}
 		err = os.WriteFile(atlasScriptPath, []byte(atlasScriptContent), 0644)
 		if err != nil {
 			return nil, err
 		}
-	} else if databaseProvider == "Turso" {
-		run_cmd = append(run_cmd, "DATABASE_PROVIDER=turso \\")
-		run_cmd = append(run_cmd, "TURSO_URL=__CHANGE_ME__ \\")
-		run_cmd = append(run_cmd, "TURSO_TOKEN=__CHANGE_ME__ \\")
+
+		// Modify service-go-user/dmain/note/service.go
+		serviceGoUserPath := projectName + "/service-go-user/domain/note/service.go"
+		serviceGoUserBytes, err := os.ReadFile(serviceGoUserPath)
+		if err != nil {
+			return nil, err
+		}
+		serviceGoUserContent := string(serviceGoUserBytes)
+		serviceGoUserContent = strings.ReplaceAll(serviceGoUserContent, "Limit:  limit,", "Limit:  int64(limit),")
+		serviceGoUserContent = strings.ReplaceAll(serviceGoUserContent, "Offset: (page - 1) * limit,", "Offset: int64((page - 1) * limit),")
+		err = os.WriteFile(serviceGoUserPath, []byte(serviceGoUserContent), 0644)
+		if err != nil {
+			return nil, err
+		}
+
+
+		// Modify docker-compose.yml for SQLite or Turso, remove postgres service, starts at "  postgres:", end at "      POSTGRES_DB: db", ai!
 	}
 
 	// Payments
@@ -241,6 +264,11 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 	readme_file_lines = append(readme_file_lines, "Generate new JWT keys for the project:")
 	readme_file_lines = append(readme_file_lines, "```bash")
 	readme_file_lines = append(readme_file_lines, "sh scripts/keys.sh")
+	readme_file_lines = append(readme_file_lines, "```")
+	readme_file_lines = append(readme_file_lines, "")
+	readme_file_lines = append(readme_file_lines, "Compile the SQL queries using sqlc:")
+	readme_file_lines = append(readme_file_lines, "```bash")
+	readme_file_lines = append(readme_file_lines, "sh scripts/sqlc.sh")
 	readme_file_lines = append(readme_file_lines, "```")
 	readme_file_lines = append(readme_file_lines, "")
 	readme_file_lines = append(readme_file_lines, "Spin up the project:")
