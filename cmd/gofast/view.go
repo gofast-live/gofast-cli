@@ -38,12 +38,14 @@ func (m model) View() string {
 		b.WriteString(successStyle.Render("Press enter to start the configuration"))
 		b.WriteRune('\n')
 		b.WriteRune('\n')
-	} else if m.step == clientStep || m.step == startOptionStep || m.step == paymentsProviderStep || m.step == emailProviderStep || m.step == filesProviderStep || m.step == monitoringStep {
+	} else if m.step == clientStep || m.step == startOptionStep || m.step == databaseProviderStep || m.step == paymentsProviderStep || m.step == emailProviderStep || m.step == filesProviderStep || m.step == monitoringStep {
 		b.WriteRune('\n')
 		if m.step == clientStep {
 			b.WriteString("Choose a frontend framework\n\n")
 		} else if m.step == startOptionStep {
 			b.WriteString("Do you want to generate a ready-to-run project with pre-filled test secrets? (don't forget to change them later!)\n\n")
+		} else if m.step == databaseProviderStep {
+			b.WriteString("Choose the database provider you want to use\n\n")
 		} else if m.step == paymentsProviderStep {
 			b.WriteString("Choose the payment provider you want to use\n\n")
 		} else if m.step == emailProviderStep {
@@ -59,6 +61,8 @@ func (m model) View() string {
 			d = m.clients
 		} else if m.step == startOptionStep {
 			d = m.startOptions
+		} else if m.step == databaseProviderStep {
+			d = m.databaseProviders
 		} else if m.step == paymentsProviderStep {
 			d = m.paymentsProviders
 		} else if m.step == emailProviderStep {

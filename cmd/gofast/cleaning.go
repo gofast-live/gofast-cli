@@ -20,27 +20,35 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 
 	// Client
 	if client == "None" {
-		_ = os.RemoveAll(projectName + "/service-svelte")
+		_ = os.RemoveAll(projectName + "/service-client")
 		_ = os.RemoveAll(projectName + "/service-next")
 		_ = os.RemoveAll(projectName + "/service-vue")
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  postgres:", false)
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  client:", "  postgres:", false)
 	} else if client == "SvelteKit" {
 		_ = os.RemoveAll(projectName + "/service-next")
 		_ = os.RemoveAll(projectName + "/service-vue")
 		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  next:", "  postgres:", false)
 	} else if client == "Next.js" {
-		_ = os.RemoveAll(projectName + "/service-svelte")
+		_ = os.RemoveAll(projectName + "/service-client")
 		_ = os.RemoveAll(projectName + "/service-vue")
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  next:", false)
+		_ = os.Rename(projectName+"/service-next", projectName+"/service-client")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  client:", "  next:", false)
 		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  vue:", "  postgres:", false)
 		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "next:", "client:")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "service-next", "service-client")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "demo-next", "demo-client")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3003", "3000")
 		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
 	} else if client == "Vue.js" {
-		_ = os.RemoveAll(projectName + "/service-svelte")
+		_ = os.RemoveAll(projectName + "/service-client")
 		_ = os.RemoveAll(projectName + "/service-next")
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  svelte:", "  vue:", false)
+		_ = os.Rename(projectName+"/service-vue", projectName+"/service-client")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  client:", "  vue:", false)
 		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "vue:", "client:")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "service-vue", "service-client")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "demo-vue", "demo-client")
 		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3004", "3000")
 		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
 	}
@@ -87,9 +95,6 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 		readme_file_lines = append(readme_file_lines, "```bash")
 		readme_file_lines = append(readme_file_lines, "sh scripts/atlas.sh")
 		readme_file_lines = append(readme_file_lines, "```")
-		if databaseProvider == "Turso" {
-			readme_file_lines = append(readme_file_lines, "Turso needs TURSO_URL and TURSO_TOKEN environment variables to be set.")
-		}
 		readme_file_lines = append(readme_file_lines, "")
 		readme_file_lines = append(readme_file_lines, "Access the project at:")
 		readme_file_lines = append(readme_file_lines, "```bash")
@@ -167,8 +172,8 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 			return nil, err
 		}
 
-		// Modify service-go-user/dmain/note/service.go
-		serviceGoUserPath := projectName + "/service-go-user/domain/note/service.go"
+		// Modify service-core/dmain/note/service.go
+		serviceGoUserPath := projectName + "/service-core/domain/note/service.go"
 		serviceGoUserBytes, err := os.ReadFile(serviceGoUserPath)
 		if err != nil {
 			return nil, err
@@ -281,6 +286,9 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 	readme_file_lines = append(readme_file_lines, "```bash")
 	readme_file_lines = append(readme_file_lines, "sh scripts/atlas.sh")
 	readme_file_lines = append(readme_file_lines, "```")
+	if databaseProvider == "Turso" {
+		readme_file_lines = append(readme_file_lines, "Turso needs TURSO_URL and TURSO_TOKEN environment variables to be set.")
+	}
 	readme_file_lines = append(readme_file_lines, "")
 	readme_file_lines = append(readme_file_lines, "Access the project at:")
 	readme_file_lines = append(readme_file_lines, "```bash")
