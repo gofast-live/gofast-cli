@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -26,6 +27,7 @@ type model struct {
 	emailInput    textinput.Model
 	apiKeyInput   textinput.Model
 	spinner       spinner.Model
+	loading       bool
 	err           errMsg
 	authenticated bool
 }
@@ -51,6 +53,7 @@ func initialModel() model {
 		spinner:     sp,
 		emailInput:  ei,
 		apiKeyInput: ai,
+		loading:     false,
 		err: errMsg{
 			err: nil,
 			msg: "",
@@ -71,9 +74,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyEnter:
 			m.err = errMsg{}
+			m.loading = true
 			email := m.emailInput.Value()
 			apiKey := m.apiKeyInput.Value()
-			return m, checkConfig(email, apiKey)
+			return m, tea.Batch(m.spinner.Tick, checkConfig(email, apiKey))
 
 		case tea.KeyTab, tea.KeyShiftTab, tea.KeyDown, tea.KeyUp:
 			cmd := m.toggleFocus()
@@ -85,11 +89,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case authMsg:
 		m.authenticated = true
+		m.loading = false
 		m.err = errMsg{}
 		return m, tea.Quit
 	case errMsg:
 		m.err = msg
+		m.loading = false
 		return m, nil
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 	}
 
 	cmd = m.updateInputs(msg)
@@ -97,6 +107,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	if m.loading {
+		return fmt.Sprintf("\n %s Authenticating... \n\n", m.spinner.View())
+	}
 	var b strings.Builder
 	b.WriteRune('\n')
 	b.WriteString("Enter your email address and API key\n\n")

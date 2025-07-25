@@ -41,37 +41,51 @@ func checkConfig(email string, apiKey string) tea.Cmd {
 	}
 }
 
-func readConfig() (email string, apiKey string, err error) {
+func CheckAuthentication() error {
 	path, err := os.UserConfigDir()
 	if err != nil {
-		return "", "", err
+		return err
 	}
-	config := path + "/gofast.json"
-	jsonFile, err := os.OpenFile(config, os.O_CREATE|os.O_RDWR, 0666)
+	configPath := path + "/gofast.json"
+	jsonFile, err := os.OpenFile(configPath, os.O_RDWR, 0666)
 	if err != nil {
-		return "", "", err
+		if os.IsNotExist(err) {
+			return errors.New("config file not found. Please run 'gof auth'")
+		}
+		return err
 	}
 	defer func() {
 		closeErr := jsonFile.Close()
 		if closeErr != nil {
-			fmt.Printf("error closing response body: %v\n", closeErr)
+			fmt.Printf("error closing config file: %v\n", closeErr)
 		}
 	}()
+
 	data, err := io.ReadAll(jsonFile)
 	if err != nil {
-		return "", "", err
+		return err
 	}
+
+	if len(data) == 0 {
+		return errors.New("config file is empty. Please run 'gof auth'")
+	}
+
 	var c Config
 	err = json.Unmarshal(data, &c)
 	if err != nil {
-		c.Email = ""
-		c.ApiKey = ""
-		err := saveToConfig(c.Email, c.ApiKey)
-		if err != nil {
-			return "", "", err
-		}
+		return errors.New("failed to parse config file. It might be corrupted. Please run 'gof auth'")
 	}
-	return c.Email, c.ApiKey, nil
+
+	if c.Email == "" || c.ApiKey == "" {
+		return errors.New("email or API key not found in config. Please run 'gof auth'")
+	}
+
+	err = validateConfig(c.Email, c.ApiKey)
+	if err != nil {
+		return fmt.Errorf("authentication failed: %w. Please run 'gof auth'", err)
+	}
+
+	return nil
 }
 
 func saveToConfig(email string, apiKey string) error {
@@ -80,7 +94,7 @@ func saveToConfig(email string, apiKey string) error {
 		return fmt.Errorf("error getting user config directory: %w", err)
 	}
 	config := path + "/gofast.json"
-	jsonFile, err := os.OpenFile(config, os.O_RDWR, 0666)
+	jsonFile, err := os.OpenFile(config, os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		return fmt.Errorf("error opening config file: %w", err)
 	}
