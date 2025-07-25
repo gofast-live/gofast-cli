@@ -41,18 +41,18 @@ func checkConfig(email string, apiKey string) tea.Cmd {
 	}
 }
 
-func CheckAuthentication() error {
+func CheckAuthentication() (string, string, error) {
 	path, err := os.UserConfigDir()
 	if err != nil {
-		return err
+		return "", "", err
 	}
 	configPath := path + "/gofast.json"
 	jsonFile, err := os.OpenFile(configPath, os.O_RDWR, 0666)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return errors.New("config file not found. Please run 'gof auth'")
+			return "","", errors.New("config file not found. Please run 'gof auth'")
 		}
-		return err
+		return "","", err
 	}
 	defer func() {
 		closeErr := jsonFile.Close()
@@ -63,29 +63,29 @@ func CheckAuthentication() error {
 
 	data, err := io.ReadAll(jsonFile)
 	if err != nil {
-		return err
+		return "","", err
 	}
 
 	if len(data) == 0 {
-		return errors.New("config file is empty. Please run 'gof auth'")
+		return "","", errors.New("config file is empty. Please run 'gof auth'")
 	}
 
 	var c Config
 	err = json.Unmarshal(data, &c)
 	if err != nil {
-		return errors.New("failed to parse config file. It might be corrupted. Please run 'gof auth'")
+		return "","", errors.New("failed to parse config file. It might be corrupted. Please run 'gof auth'")
 	}
 
 	if c.Email == "" || c.ApiKey == "" {
-		return errors.New("email or API key not found in config. Please run 'gof auth'")
+		return "","", errors.New("email or API key not found in config. Please run 'gof auth'")
 	}
 
 	err = validateConfig(c.Email, c.ApiKey)
 	if err != nil {
-		return fmt.Errorf("authentication failed: %w. Please run 'gof auth'", err)
+		return "","", fmt.Errorf("authentication failed: %w. Please run 'gof auth'", err)
 	}
 
-	return nil
+	return c.Email, c.ApiKey, nil
 }
 
 func saveToConfig(email string, apiKey string) error {
