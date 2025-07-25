@@ -1,12 +1,13 @@
-package cmd
+package config
 
-import (
-	"github.com/charmbracelet/lipgloss"
+import "github.com/charmbracelet/lipgloss"
+
+const (
+	SERVER_URL   = "https://admin.gofast.live"
+	VERSION      = "v1.2.1"
 )
 
 var (
-	SERVER_URL   = "https://admin.gofast.live"
-	VERSION      = "v1.2.1"
 	NoStyle      = lipgloss.NewStyle()
 	FocusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("032"))
 	BlurredStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))

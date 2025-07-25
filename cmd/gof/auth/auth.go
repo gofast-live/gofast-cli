@@ -5,7 +5,7 @@ import (
 	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/gofast-live/gofast-cli/cmd/gof/cmd"
+	"github.com/gofast-live/gofast-cli/cmd/gof/config"
 )
 
 func Run() {
@@ -16,7 +16,7 @@ func Run() {
 	}
 	m := finalModel.(model)
 	if m.authenticated {
-		fmt.Println(cmd.SuccessStyle.Render("Authentication successful!"))
+		fmt.Println(config.SuccessStyle.Render("Authentication successful!"))
 	} else {
 		fmt.Println("Authentication cancelled.")
 	}

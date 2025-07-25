@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,7 +10,7 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/gofast-live/gofast-cli/cmd/gof/cmd"
+	"github.com/gofast-live/gofast-cli/cmd/gof/config"
 )
 
 type Config struct {
@@ -20,21 +21,21 @@ type Config struct {
 func checkConfig(email string, apiKey string) tea.Cmd {
 	return func() tea.Msg {
 		if email == "" {
-			return errMsg(fmt.Errorf("Email is required"))
+			return errMsg{nil, "Email address is required"}
 		}
 		if _, err := mail.ParseAddress(email); err != nil {
-			return errMsg(fmt.Errorf("Invalid email address"))
+			return errMsg{err, "Invalid email address format"}
 		}
 		if apiKey == "" {
-			return errMsg(fmt.Errorf("API key is required"))
+			return errMsg{nil, "API key is required"}
 		}
 		err := saveToConfig(email, apiKey)
 		if err != nil {
-			return errMsg(err)
+			return errMsg{err, "Error saving configuration"}
 		}
 		err = validateConfig(email, apiKey)
 		if err != nil {
-			return errMsg(err)
+			return errMsg{err, "Authentication failed, please check your email and API key"}
 		}
 		return authMsg{email, apiKey}
 	}
@@ -50,7 +51,12 @@ func readConfig() (email string, apiKey string, err error) {
 	if err != nil {
 		return "", "", err
 	}
-	defer jsonFile.Close()
+	defer func() {
+		closeErr := jsonFile.Close()
+		if closeErr != nil {
+			fmt.Printf("error closing response body: %v\n", closeErr)
+		}
+	}()
 	data, err := io.ReadAll(jsonFile)
 	if err != nil {
 		return "", "", err
@@ -71,22 +77,26 @@ func readConfig() (email string, apiKey string, err error) {
 func saveToConfig(email string, apiKey string) error {
 	path, err := os.UserConfigDir()
 	if err != nil {
-		return fmt.Errorf("Could not get user config dir")
+		return fmt.Errorf("error getting user config directory: %w", err)
 	}
 	config := path + "/gofast.json"
 	jsonFile, err := os.OpenFile(config, os.O_RDWR, 0666)
 	if err != nil {
-		return fmt.Errorf("Could not open config file")
+		return fmt.Errorf("error opening config file: %w", err)
 	}
-	defer jsonFile.Close()
+	defer func() {
+		closeErr := jsonFile.Close()
+		if closeErr != nil {
+			fmt.Printf("error closing response body: %v\n", closeErr)
+		}
+	}()
 	data, err := io.ReadAll(jsonFile)
 	if err != nil {
-		return fmt.Errorf("Could not read config file")
+		return fmt.Errorf("error reading config file: %w", err)
 	}
 	var c Config
 	err = json.Unmarshal(data, &c)
 	if err != nil {
-		// clean up file
 		_ = jsonFile.Truncate(0)
 		c = Config{}
 	}
@@ -94,21 +104,21 @@ func saveToConfig(email string, apiKey string) error {
 	c.ApiKey = apiKey
 	data, err = json.Marshal(c)
 	if err != nil {
-		return fmt.Errorf("Could not marshal config data")
+		return fmt.Errorf("error marshalling config: %w", err)
 	}
 	_ = jsonFile.Truncate(0)
 	_, err = jsonFile.WriteAt(data, 0)
 	if err != nil {
-		return fmt.Errorf("Could not write to config file")
+		return fmt.Errorf("error writing to config file: %w", err)
 	}
 	return nil
 }
 
 func validateConfig(email string, apiKey string) error {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", cmd.SERVER_URL+"/repo", nil)
+	req, err := http.NewRequest("GET", config.SERVER_URL+"/repo", nil)
 	if err != nil {
-		return fmt.Errorf("Could not create request")
+		return fmt.Errorf("error creating request: %w", err)
 	}
 	req.Header.Add("Authorization", "Bearer "+apiKey)
 	q := req.URL.Query()
@@ -116,11 +126,16 @@ func validateConfig(email string, apiKey string) error {
 	req.URL.RawQuery = q.Encode()
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("Could not make request")
+		return fmt.Errorf("error making request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		closeErr := resp.Body.Close()
+		if closeErr != nil {
+			fmt.Printf("error closing response body: %v\n", closeErr)
+		}
+	}()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("Invalid credentials")
+		return errors.New("error validating configuration: " + resp.Status)
 	}
 	return nil
 }

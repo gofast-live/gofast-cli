@@ -7,12 +7,18 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/gofast-live/gofast-cli/cmd/gof/cmd"
+	"github.com/gofast-live/gofast-cli/cmd/gof/config"
 )
 
 type (
-	errMsg error
-	authMsg   struct{ email, apiKey string }
+	errMsg struct {
+		err error
+		msg string
+	}
+	authMsg struct {
+		email  string
+		apiKey string
+	}
 )
 
 type model struct {
@@ -20,7 +26,7 @@ type model struct {
 	emailInput    textinput.Model
 	apiKeyInput   textinput.Model
 	spinner       spinner.Model
-	err           error
+	err           errMsg
 	authenticated bool
 }
 
@@ -33,19 +39,22 @@ func initialModel() model {
 	ei.Placeholder = "Enter your email address"
 	ei.Focus()
 	ei.CharLimit = 156
-	ei.PromptStyle = cmd.FocusedStyle
-	ei.TextStyle = cmd.FocusedStyle
+	ei.PromptStyle = config.FocusedStyle
+	ei.TextStyle = config.FocusedStyle
 
 	ai := textinput.New()
 	ai.Placeholder = "Enter your API key"
 	ai.CharLimit = 156
 
 	return model{
-		focusIndex:    0,
-		spinner:       sp,
-		emailInput:    ei,
-		apiKeyInput:   ai,
-		err:           nil,
+		focusIndex:  0,
+		spinner:     sp,
+		emailInput:  ei,
+		apiKeyInput: ai,
+		err: errMsg{
+			err: nil,
+			msg: "",
+		},
 		authenticated: false,
 	}
 }
@@ -61,7 +70,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			m.err = nil
+			m.err = errMsg{}
 			email := m.emailInput.Value()
 			apiKey := m.apiKeyInput.Value()
 			return m, checkConfig(email, apiKey)
@@ -76,6 +85,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case authMsg:
 		m.authenticated = true
+		m.err = errMsg{}
 		return m, tea.Quit
 	case errMsg:
 		m.err = msg
@@ -97,13 +107,18 @@ func (m model) View() string {
 	b.WriteRune('\n')
 	b.WriteRune('\n')
 
-	if m.err != nil {
-		b.WriteString(cmd.ErrStyle.Render(m.err.Error()))
+	if m.err.msg != "" {
+		b.WriteString(config.ErrStyle.Render(m.err.msg))
 		b.WriteRune('\n')
+		if m.err.err != nil {
+			b.WriteString(config.ErrStyle.Render(m.err.err.Error()))
+			b.WriteRune('\n')
+		}
 		b.WriteRune('\n')
+
 	}
 
-	b.WriteString(cmd.HelpStyle.Render("enter: submit • tab: switch input • ctrl+c: quit"))
+	b.WriteString(config.HelpStyle.Render("enter: submit • tab: switch input • ctrl+c: quit"))
 	return b.String()
 }
 
@@ -123,13 +138,13 @@ func (m *model) toggleFocus() tea.Cmd {
 	for i := range inputs {
 		if i == m.focusIndex {
 			inputs[i].Focus()
-			inputs[i].PromptStyle = cmd.FocusedStyle
-			inputs[i].TextStyle = cmd.FocusedStyle
+			inputs[i].PromptStyle = config.FocusedStyle
+			inputs[i].TextStyle = config.FocusedStyle
 			continue
 		}
 		inputs[i].Blur()
-		inputs[i].PromptStyle = cmd.NoStyle
-		inputs[i].TextStyle = cmd.NoStyle
+		inputs[i].PromptStyle = config.NoStyle
+		inputs[i].TextStyle = config.NoStyle
 	}
 	return textinput.Blink
 }

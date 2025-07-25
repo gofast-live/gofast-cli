@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/gofast-live/gofast-cli/cmd/gof/config"
 	"github.com/spf13/cobra"
 )
 
@@ -15,6 +16,6 @@ var versionCmd = &cobra.Command{
 	Short: "Print the version number of GoFast CLI",
 	Long:  "Print the version number of GoFast CLI",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("v0.1.0")
+		fmt.Println(config.VERSION)
 	},
 }
