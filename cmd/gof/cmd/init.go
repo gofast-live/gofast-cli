@@ -90,7 +90,7 @@ func downloadRepo(email string, apiKey string, projectName string) error {
 
 func getFile(email string, apiKey string) error {
 	client := http.Client{}
-	req, err := http.NewRequest("GET", config.SERVER_URL+"/download?email="+email, nil)
+	req, err := http.NewRequest("GET", config.SERVER_URL+"/v2?email="+email, nil)
 	if err != nil {
 		return err
 	}
@@ -100,9 +100,14 @@ func getFile(email string, apiKey string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Error downloading repo")
+		return fmt.Errorf("error downloading file: %s", resp.Status)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			fmt.Printf("error closing response body: %v\n", err)
+		}
+	}()
 
 	// save the file to the disk
 	_, err = os.Create("gofast-app.zip")
@@ -113,7 +118,12 @@ func getFile(email string, apiKey string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			fmt.Printf("error closing file: %v\n", err)
+		}
+	}()
 	_, err = io.Copy(file, resp.Body)
 	if err != nil {
 		return err
@@ -129,13 +139,24 @@ func unzipFile() error {
 	if err != nil {
 		return err
 	}
-	defer archive.Close()
+	defer func() {
+		err := archive.Close()
+		if err != nil {
+			fmt.Printf("error closing archive: %v\n", err)
+		}
+	}()
 	for _, file := range archive.File {
 		src, err := file.Open()
 		if err != nil {
 			return err
 		}
-		defer src.Close()
+
+		defer func() {
+			err := src.Close()
+			if err != nil {
+				fmt.Printf("error closing source file: %v\n", err)
+			}
+		}()
 
 		if file.FileInfo().IsDir() {
 			err := os.MkdirAll(file.Name, os.ModePerm)
@@ -149,7 +170,12 @@ func unzipFile() error {
 		if err != nil {
 			return err
 		}
-		defer dst.Close()
+		defer func() {
+			err := dst.Close()
+			if err != nil {
+				fmt.Printf("error closing destination file: %v\n", err)
+			}
+		}()
 
 		_, err = io.Copy(dst, src)
 		if err != nil {
