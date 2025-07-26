@@ -1,0 +1,21 @@
+syntax = "proto3";
+option go_package = "gofast/proto";
+package proto;
+
+message Note {
+    string id = 1;
+    string created = 2;
+    string updated = 3;
+
+    string user_id = 4;
+    string title = 5;
+    string category = 6;
+    string content = 7;
+}
+
+message NoteRequest {
+    string id = 1;
+    string title = 2;
+    string category = 3;
+    string content = 4;
+}

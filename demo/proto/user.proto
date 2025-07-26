@@ -1,0 +1,18 @@
+syntax = "proto3";
+option go_package = "gofast/proto";
+package proto;
+
+message User {
+    string id = 1;
+    string created = 2;
+    string updated = 3;
+
+    string email = 4;
+    int64 access = 5;
+    string sub = 6;
+    string avatar = 7;
+
+    string subscription_id = 8;
+    string subscription_end = 9;
+    bool subscription_active = 10;
+}

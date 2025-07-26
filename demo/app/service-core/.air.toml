@@ -1,0 +1,8 @@
+root = "/app/service-core"
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/main ."
+bin = "/app/service-core/tmp/main"
+include_ext = ["go", "tpl", "tmpl", "html", "templ"]
+exclude_dir = ["assets", "tmp", "vendor", "frontend/node_modules"]
