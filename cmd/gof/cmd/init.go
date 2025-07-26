@@ -55,20 +55,42 @@ var initCmd = &cobra.Command{
 		}
 
 		// run scripts to set up the project
-		scripts := []string{"keys.sh", "sqlc.sh"}
-		for _, script := range scripts {
-			scriptPath := fmt.Sprintf("./%s/scripts/%s", projectName, script)
-			cmdExec := exec.Command("bash", scriptPath)
+		cmd.Printf("Running initialization scripts for project '%s'...\n", projectName)
+		scripts := []string{
+			"scripts/keys.sh",
+			"scripts/sqlc.sh",
+			"scripts/proto.sh",
+			"docker compose up postgres -d",
+			"scripts/atlas.sh",
+			"docker compose up",
+		}
+		messages := []string{
+			"Generating Public/Private keys...",
+			"Generating SQLC files...",
+			"Generating Proto files...",
+			"Starting PostgreSQL container...",
+			"Running Atlas migrations...",
+			"Starting all containers...",
+		}
+		for i, script := range scripts {
+			var cmdExec *exec.Cmd
+			if strings.HasPrefix(script, "docker") {
+				parts := strings.Fields(script)
+				cmdExec = exec.Command(parts[0], parts[1:]...)
+			} else {
+				scriptPath := fmt.Sprintf("./%s", script)
+				cmdExec = exec.Command("sh", scriptPath)
+			}
 			cmdExec.Dir = projectName
 			output, err := cmdExec.CombinedOutput()
 			if err != nil {
 				cmd.Printf("Error running script '%s': %v\nOutput: %s\n", script, err, output)
 				return
 			}
-			cmd.Printf("Script '%s' executed successfully.\n", script)
+			cmd.Printf("%s\n", messages[i])
 		}
 
-		cmd.Printf("Project '%s' initialized successfully.\n", projectName)
+		cmd.Printf("Project '%s' initialized successfully.\n\n", projectName)
 	},
 }
 
