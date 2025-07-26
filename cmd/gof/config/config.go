@@ -4,7 +4,7 @@ import "github.com/charmbracelet/lipgloss"
 
 const (
 	SERVER_URL   = "https://admin.gofast.live"
-	VERSION      = "v1.2.1"
+	VERSION      = "v0.0.1"
 )
 
 var (
