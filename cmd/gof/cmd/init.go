@@ -62,7 +62,7 @@ var initCmd = &cobra.Command{
 			"scripts/proto.sh",
 			"docker compose up postgres -d",
 			"scripts/atlas.sh",
-			"docker compose up",
+			"docker compose stop",
 		}
 		messages := []string{
 			"Generating Public/Private keys...",
@@ -70,9 +70,10 @@ var initCmd = &cobra.Command{
 			"Generating Proto files...",
 			"Starting PostgreSQL container...",
 			"Running Atlas migrations...",
-			"Starting all containers...",
+			"Stopping PostgreSQL container...",
 		}
 		for i, script := range scripts {
+			cmd.Printf("%s\n", messages[i])
 			var cmdExec *exec.Cmd
 			if strings.HasPrefix(script, "docker") {
 				parts := strings.Fields(script)
@@ -87,10 +88,14 @@ var initCmd = &cobra.Command{
 				cmd.Printf("Error running script '%s': %v\nOutput: %s\n", script, err, output)
 				return
 			}
-			cmd.Printf("%s\n", messages[i])
 		}
 
-		cmd.Printf("Project '%s' initialized successfully.\n\n", projectName)
+		cmd.Printf(
+			"Project %s initialized successfully!\n\nCD into the %s directory and run %s to start the service.\n",
+			config.SuccessStyle.Render("'"+projectName+"'"),
+			config.SuccessStyle.Render("'"+projectName+"'"),
+			config.SuccessStyle.Render("'docker compose up'"),
+		)
 	},
 }
 
