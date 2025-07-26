@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/gofast-live/gofast-cli/cmd/gof/config"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 )
 
 type (

@@ -5,7 +5,7 @@ import (
 	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/gofast-live/gofast-cli/cmd/gof/config"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 )
 
 func Run() {

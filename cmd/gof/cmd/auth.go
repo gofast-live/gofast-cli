@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/gofast-live/gofast-cli/cmd/gof/auth"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
 	"github.com/spf13/cobra"
 )
 

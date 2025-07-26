@@ -9,8 +9,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/gofast-live/gofast-cli/cmd/gof/auth"
-	"github.com/gofast-live/gofast-cli/cmd/gof/config"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/spf13/cobra"
 )
 

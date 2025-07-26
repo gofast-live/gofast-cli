@@ -1,4 +1,4 @@
-module github.com/gofast-live/gofast-cli
+module github.com/gofast-live/gofast-cli/v2
 
 go 1.22.5
 
