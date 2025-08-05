@@ -47,7 +47,7 @@ var initCmd = &cobra.Command{
 			return
 		}
 		// create gofast.json config file
-		configFileContent := fmt.Sprintf(`{ "project_name": "%s" }`, projectName)
+		configFileContent := fmt.Sprintf(`{ "project_name": "%s", "models": [ "skeleton" ]  }`, projectName)
 		err = os.WriteFile(projectName+"/gofast.json", []byte(configFileContent), 0644)
 		if err != nil {
 			cmd.Printf("Error creating gofast.json file: %v\n", err)
@@ -94,7 +94,7 @@ var initCmd = &cobra.Command{
 			"Project %s initialized successfully!\n\nCD into the %s directory and run %s to start the service.\n",
 			config.SuccessStyle.Render("'"+projectName+"'"),
 			config.SuccessStyle.Render("'"+projectName+"'"),
-			config.SuccessStyle.Render("'docker compose up'"),
+			config.SuccessStyle.Render("'docker compose up --build'"),
 		)
 	},
 }
@@ -132,24 +132,13 @@ func downloadRepo(email string, apiKey string, projectName string) error {
 	for _, f := range files {
 		if f.IsDir() {
 			if strings.HasPrefix(f.Name(), "gofast-live-gofast-app-") {
-				err := os.Rename(f.Name(), projectName+"_tmp")
+				err := os.Rename(f.Name(), projectName)
 				if err != nil {
 					return err
 				}
 				break
 			}
 		}
-	}
-
-	// move folder "init" from the temporary folder to the project name
-	err = os.Rename(projectName+"_tmp/init", projectName)
-	if err != nil {
-		return fmt.Errorf("error moving init folder: %w", err)
-	}
-	// remove the temporary folder
-	err = os.RemoveAll(projectName + "_tmp")
-	if err != nil {
-		return fmt.Errorf("error removing temporary folder: %w", err)
 	}
 
 	return nil
