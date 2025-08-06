@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"slices"
 
@@ -52,7 +53,7 @@ func AddModel(modelName string) error {
 	}
 
 	if slices.Contains(config.Models, modelName) {
-		return errors.New("model already exists")
+		return fmt.Errorf("model '%s' already exists in the config", modelName)
 	}
 
 	config.Models = append(config.Models, modelName)
