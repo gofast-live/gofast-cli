@@ -226,17 +226,18 @@ func generateServiceLayer(modelName string, columns []Column) error {
 			return os.MkdirAll(destPath, info.Mode())
 		}
 
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-
-		newContentStr := strings.ReplaceAll(string(content), "skeleton", modelName)
-		newContentStr = strings.ReplaceAll(newContentStr, "Skeleton", capitalizedModelName)
-
-		if info.Name() == "validation.go" {
-			validationContent := generateValidationContent(modelName, columns)
-			newContentStr = newContentStr + "\n" + validationContent
+		var newContentStr string
+		if info.Name() == "dto.go" {
+			newContentStr = generateDTO(modelName, columns)
+		} else if info.Name() == "service_test.go" {
+			newContentStr = generateServiceTestContent(modelName, capitalizedModelName, columns)
+		} else {
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			newContentStr = strings.ReplaceAll(string(content), "skeleton", modelName)
+			newContentStr = strings.ReplaceAll(newContentStr, "Skeleton", capitalizedModelName)
 		}
 
 		return os.WriteFile(destPath, []byte(newContentStr), info.Mode())
@@ -245,10 +246,11 @@ func generateServiceLayer(modelName string, columns []Column) error {
 	return err
 }
 
-func generateValidationContent(modelName string, columns []Column) string {
+func generateDTO(modelName string, columns []Column) string {
 	capitalizedModelName := capitalize(modelName)
 	var createFields, updateFields []string
 	usesTime := false
+	usesUUID := true // For the ID in the update DTO
 
 	typeMap := map[string]string{
 		"string": "string",
@@ -265,21 +267,44 @@ func generateValidationContent(modelName string, columns []Column) string {
 		fieldName := capitalize(col.Name)
 		jsonTag := col.Name
 		createFields = append(createFields, fmt.Sprintf("\t%s %s `json:\"%s\" validate:\"required\"`", fieldName, goType, jsonTag))
-		updateFields = append(updateFields, fmt.Sprintf("\t%s %s `json:\"%s,omitempty\"`", fieldName, goType, jsonTag))
+		updateFields = append(updateFields, fmt.Sprintf("\t%s %s `json:\"%s\" validate:\"required\"`", fieldName, goType, jsonTag))
 	}
 
 	var content strings.Builder
 
+	content.WriteString(fmt.Sprintf("package %s\n\n", modelName))
+
+	imports := []string{}
 	if usesTime {
-		content.WriteString("import \"time\"\n\n")
+		imports = append(imports, "\t\"time\"")
+	}
+	if usesUUID {
+		imports = append(imports, "\t\"github.com/google/uuid\"")
 	}
 
-	createStruct := fmt.Sprintf("type Create%sRequest struct {\n%s\n}", capitalizedModelName, strings.Join(createFields, "\n"))
-	updateStruct := fmt.Sprintf("type Update%sRequest struct {\n%s\n}", capitalizedModelName, strings.Join(updateFields, "\n"))
+	if len(imports) > 0 {
+		content.WriteString("import (\n")
+		content.WriteString(strings.Join(imports, "\n"))
+		content.WriteString("\n)")
+		content.WriteString("\n\n")
+	}
+
+	createStructName := fmt.Sprintf("Insert%sDTO", capitalizedModelName)
+	createStruct := fmt.Sprintf("type %s struct {\n%s\n}", createStructName, strings.Join(createFields, "\n"))
+
+	updateStructName := fmt.Sprintf("Update%sDTO", capitalizedModelName)
+	updateFieldsWithID := append([]string{"\tID    uuid.UUID `json:\"id\" validate:\"required\"`"}, updateFields...)
+	updateStruct := fmt.Sprintf("type %s struct {\n%s\n}", updateStructName, strings.Join(updateFieldsWithID, "\n"))
 
 	content.WriteString(createStruct)
 	content.WriteString("\n\n")
 	content.WriteString(updateStruct)
+	content.WriteString("\n")
 
 	return content.String()
+}
+
+func generateServiceTestContent(modelName, capitalizedModelName string, columns []Column) string {
+	// TODO
+	return ""
 }
