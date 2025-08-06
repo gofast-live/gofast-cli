@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gertd/go-pluralize"
@@ -86,6 +87,12 @@ Example:
 			return
 		}
 
+		err = generateServiceLayer(modelName, columns)
+		if err != nil {
+			cmd.Printf("Error generating service layer: %v.\n", err)
+			return
+		}
+
 		cmd.Print("Model created successfully!\n")
 		cmd.Printf("Model Name: %s\n", modelName)
 		cmd.Printf("Columns:\n")
@@ -116,7 +123,7 @@ func generateSchema(modelName string, columns []Column) error {
 
 	schemaContent := fmt.Sprintf(`
 
--- create "%s" table
+-- create \"%s\" table
 create table if not exists %s (
 %s
 );`,
@@ -200,4 +207,79 @@ delete from %s where id = $1;
 		return err
 	}
 	return nil
+}
+
+func generateServiceLayer(modelName string, columns []Column) error {
+	sourceDir := "./app/service-core/domain/skeleton"
+	destDir := "app/service-core/domain/" + modelName
+	capitalizedModelName := capitalize(modelName)
+
+	err := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		destPath := strings.Replace(path, sourceDir, destDir, 1)
+		destPath = strings.ReplaceAll(destPath, "skeleton", modelName)
+
+		if info.IsDir() {
+			return os.MkdirAll(destPath, info.Mode())
+		}
+
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		newContentStr := strings.ReplaceAll(string(content), "skeleton", modelName)
+		newContentStr = strings.ReplaceAll(newContentStr, "Skeleton", capitalizedModelName)
+
+		if info.Name() == "validation.go" {
+			validationContent := generateValidationContent(modelName, columns)
+			newContentStr = newContentStr + "\n" + validationContent
+		}
+
+		return os.WriteFile(destPath, []byte(newContentStr), info.Mode())
+	})
+
+	return err
+}
+
+func generateValidationContent(modelName string, columns []Column) string {
+	capitalizedModelName := capitalize(modelName)
+	var createFields, updateFields []string
+	usesTime := false
+
+	typeMap := map[string]string{
+		"string": "string",
+		"number": "float64",
+		"time":   "time.Time",
+		"bool":   "bool",
+	}
+
+	for _, col := range columns {
+		if col.Type == "time" {
+			usesTime = true
+		}
+		goType := typeMap[col.Type]
+		fieldName := capitalize(col.Name)
+		jsonTag := col.Name
+		createFields = append(createFields, fmt.Sprintf("\t%s %s `json:\"%s\" validate:\"required\"`", fieldName, goType, jsonTag))
+		updateFields = append(updateFields, fmt.Sprintf("\t%s %s `json:\"%s,omitempty\"`", fieldName, goType, jsonTag))
+	}
+
+	var content strings.Builder
+
+	if usesTime {
+		content.WriteString("import \"time\"\n\n")
+	}
+
+	createStruct := fmt.Sprintf("type Create%sRequest struct {\n%s\n}", capitalizedModelName, strings.Join(createFields, "\n"))
+	updateStruct := fmt.Sprintf("type Update%sRequest struct {\n%s\n}", capitalizedModelName, strings.Join(updateFields, "\n"))
+
+	content.WriteString(createStruct)
+	content.WriteString("\n\n")
+	content.WriteString(updateStruct)
+
+	return content.String()
 }
