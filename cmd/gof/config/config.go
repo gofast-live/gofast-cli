@@ -12,7 +12,7 @@ import (
 
 const (
 	SERVER_URL     = "https://admin.gofast.live"
-	VERSION        = "v0.0.1"
+	VERSION        = "v0.0.2"
 	ConfigFileName = "gofast.json"
 )
 
@@ -35,7 +35,7 @@ func ParseConfig() (*Config, error) {
 	data, err := os.ReadFile(ConfigFileName)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, errors.New("gofast.json config file not found. Please run 'gof init <project_name>' to create it")
+			return nil, errors.New("gofast.json config file not found. Please run 'gof init <project_name> && cd <project_name>' to create a new project")
 		}
 		return nil, err
 	}

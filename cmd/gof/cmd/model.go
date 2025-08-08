@@ -75,15 +75,25 @@ Example:
 			return
 		}
 
-		err = generateSchema(modelName, columns)
+		schemaContent, err := generateSchema(modelName, columns)
 		if err != nil {
 			cmd.Printf("Error generating schema: %v.\n", err)
 			return
 		}
+		err = appendToFile("./app/service-core/storage/schema.sql", schemaContent)
+		if err != nil {
+			cmd.Printf("Error writing schema file: %v.\n", err)
+			return
+		}
 
-		err = generateQueries(modelName, columns)
+		queriesContent, err := generateQueries(modelName, columns)
 		if err != nil {
 			cmd.Printf("Error generating queries: %v.\n", err)
+			return
+		}
+		err = appendToFile("./app/service-core/storage/query.sql", queriesContent)
+		if err != nil {
+			cmd.Printf("Error writing query file: %v.\n", err)
 			return
 		}
 
@@ -102,7 +112,26 @@ Example:
 	},
 }
 
-func generateSchema(modelName string, columns []Column) error {
+func appendToFile(filePath, content string) error {
+	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			fmt.Printf("Error closing file: %v\n", err)
+		}
+	}()
+
+	_, err = f.WriteString(content)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func generateSchema(modelName string, columns []Column) (string, error) {
 	pluralize := pluralize.NewClient()
 	tableName := pluralize.Plural(modelName)
 	var columnDefs []string
@@ -129,23 +158,7 @@ create table if not exists %s (
 );`,
 		tableName, tableName, strings.Join(columnDefs, ",\n"))
 
-	filePath := "./app/service-core/storage/schema.sql"
-	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err := f.Close()
-		if err != nil {
-			fmt.Printf("Error closing file: %v\n", err)
-		}
-	}()
-
-	_, err = f.WriteString(schemaContent)
-	if err != nil {
-		return err
-	}
-	return nil
+	return schemaContent, nil
 }
 
 func capitalize(s string) string {
@@ -155,7 +168,7 @@ func capitalize(s string) string {
 	return strings.ToUpper(string(s[0])) + s[1:]
 }
 
-func generateQueries(modelName string, columns []Column) error {
+func generateQueries(modelName string, columns []Column) (string, error) {
 	pluralize := pluralize.NewClient()
 	tableName := pluralize.Plural(modelName)
 	modelNameSingular := capitalize(modelName)
@@ -192,21 +205,17 @@ where id = $%d returning *;
 delete from %s where id = $1;
 `, modelNamePlural, tableName, modelNameSingular, tableName, modelNameSingular, tableName, colNamesStr, placeholdersStr, modelNameSingular, tableName, updatePairsStr, len(columns)+1, modelNameSingular, tableName)
 
-	filePath := "./app/service-core/storage/query.sql"
-	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err := f.Close()
-		if err != nil {
-			fmt.Printf("Error closing file: %v\n", err)
+	return queries, nil
+}
+
+func toCamelCase(s string) string {
+	parts := strings.Split(s, "_")
+	for i, part := range parts {
+		if len(part) > 0 {
+			parts[i] = strings.ToUpper(string(part[0])) + part[1:]
 		}
-	}()
-	if _, err := f.WriteString(queries); err != nil {
-		return err
 	}
-	return nil
+	return strings.Join(parts, "")
 }
 
 func generateServiceLayer(modelName string, columns []Column) error {
@@ -214,7 +223,7 @@ func generateServiceLayer(modelName string, columns []Column) error {
 	destDir := "app/service-core/domain/" + modelName
 	capitalizedModelName := capitalize(modelName)
 
-	err := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -227,10 +236,13 @@ func generateServiceLayer(modelName string, columns []Column) error {
 		}
 
 		var newContentStr string
+		var genErr error
 		if info.Name() == "dto.go" {
-			newContentStr = generateDTO(modelName, columns)
+			newContentStr, genErr = generateDTO(modelName, columns)
+		} else if info.Name() == "service.go" {
+			newContentStr, genErr = generateServiceContent(modelName, capitalizedModelName, columns)
 		} else if info.Name() == "service_test.go" {
-			newContentStr = generateServiceTestContent(modelName, capitalizedModelName, columns)
+			newContentStr, genErr = generateServiceTestContent(modelName, capitalizedModelName, columns)
 		} else {
 			content, err := os.ReadFile(path)
 			if err != nil {
@@ -240,13 +252,15 @@ func generateServiceLayer(modelName string, columns []Column) error {
 			newContentStr = strings.ReplaceAll(newContentStr, "Skeleton", capitalizedModelName)
 		}
 
+		if genErr != nil {
+			return fmt.Errorf("generating content for %s: %w", destPath, genErr)
+		}
+
 		return os.WriteFile(destPath, []byte(newContentStr), info.Mode())
 	})
-
-	return err
 }
 
-func generateDTO(modelName string, columns []Column) string {
+func generateDTO(modelName string, columns []Column) (string, error) {
 	capitalizedModelName := capitalize(modelName)
 	var createFields, updateFields []string
 	usesTime := false
@@ -254,7 +268,7 @@ func generateDTO(modelName string, columns []Column) string {
 
 	typeMap := map[string]string{
 		"string": "string",
-		"number": "float64",
+		"number": "string",
 		"time":   "time.Time",
 		"bool":   "bool",
 	}
@@ -264,7 +278,7 @@ func generateDTO(modelName string, columns []Column) string {
 			usesTime = true
 		}
 		goType := typeMap[col.Type]
-		fieldName := capitalize(col.Name)
+		fieldName := toCamelCase(col.Name)
 		jsonTag := col.Name
 		createFields = append(createFields, fmt.Sprintf("\t%s %s `json:\"%s\" validate:\"required\"`", fieldName, goType, jsonTag))
 		updateFields = append(updateFields, fmt.Sprintf("\t%s %s `json:\"%s\" validate:\"required\"`", fieldName, goType, jsonTag))
@@ -301,10 +315,147 @@ func generateDTO(modelName string, columns []Column) string {
 	content.WriteString(updateStruct)
 	content.WriteString("\n")
 
-	return content.String()
+	return content.String(), nil
 }
 
-func generateServiceTestContent(modelName, capitalizedModelName string, columns []Column) string {
-	// TODO
-	return ""
+func generateServiceContent(modelName string, capitalizedModelName string, columns []Column) (string, error) {
+	templatePath := "./app/service-core/domain/skeleton/service.go"
+	contentBytes, err := os.ReadFile(templatePath)
+	if err != nil {
+		return "", fmt.Errorf("reading template file %s: %w", templatePath, err)
+	}
+	content := string(contentBytes)
+
+	var insertFieldParts []string
+	for _, col := range columns {
+		fieldName := toCamelCase(col.Name)
+		insertFieldParts = append(insertFieldParts, fmt.Sprintf("%s:  dto.%s", fieldName, fieldName))
+	}
+	insertParamsContent := "\t\t" + strings.Join(insertFieldParts, ",\n\t\t")
+
+	var updateFieldParts []string
+	updateFieldParts = append(updateFieldParts, "ID:    dto.ID")
+	for _, col := range columns {
+		fieldName := toCamelCase(col.Name)
+		updateFieldParts = append(updateFieldParts, fmt.Sprintf("%s:  dto.%s", fieldName, fieldName))
+	}
+	updateParamsContent := "\t\t" + strings.Join(updateFieldParts, ",\n\t\t")
+
+	oldInsertBlock := "\t\tName:  dto.Name,\n\t\tAge:   dto.Age,\n\t\tAlive: dto.Alive"
+	content = strings.Replace(content, oldInsertBlock, insertParamsContent, 1)
+
+	oldUpdateBlock := "\t\tID:    dto.ID,\n\t\tName:  dto.Name,\n\t\tAge:   dto.Age,\n\t\tAlive: dto.Alive"
+	content = strings.Replace(content, oldUpdateBlock, updateParamsContent, 1)
+
+	content = strings.ReplaceAll(content, "skeleton", modelName)
+	content = strings.ReplaceAll(content, "Skeleton", capitalizedModelName)
+
+	return content, nil
 }
+
+
+func generateServiceTestContent(modelName, capitalizedModelName string, columns []Column) (string, error) {
+	templatePath := "./app/service-core/domain/skeleton/service_test.go"
+	contentBytes, err := os.ReadFile(templatePath)
+	if err != nil {
+		return "", fmt.Errorf("reading template file %s: %w", templatePath, err)
+	}
+	content := string(contentBytes)
+
+	// --- Field generation helpers ---
+
+	getMockValue := func(colType string, index int, colName string) string {
+		switch colType {
+		case "string":
+			return fmt.Sprintf("\"Test %s %d\"", toCamelCase(colName), index)
+		case "number":
+			return fmt.Sprintf("\"%d.0\"", 100*index)
+		case "time":
+			return "time.Now()"
+		case "bool":
+			return fmt.Sprintf("%t", index%2 != 0)
+		default:
+			return "\"\""
+		}
+	}
+
+	getEmptyValue := func(colType string) string {
+		switch colType {
+		case "string", "number":
+			return "\"\""
+		case "time":
+			return "time.Time{}"
+		case "bool":
+			return "false"
+		default:
+			return "\"\""
+		}
+	}
+
+	genFields := func(index int, empty bool) string {
+		var fieldParts []string
+		for _, col := range columns {
+			fieldName := toCamelCase(col.Name)
+			var val string
+			if empty {
+				val = getEmptyValue(col.Type)
+			} else {
+				val = getMockValue(col.Type, index, col.Name)
+			}
+			fieldParts = append(fieldParts, fmt.Sprintf("%s: %s", fieldName, val))
+		}
+		return strings.Join(fieldParts, ", ")
+	}
+
+	// --- Generate replacement field strings ---
+
+	newQueryFields1 := genFields(1, false)
+	newQueryFields2 := genFields(2, false)
+	newInsertDtoFields := genFields(1, false)
+	newEmptyInsertDtoFields := genFields(0, true)
+	newUpdateDtoFields := genFields(2, false)
+
+	// --- Perform replacements ---
+
+	// TestService_GetAllSkeletons
+	content = strings.Replace(content, `Name: "Skelly1", Age: "100", Alive: true`, newQueryFields1, 1)
+	content = strings.Replace(content, `Name: "Skelly2", Age: "200", Alive: false`, newQueryFields2, 1)
+
+	// TestService_GetAllSkeletons_ProcessError
+	content = strings.Replace(content, `Name: "Skelly1", Age: "100", Alive: true`, newQueryFields1, 1)
+
+	// TestService_GetSkeletonByID
+	content = strings.Replace(content, `ID: id, Name: "Test Skeleton", Created: time.Now(), Updated: time.Now(), Age: "50", Alive: true`,
+		"ID: id, Created: time.Now(), Updated: time.Now(), "+newQueryFields1, 1)
+
+	// TestService_CreateSkeleton
+	content = strings.ReplaceAll(content, `Name: "New Skeleton", Age: "1", Alive: true`, newInsertDtoFields, )
+	content = strings.Replace(content, `ID: uuid.New(), Name: "New Skeleton", Created: time.Now(), Updated: time.Now(), Age: "1", Alive: true`,
+		"ID: uuid.New(), Created: time.Now(), Updated: time.Now(), "+newInsertDtoFields, 1)
+
+	// TestService_CreateSkeleton_ValidationError
+	content = strings.Replace(content, `Name: "", Age: "", Alive: true`, newEmptyInsertDtoFields, 1)
+	numValidationErrors := 0
+	for _, col := range columns {
+		if col.Type == "string" || col.Type == "number" {
+			numValidationErrors++
+		}
+	}
+	content = strings.Replace(content, `assert.Len(t, target, 2)`, fmt.Sprintf("assert.Len(t, target, %d)", numValidationErrors), 1)
+
+	// TestService_EditSkeleton
+	content = strings.ReplaceAll(content, `ID: uuid.New(), Name: "Updated Skeleton", Age: "2", Alive: false`, "ID: uuid.New(), "+newUpdateDtoFields, )
+	content = strings.ReplaceAll(content, `ID: dto.ID, Name: "Updated Skeleton", Age: "2", Alive: false`, "ID: dto.ID, "+newUpdateDtoFields, )
+	content = strings.Replace(content, `ID: dto.ID, Name: "Updated Skeleton", Created: time.Now(), Updated: time.Now(), Age: "2", Alive: false`,
+		"ID: dto.ID, Created: time.Now(), Updated: time.Now(), "+newUpdateDtoFields, 1)
+
+	// TestService_EditSkeleton_ValidationError
+	content = strings.Replace(content, `ID: uuid.New(), Title: "", Content: "", Views: "", Done: false, Deadline: time.Time{}`, "ID: uuid.New(), "+newEmptyInsertDtoFields, 1)
+
+	content = strings.ReplaceAll(content, "skeleton", modelName)
+	content = strings.ReplaceAll(content, "Skeleton", capitalizedModelName)
+
+	return content, nil
+}
+
+
