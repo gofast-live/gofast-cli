@@ -331,7 +331,7 @@ func generateServiceContent(modelName string, capitalizedModelName string, colum
 		fieldName := toCamelCase(col.Name)
 		insertFieldParts = append(insertFieldParts, fmt.Sprintf("%s:  dto.%s", fieldName, fieldName))
 	}
-	insertParamsContent := "\t\t" + strings.Join(insertFieldParts, ",\n\t\t")
+	insertParamsContent := "\t\t" + strings.Join(insertFieldParts, ",\n\t\t") + ","
 
 	var updateFieldParts []string
 	updateFieldParts = append(updateFieldParts, "ID:    dto.ID")
@@ -339,12 +339,19 @@ func generateServiceContent(modelName string, capitalizedModelName string, colum
 		fieldName := toCamelCase(col.Name)
 		updateFieldParts = append(updateFieldParts, fmt.Sprintf("%s:  dto.%s", fieldName, fieldName))
 	}
-	updateParamsContent := "\t\t" + strings.Join(updateFieldParts, ",\n\t\t")
+	updateParamsContent := "\t\t" + strings.Join(updateFieldParts, ",\n\t\t") + ","
 
-	oldInsertBlock := "\t\tName:  dto.Name,\n\t\tAge:   dto.Age,\n\t\tAlive: dto.Alive"
+	oldInsertBlock := `		Name:   dto.Name,
+		Age:    dto.Age,
+		Death:  dto.Death,
+		Zombie: dto.Zombie,`
 	content = strings.Replace(content, oldInsertBlock, insertParamsContent, 1)
 
-	oldUpdateBlock := "\t\tID:    dto.ID,\n\t\tName:  dto.Name,\n\t\tAge:   dto.Age,\n\t\tAlive: dto.Alive"
+	oldUpdateBlock := `		ID:     dto.ID,
+		Name:   dto.Name,
+		Age:    dto.Age,
+		Death:  dto.Death,
+		Zombie: dto.Zombie,`
 	content = strings.Replace(content, oldUpdateBlock, updateParamsContent, 1)
 
 	content = strings.ReplaceAll(content, "skeleton", modelName)
@@ -353,17 +360,14 @@ func generateServiceContent(modelName string, capitalizedModelName string, colum
 	return content, nil
 }
 
-
 func generateServiceTestContent(modelName, capitalizedModelName string, columns []Column) (string, error) {
 	templatePath := "./app/service-core/domain/skeleton/service_test.go"
 	contentBytes, err := os.ReadFile(templatePath)
 	if err != nil {
 		return "", fmt.Errorf("reading template file %s: %w", templatePath, err)
 	}
-	content := string(contentBytes)
 
 	// --- Field generation helpers ---
-
 	getMockValue := func(colType string, index int, colName string) string {
 		switch colType {
 		case "string":
@@ -373,7 +377,8 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 		case "time":
 			return "time.Now()"
 		case "bool":
-			return fmt.Sprintf("%t", index%2 != 0)
+			// Use `true` for success-path tests to pass the "required" validation.
+			return "true"
 		default:
 			return "\"\""
 		}
@@ -386,19 +391,22 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 		case "time":
 			return "time.Time{}"
 		case "bool":
+			// Use `false` for validation tests to trigger the "required" tag (zero value).
 			return "false"
 		default:
 			return "\"\""
 		}
 	}
 
-	genFields := func(index int, empty bool) string {
+	genFields := func(index int, empty bool, fromDto bool) string {
 		var fieldParts []string
 		for _, col := range columns {
 			fieldName := toCamelCase(col.Name)
 			var val string
 			if empty {
 				val = getEmptyValue(col.Type)
+			} else if fromDto {
+				val = fmt.Sprintf("dto.%s", fieldName)
 			} else {
 				val = getMockValue(col.Type, index, col.Name)
 			}
@@ -407,55 +415,93 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 		return strings.Join(fieldParts, ", ")
 	}
 
-	// --- Generate replacement field strings ---
+	getIndent := func(s string) string {
+		for i, r := range s {
+			if r != ' ' && r != '\t' {
+				return s[:i]
+			}
+		}
+		return ""
+	}
 
-	newQueryFields1 := genFields(1, false)
-	newQueryFields2 := genFields(2, false)
-	newInsertDtoFields := genFields(1, false)
-	newEmptyInsertDtoFields := genFields(0, true)
-	newUpdateDtoFields := genFields(2, false)
+	// --- Define replacements ---
+	replacements := map[string][]string{
+		"// QUERY": {
+			"ID: uuid.New(), Created: time.Now(), Updated: time.Now(), " + genFields(1, false, false) + ",",
+			"ID: uuid.New(), Created: time.Now(), Updated: time.Now(), " + genFields(2, false, false) + ",",
+			"ID: uuid.New(), Created: time.Now(), Updated: time.Now(), " + genFields(1, false, false) + ",",
+			"ID: id, Created: time.Now(), Updated: time.Now(), " + genFields(1, false, false) + ",",
+			"ID: uuid.New(), Created: time.Now(), Updated: time.Now(), " + genFields(1, false, true) + ",",
+		},
+		"// INSERT DTO": {
+			genFields(1, false, false) + ",",
+			genFields(1, false, false) + ",",
+		},
+		"// EMPTY INSERT DTO": {
+			genFields(0, true, false) + ",",
+		},
+		"// INSERT PARAMS": {
+			genFields(1, false, true) + ",",
+			genFields(1, false, true) + ",",
+		},
+		"// UPDATE DTO": {
+			"ID: uuid.New(), " + genFields(2, false, false) + ",",
+			"ID: uuid.New(), " + genFields(2, false, false) + ",",
+		},
+		"// EMPTY UPDATE DTO": {
+			"ID: uuid.New(), " + genFields(0, true, false) + ",",
+		},
+		"// UPDATE PARAMS": {
+			"ID: dto.ID, " + genFields(2, false, true) + ",",
+			"ID: dto.ID, " + genFields(2, false, true) + ",",
+		},
+		"// QUERY PARAMS": {
+			"ID: dto.ID, Created: time.Now(), Updated: time.Now(), " + genFields(2, false, true) + ",",
+		},
+	}
+	counters := make(map[string]int)
 
-	// --- Perform replacements ---
+	// --- Process lines ---
+	lines := strings.Split(string(contentBytes), "\n")
+	var newLines []string
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		trimmedLine := strings.TrimSpace(line)
 
-	// TestService_GetAllSkeletons
-	content = strings.Replace(content, `Name: "Skelly1", Age: "100", Alive: true`, newQueryFields1, 1)
-	content = strings.Replace(content, `Name: "Skelly2", Age: "200", Alive: false`, newQueryFields2, 1)
+		if replacementList, ok := replacements[trimmedLine]; ok {
+			newLines = append(newLines, line) // Keep the comment line
 
-	// TestService_GetAllSkeletons_ProcessError
-	content = strings.Replace(content, `Name: "Skelly1", Age: "100", Alive: true`, newQueryFields1, 1)
-
-	// TestService_GetSkeletonByID
-	content = strings.Replace(content, `ID: id, Name: "Test Skeleton", Created: time.Now(), Updated: time.Now(), Age: "50", Alive: true`,
-		"ID: id, Created: time.Now(), Updated: time.Now(), "+newQueryFields1, 1)
-
-	// TestService_CreateSkeleton
-	content = strings.ReplaceAll(content, `Name: "New Skeleton", Age: "1", Alive: true`, newInsertDtoFields, )
-	content = strings.Replace(content, `ID: uuid.New(), Name: "New Skeleton", Created: time.Now(), Updated: time.Now(), Age: "1", Alive: true`,
-		"ID: uuid.New(), Created: time.Now(), Updated: time.Now(), "+newInsertDtoFields, 1)
-
-	// TestService_CreateSkeleton_ValidationError
-	content = strings.Replace(content, `Name: "", Age: "", Alive: true`, newEmptyInsertDtoFields, 1)
-	numValidationErrors := 0
-	for _, col := range columns {
-		if col.Type == "string" || col.Type == "number" {
-			numValidationErrors++
+			counter := counters[trimmedLine]
+			if counter < len(replacementList) {
+				replacement := replacementList[counter]
+				if i+1 < len(lines) {
+					indent := getIndent(lines[i+1])
+					newLines = append(newLines, indent+replacement)
+					i++ // Skip the next line from the template
+				}
+				counters[trimmedLine]++
+			} else {
+				if i+1 < len(lines) {
+					newLines = append(newLines, lines[i+1])
+					i++
+				}
+			}
+		} else {
+			newLines = append(newLines, line)
 		}
 	}
-	content = strings.Replace(content, `assert.Len(t, target, 2)`, fmt.Sprintf("assert.Len(t, target, %d)", numValidationErrors), 1)
 
-	// TestService_EditSkeleton
-	content = strings.ReplaceAll(content, `ID: uuid.New(), Name: "Updated Skeleton", Age: "2", Alive: false`, "ID: uuid.New(), "+newUpdateDtoFields, )
-	content = strings.ReplaceAll(content, `ID: dto.ID, Name: "Updated Skeleton", Age: "2", Alive: false`, "ID: dto.ID, "+newUpdateDtoFields, )
-	content = strings.Replace(content, `ID: dto.ID, Name: "Updated Skeleton", Created: time.Now(), Updated: time.Now(), Age: "2", Alive: false`,
-		"ID: dto.ID, Created: time.Now(), Updated: time.Now(), "+newUpdateDtoFields, 1)
+	content := strings.Join(newLines, "\n")
 
-	// TestService_EditSkeleton_ValidationError
-	content = strings.Replace(content, `ID: uuid.New(), Title: "", Content: "", Views: "", Done: false, Deadline: time.Time{}`, "ID: uuid.New(), "+newEmptyInsertDtoFields, 1)
+	// --- Final replacements ---
+	// The empty DTOs generate zero values for all fields, so all should fail "required" validation.
+	// The number of errors should always be the number of columns.
+	content = strings.Replace(content, "assert.Len(t, target, 3)", fmt.Sprintf("assert.Len(t, target, %d)", len(columns)), 1)
+	content = strings.Replace(content, "assert.Len(t, target, 4)", fmt.Sprintf("assert.Len(t, target, %d)", len(columns)), 1)
 
+	// Model names
 	content = strings.ReplaceAll(content, "skeleton", modelName)
 	content = strings.ReplaceAll(content, "Skeleton", capitalizedModelName)
 
 	return content, nil
 }
-
-

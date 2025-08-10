@@ -67,7 +67,7 @@ var initCmd = &cobra.Command{
 		messages := []string{
 			"Generating Public/Private keys...",
 			"Generating SQLC files...",
-			"Generating Proto files...",
+			"Generating gRPC files...",
 			"Starting PostgreSQL container...",
 			"Running Atlas migrations...",
 			"Stopping PostgreSQL container...",
