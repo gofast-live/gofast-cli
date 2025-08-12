@@ -103,6 +103,12 @@ Example:
 			return
 		}
 
+		err = generateRestLayer(modelName, columns)
+		if err != nil {
+			cmd.Printf("Error generating REST layer: %v.\n", err)
+			return
+		}
+
 		cmd.Print("Model created successfully!\n")
 		cmd.Printf("Model Name: %s\n", modelName)
 		cmd.Printf("Columns:\n")
@@ -131,9 +137,10 @@ func appendToFile(filePath, content string) error {
 	return nil
 }
 
+var pluralizeClient = pluralize.NewClient()
+
 func generateSchema(modelName string, columns []Column) (string, error) {
-	pluralize := pluralize.NewClient()
-	tableName := pluralize.Plural(modelName)
+	tableName := pluralizeClient.Plural(modelName)
 	var columnDefs []string
 	columnDefs = append(columnDefs, "    id uuid primary key default gen_random_uuid()")
 	columnDefs = append(columnDefs, "    created timestamptz not null default current_timestamp")
@@ -169,8 +176,7 @@ func capitalize(s string) string {
 }
 
 func generateQueries(modelName string, columns []Column) (string, error) {
-	pluralize := pluralize.NewClient()
-	tableName := pluralize.Plural(modelName)
+	tableName := pluralizeClient.Plural(modelName)
 	modelNameSingular := capitalize(modelName)
 	modelNamePlural := capitalize(tableName)
 
@@ -505,3 +511,194 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 
 	return content, nil
 }
+
+func generateRestLayer(modelName string, columns []Column) error {
+	sourceDir := "./app/service-core/transport/rest/skeleton"
+	destDir := "app/service-core/transport/rest/" + modelName
+	capitalizedModelName := capitalize(modelName)
+	pluralModelName := pluralizeClient.Plural(modelName)
+
+	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		destPath := strings.Replace(path, sourceDir, destDir, 1)
+		destPath = strings.ReplaceAll(destPath, "skeleton", modelName)
+
+		if info.IsDir() {
+			return os.MkdirAll(destPath, info.Mode())
+		}
+
+		var newContentStr string
+		var genErr error
+		if info.Name() == "route.go" {
+			newContentStr, genErr = generateRouteContent(modelName, capitalizedModelName, pluralModelName)
+		} else if info.Name() == "route_test.go" {
+			newContentStr, genErr = generateRouteTestContent(modelName, capitalizedModelName, columns)
+		} else {
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			newContentStr = strings.ReplaceAll(string(content), "skeletons", pluralModelName)
+			newContentStr = strings.ReplaceAll(newContentStr, "skeleton", modelName)
+			newContentStr = strings.ReplaceAll(newContentStr, "Skeleton", capitalizedModelName)
+		}
+
+		if genErr != nil {
+			return fmt.Errorf("generating content for %s: %w", destPath, genErr)
+		}
+
+		return os.WriteFile(destPath, []byte(newContentStr), info.Mode())
+	})
+}
+
+func generateRouteContent(modelName, capitalizedModelName, pluralModelName string) (string, error) {
+	templatePath := "./app/service-core/transport/rest/skeleton/route.go"
+	contentBytes, err := os.ReadFile(templatePath)
+	if err != nil {
+		return "", fmt.Errorf("reading template file %s: %w", templatePath, err)
+	}
+	content := string(contentBytes)
+
+	content = strings.ReplaceAll(content, "skeletons", pluralModelName)
+	content = strings.ReplaceAll(content, "skeleton", modelName)
+	content = strings.ReplaceAll(content, "Skeleton", capitalizedModelName)
+
+	return content, nil
+}
+
+func generateRouteTestContent(modelName, capitalizedModelName string, columns []Column) (string, error) {
+	templatePath := "./app/service-core/transport/rest/skeleton/route_test.go"
+	contentBytes, err := os.ReadFile(templatePath)
+	if err != nil {
+		return "", fmt.Errorf("reading template file %s: %w", templatePath, err)
+	}
+
+	// --- Field generation helpers ---
+	getMockValue := func(colType string, index int, colName string) string {
+		switch colType {
+		case "string":
+			return fmt.Sprintf("\"Test %s %d\"", toCamelCase(colName), index)
+		case "number":
+			return fmt.Sprintf("\"%d.0\"", 100*index)
+		case "time":
+			return "time.Now()"
+		case "bool":
+			return "true"
+		default:
+			return "\"\""
+		}
+	}
+
+	genFields := func(index int, fromDto bool) string {
+		var fieldParts []string
+		for _, col := range columns {
+			fieldName := toCamelCase(col.Name)
+			var val string
+			if fromDto {
+				val = fmt.Sprintf("dto.%s", fieldName)
+			} else {
+				val = getMockValue(col.Type, index, col.Name)
+			}
+			fieldParts = append(fieldParts, fmt.Sprintf("%s: %s", fieldName, val))
+		}
+		return strings.Join(fieldParts, ", ")
+	}
+
+	getIndent := func(s string) string {
+		for i, r := range s {
+			if r != ' ' && r != '\t' {
+				return s[:i]
+			}
+		}
+		return ""
+	}
+
+	// --- Define replacements ---
+	replacements := map[string][]string{
+		"// QUERY": {
+			"ID: id, Created: time.Now(), Updated: time.Now(), " + genFields(1, false) + ",",
+			"ID: id, Created: time.Now(), Updated: time.Now(), " + genFields(1, false) + ",",
+			"ID: id, Created: time.Now(), Updated: time.Now(), " + genFields(2, false) + ",",
+		},
+		"// INSERT DTO": {
+			genFields(1, false) + ",",
+			genFields(1, false) + ",",
+		},
+		"// UPDATE DTO": {
+			"ID: id, " + genFields(2, false) + ",",
+			"ID: id, " + genFields(2, false) + ",",
+		},
+		"// QUERY DTO": {
+			"ID: id, Created: time.Now(), Updated: time.Now(), " + genFields(1, true) + ",",
+			"ID: id, Created: time.Now(), Updated: time.Now(), " + genFields(2, true) + ",",
+		},
+	}
+	counters := make(map[string]int)
+
+	// --- Process lines ---
+	lines := strings.Split(string(contentBytes), "\n")
+	var newLines []string
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		trimmedLine := strings.TrimSpace(line)
+
+		if replacementList, ok := replacements[trimmedLine]; ok {
+			newLines = append(newLines, line) // Keep the comment line
+
+			counter := counters[trimmedLine]
+			if counter < len(replacementList) {
+				replacement := replacementList[counter]
+				if i+1 < len(lines) {
+					indent := getIndent(lines[i+1])
+					newLines = append(newLines, indent+replacement)
+					i++ // Skip the next line from the template
+				}
+				counters[trimmedLine]++
+			} else {
+				if i+1 < len(lines) {
+					newLines = append(newLines, lines[i+1])
+					i++
+				}
+			}
+		} else {
+			newLines = append(newLines, line)
+		}
+	}
+
+	content := strings.Join(newLines, "\n")
+
+	// --- Smart assertion replacement ---
+	var assertColName string
+	for _, col := range columns {
+		if col.Type == "string" {
+			assertColName = toCamelCase(col.Name)
+			break
+		}
+	}
+
+	if assertColName != "" {
+		// TestRegisterRoutes and TestGetAllSkeletons use mocks with index 1
+		assertValue1 := fmt.Sprintf("Test %s 1", assertColName)
+		content = strings.Replace(content, `assert.Contains(t, rr.Body.String(), "Skelly")`, fmt.Sprintf(`assert.Contains(t, rr.Body.String(), "%s")`, assertValue1), 2)
+
+		// TestGetSkeletonByID and TestEditSkeleton use mocks with index 2
+		assertValue2 := fmt.Sprintf("Test %s 2", assertColName)
+		content = strings.Replace(content, `assert.Contains(t, rr.Body.String(), "Skelly")`, fmt.Sprintf(`assert.Contains(t, rr.Body.String(), "%s")`, assertValue2), 2)
+	} else {
+		// Fallback for models without string fields: check for the ID.
+		content = strings.ReplaceAll(content, `assert.Contains(t, rr.Body.String(), "Skelly")`, `assert.Contains(t, rr.Body.String(), id.String())`)
+	}
+
+	pluralModelName := pluralizeClient.Plural(modelName)
+
+	// Final replacements
+	content = strings.ReplaceAll(content, "skeletons", pluralModelName)
+	content = strings.ReplaceAll(content, "skeleton", modelName)
+	content = strings.ReplaceAll(content, "Skeleton", capitalizedModelName)
+
+	return content, nil
+}
+
