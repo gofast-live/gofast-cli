@@ -21,6 +21,13 @@ type Column struct {
 	Type string
 }
 
+var typeMap = map[string]string{
+	"string": "text",
+	"number": "numeric",
+	"time":   "timestamptz",
+	"bool":   "boolean",
+}
+
 var modelCmd = &cobra.Command{
 	Use:   "model [model_name] [columns...]",
 	Short: "Create a new model",
@@ -32,7 +39,7 @@ Valid column types are:
   - string  (PostgreSQL: text)
   - number  (PostgreSQL: numeric)
   - time    (PostgreSQL: timestamptz)
-  - bool (PostgreSQL: bool)
+  - bool    (PostgreSQL: boolean)
 
 Example:
   gof model post title:string content:string views:number published_at:time is_published:bool
@@ -121,7 +128,7 @@ Example:
 		cmd.Printf("Model Name: %s\n", config.SuccessStyle.Render(modelName))
 		cmd.Printf("Columns:\n")
 		for _, col := range columns {
-			cmd.Printf("  - Name: %s, Type: %s\n", col.Name, col.Type)
+			cmd.Printf("  - Name: %s, Type: %v\n", col.Name, typeMap[col.Type])
 		}
 
 		cmd.Printf("\nSchema generated in: %s\n", config.SuccessStyle.Render("./app/service-core/storage/schema.sql"))
@@ -162,20 +169,13 @@ func generateSchema(modelName string, columns []Column) (string, error) {
 	columnDefs = append(columnDefs, "    created timestamptz not null default current_timestamp")
 	columnDefs = append(columnDefs, "    updated timestamptz not null default current_timestamp")
 
-	typeMap := map[string]string{
-		"string": "text",
-		"number": "numeric",
-		"time":   "timestamptz",
-		"bool":   "bool",
-	}
-
 	for _, col := range columns {
 		columnDefs = append(columnDefs, fmt.Sprintf("    %s %s not null", col.Name, typeMap[col.Type]))
 	}
 
 	schemaContent := fmt.Sprintf(`
 
--- create \"%s\" table
+-- create "%s" table
 create table if not exists %s (
 %s
 );`,
