@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -109,12 +110,20 @@ Example:
 			return
 		}
 
+		cmdExec := exec.Command("sh", "scripts/sqlc.sh")
+		output, err := cmdExec.CombinedOutput()
+		if err != nil {
+			cmd.Printf("Error running SQLC script: %v\nOutput: %s\n", err, output)
+			return
+		}
+
 		cmd.Print("Model created successfully!\n")
 		cmd.Printf("Model Name: %s\n", modelName)
 		cmd.Printf("Columns:\n")
 		for _, col := range columns {
 			cmd.Printf("  - Name: %s, Type: %s\n", col.Name, col.Type)
 		}
+
 	},
 }
 
@@ -701,4 +710,3 @@ func generateRouteTestContent(modelName, capitalizedModelName string, columns []
 
 	return content, nil
 }
-
