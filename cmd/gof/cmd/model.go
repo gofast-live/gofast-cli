@@ -118,11 +118,18 @@ Example:
 		}
 
 		cmd.Print("Model created successfully!\n")
-		cmd.Printf("Model Name: %s\n", modelName)
+		cmd.Printf("Model Name: %s\n", config.SuccessStyle.Render(modelName))
 		cmd.Printf("Columns:\n")
 		for _, col := range columns {
 			cmd.Printf("  - Name: %s, Type: %s\n", col.Name, col.Type)
 		}
+
+		cmd.Printf("\nSchema generated in: %s\n", config.SuccessStyle.Render("./app/service-core/storage/schema.sql"))
+		cmd.Printf("Queries generated in: %s\n", config.SuccessStyle.Render("./app/service-core/storage/query.sql"))
+		cmd.Printf("Service layer generated in: %s\n", config.SuccessStyle.Render("./app/service-core/domain/"+modelName))
+		cmd.Printf("REST layer generated in: %s\n\n", config.SuccessStyle.Render("./app/service-core/transport/rest/"+modelName))
+
+		cmd.Printf("Don't forget to run %s to apply migrations.\n", config.SuccessStyle.Render("scripts/atlas.sh"))
 
 	},
 }
