@@ -117,6 +117,12 @@ Example:
 			return
 		}
 
+		err = generateAPIEndpoints(modelName)
+		if err != nil {
+			cmd.Printf("Error adding model to transport and rest: %v.\n", err)
+			return
+		}
+
 		cmdExec := exec.Command("sh", "scripts/sqlc.sh")
 		output, err := cmdExec.CombinedOutput()
 		if err != nil {
@@ -716,4 +722,125 @@ func generateRouteTestContent(modelName, capitalizedModelName string, columns []
 	content = strings.ReplaceAll(content, "Skeleton", capitalizedModelName)
 
 	return content, nil
+}
+
+func generateAPIEndpoints(modelName string) error {
+	capitalizedModelName := capitalize(modelName)
+	pluralModelName := pluralizeClient.Plural(modelName)
+
+	// =================================================================
+	// Modify ./app/service-core/transport/transport.go
+	// =================================================================
+	transportGoPath := "./app/service-core/transport/transport.go"
+	transportGoContentBytes, err := os.ReadFile(transportGoPath)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", transportGoPath, err)
+	}
+	transportGoContent := string(transportGoContentBytes)
+
+	// Add import
+	importHook := `import (`
+	importAddition := fmt.Sprintf("\n\t%[1]sSvc \"service-core/domain/%[1]s\"", modelName)
+	transportGoContent = strings.Replace(transportGoContent, importHook, importHook+importAddition, 1)
+
+	// Add service to Transport struct
+	structHook := `SkeletonService *skeletonSvc.Service`
+	structAddition := fmt.Sprintf("\n\t%sService *%sSvc.Service", capitalizedModelName, modelName)
+	transportGoContent = strings.Replace(transportGoContent, structHook, structHook+structAddition, 1)
+
+	// Instantiate service in New()
+	newFuncHook := `skeletonService := skeletonSvc.NewService(cfg, store)`
+	newFuncAddition := fmt.Sprintf("\n\t%sService := %sSvc.NewService(cfg, store)", modelName, modelName)
+	transportGoContent = strings.Replace(transportGoContent, newFuncHook, newFuncHook+newFuncAddition, 1)
+
+	// Pass service to rest.NewHandler
+	restHandlerHook := `rest.NewHandler(cfg, store, authService, skeletonService)`
+	restHandlerReplacement := fmt.Sprintf(`rest.NewHandler(cfg, store, authService, skeletonService, %sService)`, modelName)
+	transportGoContent = strings.Replace(transportGoContent, restHandlerHook, restHandlerReplacement, 1)
+
+	// Add service to returned struct
+	returnHook := `SkeletonService: skeletonService,`
+	returnAddition := fmt.Sprintf("\n\t\t%sService: %sService,", capitalizedModelName, modelName)
+	transportGoContent = strings.Replace(transportGoContent, returnHook, returnHook+returnAddition, 1)
+
+	err = os.WriteFile(transportGoPath, []byte(transportGoContent), 0644)
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", transportGoPath, err)
+	}
+
+	// =================================================================
+	// Modify ./app/service-core/transport/rest/server.go
+	// =================================================================
+	serverGoPath := "./app/service-core/transport/rest/server.go"
+	serverGoContentBytes, err := os.ReadFile(serverGoPath)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", serverGoPath, err)
+	}
+	serverGoContent := string(serverGoContentBytes)
+
+	// Add imports
+	serverImportHook := `import (`
+	serverImportAddition := fmt.Sprintf("\n\t%[1]sSvc \"service-core/domain/%[1]s\"\n\t%[1]sRoute \"service-core/transport/rest/%[1]s\"", modelName)
+	serverGoContent = strings.Replace(serverGoContent, serverImportHook, serverImportHook+serverImportAddition, 1)
+
+	// Add service to Handler struct
+	serverStructHook := `skeletonService *skeletonSvc.Service`
+	serverStructAddition := fmt.Sprintf("\n\t%sService *%sSvc.Service", modelName, modelName)
+	serverGoContent = strings.Replace(serverGoContent, serverStructHook, serverStructHook+serverStructAddition, 1)
+
+	// Add service to NewHandler signature
+	newHandlerSigHook := `skeletonService *skeletonSvc.Service,`
+	newHandlerSigAddition := fmt.Sprintf("\n\t%sService *%sSvc.Service,", modelName, modelName)
+	serverGoContent = strings.Replace(serverGoContent, newHandlerSigHook, newHandlerSigHook+newHandlerSigAddition, 1)
+
+	// Add service to Handler literal
+	newHandlerBodyHook := `skeletonService: skeletonService,`
+	newHandlerBodyAddition := fmt.Sprintf("\n\t\t%sService: %sService,", modelName, modelName)
+	serverGoContent = strings.Replace(serverGoContent, newHandlerBodyHook, newHandlerBodyHook+newHandlerBodyAddition, 1)
+
+	// Add routes in NewServer
+	serverRoutesHook := `mux.Handle("/skeleton/", h.Authn(skeletonMux))`
+	serverRoutesAddition := fmt.Sprintf("\n\n\t// %s\n\t%sMux := http.NewServeMux()\n\t%sHandler := %sRoute.NewHandler(h.%sService)\n\t%sRoute.RegisterRoutes(%sMux, %sHandler)\n\tmux.Handle(\"/%s/\", h.Authn(%sMux))",
+		capitalize(pluralModelName),
+		modelName,
+		modelName, modelName, modelName,
+		modelName, modelName, modelName,
+		pluralModelName, modelName)
+	serverGoContent = strings.Replace(serverGoContent, serverRoutesHook, serverRoutesHook+serverRoutesAddition, 1)
+
+	err = os.WriteFile(serverGoPath, []byte(serverGoContent), 0644)
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", serverGoPath, err)
+	}
+
+	// =================================================================
+	// Modify ./app/service-core/transport/rest/server_test.go
+	// =================================================================
+	serverTestGoPath := "./app/service-core/transport/rest/server_test.go"
+	serverTestGoContentBytes, err := os.ReadFile(serverTestGoPath)
+	if err != nil {
+		// If the file doesn't exist, we don't need to do anything.
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("reading %s: %w", serverTestGoPath, err)
+	}
+	serverTestGoContent := string(serverTestGoContentBytes)
+
+	lines := strings.Split(serverTestGoContent, "\n")
+	var newLines []string
+	for _, line := range lines {
+		if strings.Contains(line, "rest.NewHandler(") {
+			line = strings.Replace(line, ")", ", nil)", 1)
+		}
+		newLines = append(newLines, line)
+	}
+	newServerTestGoContent := strings.Join(newLines, "\n")
+
+	err = os.WriteFile(serverTestGoPath, []byte(newServerTestGoContent), 0644)
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", serverTestGoPath, err)
+	}
+
+	return nil
 }

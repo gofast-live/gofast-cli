@@ -1,5 +1,10 @@
 # Gemini Coding Conventions
 
+## Ignored Folders
+- The following folders should be ignored for context:
+  - `tmp`
+  - `node_modules`
+
 ## Error Handling
 
 - Always declare the `err` variable on a separate line before the `if` statement that checks for an error. This improves readability and simplifies debugging.
@@ -27,8 +32,29 @@ if err := doSomething(); err != nil {
 }
 ```
 
+## TypeScript/JavaScript Function Style
+
+- Always use function declarations instead of function expressions. This ensures consistency and improves readability.
+
+**Good:**
+```typescript
+function myFunction() {
+  // ...
+}
+```
+
+**Bad:**
+```typescript
+const myFunction = () => {
+  // ...
+};
+```
+
 ## Blocked Scripts
 
 The following scripts should not be executed directly:
 - `sqlc`
+- `scripts/sqlc.sh`
+- `./scripts/sqlc.sh`
 - `atlas`
+- `./scripts/atlas.sh`
