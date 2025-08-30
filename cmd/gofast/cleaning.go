@@ -65,7 +65,7 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 		run_cmd = append(run_cmd, "DATABASE_PROVIDER=postgres \\")
 		run_cmd = append(run_cmd, "POSTGRES_HOST=postgres \\")
 		run_cmd = append(run_cmd, "POSTGRES_PORT=5432 \\")
-		run_cmd = append(run_cmd, "POSTGRES_DB=db \\")
+		run_cmd = append(run_cmd, "POSTGRES_DB=postgres \\")
 		run_cmd = append(run_cmd, "POSTGRES_USER=postgres \\")
 		run_cmd = append(run_cmd, "POSTGRES_PASSWORD=postgres \\")
 		run_cmd = append(run_cmd, "PAYMENT_PROVIDER=local \\")
@@ -128,7 +128,7 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 		run_cmd = append(run_cmd, "DATABASE_PROVIDER=postgres \\")
 		run_cmd = append(run_cmd, "POSTGRES_HOST=postgres \\")
 		run_cmd = append(run_cmd, "POSTGRES_PORT=5432 \\")
-		run_cmd = append(run_cmd, "POSTGRES_DB=db \\")
+		run_cmd = append(run_cmd, "POSTGRES_DB=postgres \\")
 		run_cmd = append(run_cmd, "POSTGRES_USER=postgres \\")
 		run_cmd = append(run_cmd, "POSTGRES_PASSWORD=postgres \\")
 	} else if databaseProvider == "SQLite" {
@@ -185,7 +185,7 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 		}
 
 		// Remove postgres service from docker-compose.yml if SQLite or Turso is selected
-		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  postgres:", "      POSTGRES_DB: db", true)
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  postgres:", "      POSTGRES_DB: postgres", true)
 		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
 	}
 
