@@ -1,6 +1,6 @@
 module github.com/gofast-live/gofast-cli/v2
 
-go 1.22.5
+go 1.25
 
 require (
 	github.com/charmbracelet/bubbles v0.18.0

@@ -18,7 +18,7 @@ import (
 
 var (
 	SERVER_URL   = "https://admin.gofast.live"
-	VERSION      = "v1.3.0"
+	VERSION      = "v2.2.0"
 	noStyle      = lipgloss.NewStyle()
 	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("032"))
 	blurredStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
