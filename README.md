@@ -15,7 +15,7 @@ GOOS=windows GOARCH=amd64 go build -o gofast-windows-amd64.exe
 ### Using Go
 
 ```sh
-go install github.com/gofast-live/gofast-cli/cmd/gofast@v1.2.1
+go install github.com/gofast-live/gofast-cli/cmd/gofast@v1.3.0
 ```
 
 Make sure that your `PATH` includes the Go bin directory. You can add it to your `~/.bashrc` or `~/.zshrc` file.
@@ -33,20 +33,20 @@ Go to the [Releases](https://github.com/gofast-live/gofast-cli/releases) page an
 #### Linux
 
 ```bash
-wget https://github.com/gofast-live/gofast-cli/releases/download/v1.2.1/gofast-linux-amd64 -O /usr/local/bin/gofast
+wget https://github.com/gofast-live/gofast-cli/releases/download/v1.3.0/gofast-linux-amd64 -O /usr/local/bin/gofast
 chmod +x /usr/local/bin/gofast
 ```
 
 #### macOS
 
 ```bash
-wget https://github.com/gofast-live/gofast-cli/releases/download/v1.2.1/gofast-darwin-amd64 -O /usr/local/bin/gofast
+wget https://github.com/gofast-live/gofast-cli/releases/download/v1.3.0/gofast-darwin-amd64 -O /usr/local/bin/gofast
 chmod +x /usr/local/bin/gofast
 ```
 
 #### Windows
 
 ```bash
-curl -L -o gofast.exe https://github.com/gofast-live/gofast-cli/releases/download/v1.2.1/gofast-windows-amd64.exe
+curl -L -o gofast.exe https://github.com/gofast-live/gofast-cli/releases/download/v1.3.0/gofast-windows-amd64.exe
 move gofast.exe C:\Windows\System32
 ```
