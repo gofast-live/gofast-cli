@@ -15,7 +15,7 @@ GOOS=windows GOARCH=amd64 go build -o gofast-windows-amd64.exe
 ### Using Go
 
 ```sh
-go install github.com/gofast-live/gofast-cli/cmd/gofast@v2.2.0
+go install github.com/gofast-live/gofast-cli/v2/cmd/gofast@v2.2.0
 ```
 
 Make sure that your `PATH` includes the Go bin directory. You can add it to your `~/.bashrc` or `~/.zshrc` file.
