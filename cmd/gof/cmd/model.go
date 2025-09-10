@@ -1114,38 +1114,96 @@ func generateAuthAccessFlags(modelName string) error {
     userListSnippet := fmt.Sprintf("Get%[1]s | Create%[2]s | Edit%[2]s | Remove%[2]s", modelPluralCap, modelCap)
     adminListSnippet := userListSnippet
 
-    // Insert flags inside GF_ACCESS_FLAGS markers (before END)
+    // Insert flags inside GF_ACCESS_FLAGS markers (before END) unless already present
     const flagsStart = "GF_ACCESS_FLAGS_START"
     const flagsEnd = "GF_ACCESS_FLAGS_END"
-    startIdx := strings.Index(content, flagsStart)
-    endIdx := strings.Index(content, flagsEnd)
-    if startIdx == -1 || endIdx == -1 || endIdx <= startIdx {
-        return fmt.Errorf("auth markers for access flags not found")
-    }
-    // Find insertion point: end of line after start marker
-    insertPos := endIdx // insert just before END marker
-    content = content[:insertPos] + flagsSnippet + content[insertPos:]
+    {
+        s := strings.Index(content, flagsStart)
+        e := strings.Index(content, flagsEnd)
+        if s == -1 || e == -1 || e <= s {
+            return fmt.Errorf("auth markers for access flags not found")
+        }
+        // Compute exact region bounds between end of START line and start of END line
+        startLineEndRel := strings.Index(content[s:], "\n")
+        if startLineEndRel == -1 {
+            return fmt.Errorf("cannot locate end of start marker line")
+        }
+        regionStart := s + startLineEndRel + 1
+        endLineStart := strings.LastIndex(content[:e], "\n") + 1
 
-    // Helper to append to a list region
+        region := content[regionStart:endLineStart]
+        // Clean out stray blank comment-only lines
+        cleanedLines := make([]string, 0)
+        for _, ln := range strings.Split(region, "\n") {
+            t := strings.TrimSpace(ln)
+            if t == "" || t == "//" {
+                continue
+            }
+            cleanedLines = append(cleanedLines, ln)
+        }
+        region = strings.Join(cleanedLines, "\n")
+
+        // Append flags only if not present already
+        if !strings.Contains(region, "Create"+modelCap) && !strings.Contains(region, "Get"+modelPluralCap) {
+            // Ensure region ends with a newline if not empty
+            if region != "" && !strings.HasSuffix(region, "\n") {
+                region += "\n"
+            }
+            region += strings.TrimPrefix(flagsSnippet, "\n")
+        }
+        content = content[:regionStart] + region + content[endLineStart:]
+    }
+
+    // Helper to append to a list region while ignoring commented placeholders
     appendToRegion := func(c, startMarker, endMarker, addition string) (string, error) {
         s := strings.Index(c, startMarker)
         e := strings.Index(c, endMarker)
         if s == -1 || e == -1 || e <= s {
             return c, fmt.Errorf("auth markers %s/%s not found", startMarker, endMarker)
         }
-        // region is between s and e, we want to place inside after the marker line
-        // Extract existing region text between markers
-        regionStart := s + len(startMarker)
-        existing := c[regionStart:e]
-        trimmed := strings.TrimSpace(existing)
-        var newRegion string
-        if trimmed == "" {
-            newRegion = "\n\t" + addition
-        } else {
-            newRegion = existing + " | " + addition
+        // Compute region bounds: after START line to start of END line
+        startLineEndRel := strings.Index(c[s:], "\n")
+        if startLineEndRel == -1 {
+            return c, fmt.Errorf("cannot locate end of start marker line for %s", startMarker)
         }
-        // Rebuild content
-        return c[:regionStart] + newRegion + c[e:], nil
+        regionStart := s + startLineEndRel + 1
+        endLineStart := strings.LastIndex(c[:e], "\n") + 1
+        region := c[regionStart:endLineStart]
+
+        // Parse existing non-comment lines (each line is a group for a model)
+        tokens := []string{}
+        for _, ln := range strings.Split(region, "\n") {
+            t := strings.TrimSpace(ln)
+            if t == "" || strings.HasPrefix(t, "//") {
+                continue
+            }
+            t = strings.TrimSuffix(t, "|")
+            t = strings.TrimSpace(t)
+            if strings.HasPrefix(t, "|") {
+                t = strings.TrimSpace(strings.TrimPrefix(t, "|"))
+            }
+            if t != "" {
+                tokens = append(tokens, t)
+            }
+        }
+        // Add the new addition if not already present
+        joined := strings.Join(tokens, " ")
+        if !strings.Contains(joined, addition) {
+            tokens = append(tokens, addition)
+        }
+
+        // One model group per line; each line except the last ends with a trailing '|'
+        rebuilt := ""
+        if len(tokens) > 0 {
+            for i, t := range tokens {
+                line := "\t" + t
+                if i < len(tokens)-1 {
+                    line += " |"
+                }
+                rebuilt += line + "\n"
+            }
+        }
+        return c[:regionStart] + rebuilt + c[endLineStart:], nil
     }
 
     var uErr error
