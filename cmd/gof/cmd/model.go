@@ -483,16 +483,18 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
             return "\"\""
         }
     }
-    mockProtoVal := func(colType string, index int) string {
+    // proto value helpers: use stable values that match params helpers
+    protoVal := func(colType string, isEdit bool) string {
         switch colType {
         case "string":
-            return fmt.Sprintf("\"Test %d\"", index)
+            if isEdit { return "\"Updated\"" }
+            return "\"Test\""
         case "number":
-            return fmt.Sprintf("%d", 100*index)
+            if isEdit { return "200" }
+            return "100"
         case "time":
             return "\"2023-10-01\""
         case "bool":
-            if index%2 == 0 { return "false" }
             return "true"
         default:
             return "\"\""
@@ -622,7 +624,7 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
             if zero {
                 parts = append(parts, fmt.Sprintf("%s: %s", name, zeroProtoVal(c.Type)))
             } else {
-                parts = append(parts, fmt.Sprintf("%s: %s", name, mockProtoVal(c.Type, index)))
+                parts = append(parts, fmt.Sprintf("%s: %s", name, protoVal(c.Type, useEditID)))
             }
         }
         return strings.Join(parts, ",\n\t\t\t\t")
