@@ -83,25 +83,21 @@ Example:
 			return
 		}
 
-		schemaContent, err := generateSchema(modelName, columns)
+		err = generateProto(modelName, columns)
+		if err != nil {
+			cmd.Printf("Error generating proto: %v.\n", err)
+			return
+		}
+
+		err = generateSchema(modelName, columns)
 		if err != nil {
 			cmd.Printf("Error generating schema: %v.\n", err)
 			return
 		}
-		err = appendToFile("./app/service-core/storage/schema.sql", schemaContent)
-		if err != nil {
-			cmd.Printf("Error writing schema file: %v.\n", err)
-			return
-		}
 
-		queriesContent, err := generateQueries(modelName, columns)
+		err = generateQueries(modelName, columns)
 		if err != nil {
 			cmd.Printf("Error generating queries: %v.\n", err)
-			return
-		}
-		err = appendToFile("./app/service-core/storage/query.sql", queriesContent)
-		if err != nil {
-			cmd.Printf("Error writing query file: %v.\n", err)
 			return
 		}
 
@@ -123,7 +119,7 @@ Example:
 		// 	return
 		// }
 
-		cmdExec := exec.Command("sh", "scripts/sqlc.sh")
+		cmdExec := exec.Command("sh", "scripts/run_sqlc.sh")
 		output, err := cmdExec.CombinedOutput()
 		if err != nil {
 			cmd.Printf("Error running SQLC script: %v\nOutput: %s\n", err, output)
@@ -142,7 +138,7 @@ Example:
 		cmd.Printf("Service layer generated in: %s\n", config.SuccessStyle.Render("./app/service-core/domain/"+modelName))
 		cmd.Printf("REST layer generated in: %s\n\n", config.SuccessStyle.Render("./app/service-core/transport/rest/"+modelName))
 
-		cmd.Printf("Don't forget to run %s to apply migrations.\n", config.SuccessStyle.Render("scripts/atlas.sh"))
+		cmd.Printf("Don't forget to run %s to apply migrations.\n", config.SuccessStyle.Render("scripts/run_atlas.sh"))
 
 	},
 }
@@ -168,7 +164,166 @@ func appendToFile(filePath, content string) error {
 
 var pluralizeClient = pluralize.NewClient()
 
-func generateSchema(modelName string, columns []Column) (string, error) {
+func capitalize(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	return strings.ToUpper(string(s[0])) + s[1:]
+}
+
+func toCamelCase(s string) string {
+	parts := strings.Split(s, "_")
+	for i, part := range parts {
+		if len(part) > 0 {
+			parts[i] = strings.ToUpper(string(part[0])) + part[1:]
+		}
+	}
+	return strings.Join(parts, "")
+}
+
+func generateProto(modelName string, columns []Column) error {
+	protoDir := "./proto/v1"
+
+	if err := os.MkdirAll(protoDir, 0o755); err != nil {
+		return err
+	}
+
+	capitalizedModelName := capitalize(modelName)
+	pluralModelName := pluralizeClient.Plural(modelName)
+
+	typeMapProto := map[string]string{
+		"string": "string",
+		"number": "int64",
+		"time":   "string",
+		"bool":   "bool",
+	}
+
+	// 1) Create model proto file if missing
+	modelProtoPath := filepath.Join(protoDir, modelName+".proto")
+	if _, err := os.Stat(modelProtoPath); err != nil {
+		var b strings.Builder
+		b.WriteString("syntax = \"proto3\";\n")
+		b.WriteString("option go_package = \"gofast/gen/proto/v1\";\n")
+		b.WriteString("package proto.v1;\n\n")
+		b.WriteString("message " + capitalizedModelName + " {\n")
+		b.WriteString("    string id = 1;\n")
+		b.WriteString("    string created = 2;\n")
+		b.WriteString("    string updated = 3;\n\n")
+
+		fieldNo := 4
+		for _, col := range columns {
+			ptype, ok := typeMapProto[col.Type]
+			if !ok {
+				ptype = "string"
+			}
+			b.WriteString(fmt.Sprintf("    %s %s = %d;\n", ptype, col.Name, fieldNo))
+			fieldNo++
+		}
+		b.WriteString("}\n")
+
+		if err := os.WriteFile(modelProtoPath, []byte(b.String()), 0o644); err != nil {
+			return err
+		}
+	}
+
+	// 2) Update main.proto: add import, messages, and service
+	mainProtoPath := filepath.Join(protoDir, "main.proto")
+	mainBytes, err := os.ReadFile(mainProtoPath)
+	if err != nil {
+		return err
+	}
+	mainContent := string(mainBytes)
+
+	importLine := fmt.Sprintf("import \"proto/v1/%s.proto\";", modelName)
+	if !strings.Contains(mainContent, importLine) {
+		lines := strings.Split(mainContent, "\n")
+		insertIdx := 0
+		for i, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(line), "import ") {
+				insertIdx = i + 1
+			}
+		}
+		if insertIdx == 0 {
+			insertIdx = len(lines)
+		}
+		lines = append(lines[:insertIdx], append([]string{importLine}, lines[insertIdx:]...)...)
+		mainContent = strings.Join(lines, "\n")
+	}
+
+	serviceMarker := fmt.Sprintf("service %sService", capitalizedModelName)
+	if !strings.Contains(mainContent, serviceMarker) {
+		var sb strings.Builder
+		sb.WriteString("\n// --- " + capitalizedModelName + " Service ---\n\n")
+
+		// Messages
+		pluralCap := capitalize(pluralModelName)
+		// GetAll
+		sb.WriteString(fmt.Sprintf("// GetAll%s\n", pluralCap))
+		sb.WriteString(fmt.Sprintf("message GetAll%sRequest {}\n", pluralCap))
+		sb.WriteString(fmt.Sprintf("message GetAll%sResponse {\n", pluralCap))
+		sb.WriteString(fmt.Sprintf("    %s %s = 1;\n", capitalizedModelName, modelName))
+		sb.WriteString("}\n\n")
+
+		// GetByID
+		sb.WriteString(fmt.Sprintf("// Get%sByID\n", capitalizedModelName))
+		sb.WriteString(fmt.Sprintf("message Get%sByIDRequest {\n", capitalizedModelName))
+		sb.WriteString("    string id = 1;\n")
+		sb.WriteString("}\n")
+		sb.WriteString(fmt.Sprintf("message Get%sByIDResponse {\n", capitalizedModelName))
+		sb.WriteString(fmt.Sprintf("    %s %s = 1;\n", capitalizedModelName, modelName))
+		sb.WriteString("}\n\n")
+
+		// Create
+		sb.WriteString(fmt.Sprintf("// Create%s\n", capitalizedModelName))
+		sb.WriteString(fmt.Sprintf("message Create%sRequest {\n", capitalizedModelName))
+		sb.WriteString(fmt.Sprintf("    %s %s = 1;\n", capitalizedModelName, modelName))
+		sb.WriteString("}\n")
+		sb.WriteString(fmt.Sprintf("message Create%sResponse {\n", capitalizedModelName))
+		sb.WriteString(fmt.Sprintf("    %s %s = 1;\n", capitalizedModelName, modelName))
+		sb.WriteString("}\n\n")
+
+		// Edit
+		sb.WriteString(fmt.Sprintf("// Edit%s\n", capitalizedModelName))
+		sb.WriteString(fmt.Sprintf("message Edit%sRequest {\n", capitalizedModelName))
+		sb.WriteString(fmt.Sprintf("    %s %s = 1;\n", capitalizedModelName, modelName))
+		sb.WriteString("}\n")
+		sb.WriteString(fmt.Sprintf("message Edit%sResponse {\n", capitalizedModelName))
+		sb.WriteString(fmt.Sprintf("    %s %s = 1;\n", capitalizedModelName, modelName))
+		sb.WriteString("}\n\n")
+
+		// Remove
+		sb.WriteString(fmt.Sprintf("// Remove%s\n", capitalizedModelName))
+		sb.WriteString(fmt.Sprintf("message Remove%sRequest {\n", capitalizedModelName))
+		sb.WriteString("    string id = 1;\n")
+		sb.WriteString("}\n")
+		sb.WriteString(fmt.Sprintf("message Remove%sResponse {}\n\n", capitalizedModelName))
+
+		// Service
+		sb.WriteString(fmt.Sprintf("service %sService {\n", capitalizedModelName))
+		sb.WriteString(fmt.Sprintf("    rpc GetAll%s(GetAll%sRequest) returns (stream GetAll%sResponse) {}\n", pluralCap, pluralCap, pluralCap))
+		sb.WriteString(fmt.Sprintf("    rpc Get%sByID(Get%sByIDRequest) returns (Get%sByIDResponse) {}\n", capitalizedModelName, capitalizedModelName, capitalizedModelName))
+		sb.WriteString(fmt.Sprintf("    rpc Create%s(Create%sRequest) returns (Create%sResponse) {}\n", capitalizedModelName, capitalizedModelName, capitalizedModelName))
+		sb.WriteString(fmt.Sprintf("    rpc Edit%s(Edit%sRequest) returns (Edit%sResponse) {}\n", capitalizedModelName, capitalizedModelName, capitalizedModelName))
+		sb.WriteString(fmt.Sprintf("    rpc Remove%s(Remove%sRequest) returns (Remove%sResponse) {}\n", capitalizedModelName, capitalizedModelName, capitalizedModelName))
+		sb.WriteString("}\n")
+
+		mainContent = mainContent + sb.String()
+	}
+
+	if err := os.WriteFile(mainProtoPath, []byte(mainContent), 0o644); err != nil {
+		return err
+	}
+
+	// Generate protobuf stubs via Buf
+	bufCmd := exec.Command("sh", "scripts/run_buf.sh")
+	bufOut, err := bufCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error running Buf script: %v\nOutput: %s", err, bufOut)
+	}
+	return nil
+}
+
+func generateSchema(modelName string, columns []Column) error {
 	tableName := pluralizeClient.Plural(modelName)
 	var columnDefs []string
 	columnDefs = append(columnDefs, "    id uuid primary key default gen_random_uuid()")
@@ -180,24 +335,20 @@ func generateSchema(modelName string, columns []Column) (string, error) {
 	}
 
 	schemaContent := fmt.Sprintf(`
-
 -- create "%s" table
 create table if not exists %s (
 %s
 );`,
 		tableName, tableName, strings.Join(columnDefs, ",\n"))
 
-	return schemaContent, nil
-}
-
-func capitalize(s string) string {
-	if len(s) == 0 {
-		return ""
+	err := appendToFile("./app/service-core/storage/schema.sql", schemaContent)
+	if err != nil {
+		return fmt.Errorf("appending to schema.sql: %w", err)
 	}
-	return strings.ToUpper(string(s[0])) + s[1:]
+	return nil
 }
 
-func generateQueries(modelName string, columns []Column) (string, error) {
+func generateQueries(modelName string, columns []Column) error {
 	tableName := pluralizeClient.Plural(modelName)
 	modelNameSingular := capitalize(modelName)
 	modelNamePlural := capitalize(tableName)
@@ -213,6 +364,7 @@ func generateQueries(modelName string, columns []Column) (string, error) {
 	updatePairsStr := strings.Join(updatePairs, ",\n    ")
 
 	queries := fmt.Sprintf(`
+-- %s --
 
 -- name: SelectAll%s :many
 select * from %s;
@@ -231,19 +383,13 @@ where id = $%d returning *;
 
 -- name: Delete%s :exec
 delete from %s where id = $1;
-`, modelNamePlural, tableName, modelNameSingular, tableName, modelNameSingular, tableName, colNamesStr, placeholdersStr, modelNameSingular, tableName, updatePairsStr, len(columns)+1, modelNameSingular, tableName)
+`, modelNamePlural, modelNamePlural, tableName, modelNameSingular, tableName, modelNameSingular, tableName, colNamesStr, placeholdersStr, modelNameSingular, tableName, updatePairsStr, len(columns)+1, modelNameSingular, tableName)
 
-	return queries, nil
-}
-
-func toCamelCase(s string) string {
-	parts := strings.Split(s, "_")
-	for i, part := range parts {
-		if len(part) > 0 {
-			parts[i] = strings.ToUpper(string(part[0])) + part[1:]
-		}
+	err := appendToFile("./app/service-core/storage/query.sql", queries)
+	if err != nil {
+		return fmt.Errorf("appending to query.sql: %w", err)
 	}
-	return strings.Join(parts, "")
+	return nil
 }
 
 func generateServiceLayer(modelName string, columns []Column) error {
@@ -265,14 +411,14 @@ func generateServiceLayer(modelName string, columns []Column) error {
 
 		var newContentStr string
 		var genErr error
-		if info.Name() == "validation.go" {
-			// TODO
-		} else if info.Name() == "validation_test.go" {
-			// TODO
-		} else if info.Name() == "service.go" {
+		if info.Name() == "service.go" {
 			newContentStr, genErr = generateServiceContent(modelName, capitalizedModelName, columns)
 		} else if info.Name() == "service_test.go" {
 			newContentStr, genErr = generateServiceTestContent(modelName, capitalizedModelName, columns)
+		} else if info.Name() == "validation.go" {
+			// TODO
+		} else if info.Name() == "validation_test.go" {
+			// TODO
 		} else {
 			content, err := os.ReadFile(path)
 			if err != nil {
