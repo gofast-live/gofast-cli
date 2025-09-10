@@ -1,11 +1,12 @@
 package cmd
 
 import (
-	"archive/zip"
-	"fmt"
-	"io"
-	"net/http"
-	"os"
+    "encoding/json"
+    "archive/zip"
+    "fmt"
+    "io"
+    "net/http"
+    "os"
 	"os/exec"
 	"strings"
 
@@ -46,22 +47,43 @@ var initCmd = &cobra.Command{
 			cmd.Printf("Error downloading repository: %v\n", err)
 			return
 		}
-		// create gofast.json config file
-		configFileContent := fmt.Sprintf(`{ "project_name": "%s", "models": [ "skeleton" ]  }`, projectName)
-		err = os.WriteFile(projectName+"/gofast.json", []byte(configFileContent), 0644)
-		if err != nil {
-			cmd.Printf("Error creating gofast.json file: %v\n", err)
-			return
-		}
+        // create gofast.json config file (pretty-printed) with services
+        type service struct {
+            Name string `json:"name"`
+            Port string `json:"port"`
+        }
+        type initConfig struct {
+            ProjectName string    `json:"project_name"`
+            Models      []string  `json:"models"`
+            Services    []service `json:"services"`
+        }
+        cfg := initConfig{
+            ProjectName: projectName,
+            Models:      []string{"skeleton"},
+            Services: []service{
+                {Name: "core", Port: "4000"},
+                {Name: "client", Port: "3000"},
+            },
+        }
+        data, err := json.MarshalIndent(cfg, "", "  ")
+        if err != nil {
+            cmd.Printf("Error marshaling gofast.json: %v\n", err)
+            return
+        }
+        err = os.WriteFile(projectName+"/gofast.json", data, 0644)
+        if err != nil {
+            cmd.Printf("Error creating gofast.json file: %v\n", err)
+            return
+        }
 
 		// run scripts to set up the project
 		cmd.Printf("Running initialization scripts for project '%s'...\n", projectName)
 		scripts := []string{
-			"scripts/keys.sh",
-			"scripts/sqlc.sh",
-			"scripts/proto.sh",
+			"scripts/generate_keys.sh",
+			"scripts/run_sqlc.sh",
+			"scripts/run_buf.sh",
 			"docker compose up postgres -d",
-			"scripts/atlas.sh",
+			"scripts/run_atlas.sh --auto-approve",
 			"docker compose stop",
 		}
 		messages := []string{
@@ -79,8 +101,13 @@ var initCmd = &cobra.Command{
 				parts := strings.Fields(script)
 				cmdExec = exec.Command(parts[0], parts[1:]...)
 			} else {
-				scriptPath := fmt.Sprintf("./%s", script)
-				cmdExec = exec.Command("sh", scriptPath)
+				parts := strings.Fields(script)
+				scriptPath := fmt.Sprintf("./%s", parts[0])
+				args := []string{scriptPath}
+				if len(parts) > 1 {
+					args = append(args, parts[1:]...)
+				}
+				cmdExec = exec.Command("sh", args...)
 			}
 			cmdExec.Dir = projectName
 			output, err := cmdExec.CombinedOutput()

@@ -111,17 +111,17 @@ Example:
 			return
 		}
 
-		err = generateRestLayer(modelName, columns)
-		if err != nil {
-			cmd.Printf("Error generating REST layer: %v.\n", err)
-			return
-		}
+		// err = generateRestLayer(modelName, columns)
+		// if err != nil {
+		// 	cmd.Printf("Error generating REST layer: %v.\n", err)
+		// 	return
+		// }
 
-		err = generateAPIEndpoints(modelName)
-		if err != nil {
-			cmd.Printf("Error adding model to transport and rest: %v.\n", err)
-			return
-		}
+		// err = generateAPIEndpoints(modelName)
+		// if err != nil {
+		// 	cmd.Printf("Error adding model to transport and rest: %v.\n", err)
+		// 	return
+		// }
 
 		cmdExec := exec.Command("sh", "scripts/sqlc.sh")
 		output, err := cmdExec.CombinedOutput()
@@ -265,8 +265,10 @@ func generateServiceLayer(modelName string, columns []Column) error {
 
 		var newContentStr string
 		var genErr error
-		if info.Name() == "dto.go" {
-			newContentStr, genErr = generateDTO(modelName, columns)
+		if info.Name() == "validation.go" {
+			// TODO
+		} else if info.Name() == "validation_test.go" {
+			// TODO
 		} else if info.Name() == "service.go" {
 			newContentStr, genErr = generateServiceContent(modelName, capitalizedModelName, columns)
 		} else if info.Name() == "service_test.go" {
@@ -286,64 +288,6 @@ func generateServiceLayer(modelName string, columns []Column) error {
 
 		return os.WriteFile(destPath, []byte(newContentStr), info.Mode())
 	})
-}
-
-func generateDTO(modelName string, columns []Column) (string, error) {
-	capitalizedModelName := capitalize(modelName)
-	var createFields, updateFields []string
-	usesTime := false
-	usesUUID := true // For the ID in the update DTO
-
-	typeMap := map[string]string{
-		"string": "string",
-		"number": "string",
-		"time":   "time.Time",
-		"bool":   "bool",
-	}
-
-	for _, col := range columns {
-		if col.Type == "time" {
-			usesTime = true
-		}
-		goType := typeMap[col.Type]
-		fieldName := toCamelCase(col.Name)
-		jsonTag := col.Name
-		createFields = append(createFields, fmt.Sprintf("\t%s %s `json:\"%s\" validate:\"required\"`", fieldName, goType, jsonTag))
-		updateFields = append(updateFields, fmt.Sprintf("\t%s %s `json:\"%s\" validate:\"required\"`", fieldName, goType, jsonTag))
-	}
-
-	var content strings.Builder
-
-	content.WriteString(fmt.Sprintf("package %s\n\n", modelName))
-
-	imports := []string{}
-	if usesTime {
-		imports = append(imports, "\t\"time\"")
-	}
-	if usesUUID {
-		imports = append(imports, "\t\"github.com/google/uuid\"")
-	}
-
-	if len(imports) > 0 {
-		content.WriteString("import (\n")
-		content.WriteString(strings.Join(imports, "\n"))
-		content.WriteString("\n)")
-		content.WriteString("\n\n")
-	}
-
-	createStructName := fmt.Sprintf("Insert%sDTO", capitalizedModelName)
-	createStruct := fmt.Sprintf("type %s struct {\n%s\n}", createStructName, strings.Join(createFields, "\n"))
-
-	updateStructName := fmt.Sprintf("Update%sDTO", capitalizedModelName)
-	updateFieldsWithID := append([]string{"\tID    uuid.UUID `json:\"id\" validate:\"required\"`"}, updateFields...)
-	updateStruct := fmt.Sprintf("type %s struct {\n%s\n}", updateStructName, strings.Join(updateFieldsWithID, "\n"))
-
-	content.WriteString(createStruct)
-	content.WriteString("\n\n")
-	content.WriteString(updateStruct)
-	content.WriteString("\n")
-
-	return content.String(), nil
 }
 
 func generateServiceContent(modelName string, capitalizedModelName string, columns []Column) (string, error) {
