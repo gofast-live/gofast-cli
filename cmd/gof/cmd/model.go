@@ -50,6 +50,7 @@ Example:
 		columnStrings := args[1:]
 
 		var columns []Column
+		seenNames := map[string]bool{}
 		validTypes := map[string]bool{
 			"string": true,
 			"number": true,
@@ -70,6 +71,13 @@ Example:
 				cmd.Println("Valid types are: string, number, time, bool.")
 				return
 			}
+
+			// Ensure column names are unique
+			if seenNames[parts[0]] {
+				cmd.Printf("Error: Duplicate column name '%s'. Column names must be unique.\n", parts[0])
+				return
+			}
+			seenNames[parts[0]] = true
 
 			columns = append(columns, Column{
 				Name: parts[0],
@@ -851,6 +859,10 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 
     // Helpers to generate field lists
     toFieldName := func(col string) string { return toCamelCase(col) }
+    toVarName := func(camel string) string {
+        if camel == "" { return camel }
+        return strings.ToLower(camel[:1]) + camel[1:]
+    }
     mockQueryVal := func(colType string, index int) string {
         switch colType {
         case "string":
