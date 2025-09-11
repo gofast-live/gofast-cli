@@ -114,6 +114,13 @@ Example:
 			return
 		}
 
+		// Generate ConnectRPC transport layer from skeleton template
+		err = generateTransportLayer(modelName, columns)
+		if err != nil {
+			cmd.Printf("Error generating transport layer: %v.\n", err)
+			return
+		}
+
 		cmdExec := exec.Command("sh", "scripts/run_sqlc.sh")
 		output, err := cmdExec.CombinedOutput()
 		if err != nil {
@@ -131,6 +138,8 @@ Example:
 		cmd.Printf("\nSchema generated in: %s\n", config.SuccessStyle.Render("./app/service-core/storage/schema.sql"))
 		cmd.Printf("Queries generated in: %s\n", config.SuccessStyle.Render("./app/service-core/storage/query.sql"))
 		cmd.Printf("Service layer generated in: %s\n", config.SuccessStyle.Render("./app/service-core/domain/"+modelName))
+
+		cmd.Printf("Transport layer generated in: %s\n", config.SuccessStyle.Render("./app/service-core/transport/"+modelName))
 
 		cmd.Printf("Don't forget to run %s to apply migrations.\n", config.SuccessStyle.Render("scripts/run_atlas.sh"))
 
@@ -187,7 +196,7 @@ func generateProto(modelName string, columns []Column) error {
 
 	typeMapProto := map[string]string{
 		"string": "string",
-		"number": "int64",
+		"number": "string",
 		"time":   "string",
 		"bool":   "bool",
 	}
@@ -430,6 +439,393 @@ func generateServiceLayer(modelName string, columns []Column) error {
 	})
 }
 
+// generateTransportLayer scaffolds ConnectRPC handlers by copying the transport
+// skeleton and performing token replacements for singular/plural variants.
+func generateTransportLayer(modelName string, columns []Column) error {
+    sourceDir := "./app/service-core/transport/skeleton"
+    destDir := "app/service-core/transport/" + modelName
+
+    capitalizedModelName := capitalize(modelName)
+    pluralLower := pluralizeClient.Plural(modelName)
+    pluralCap := capitalize(pluralLower)
+
+    return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+        if err != nil {
+            return err
+        }
+
+        destPath := strings.Replace(path, sourceDir, destDir, 1)
+        destPath = strings.ReplaceAll(destPath, "skeleton", modelName)
+
+        if info.IsDir() {
+            return os.MkdirAll(destPath, info.Mode())
+        }
+
+        var newContentStr string
+        var genErr error
+        switch info.Name() {
+        case "route.go":
+            newContentStr, genErr = generateTransportRouteContent(modelName, capitalizedModelName, pluralLower, pluralCap, columns)
+        case "route_test.go":
+            newContentStr, genErr = generateTransportTestContent(modelName, capitalizedModelName, columns, pluralLower, pluralCap)
+        default:
+            content, readErr := os.ReadFile(path)
+            if readErr != nil {
+                return readErr
+            }
+            s := string(content)
+            s = strings.ReplaceAll(s, "Skeletons", pluralCap)
+            s = strings.ReplaceAll(s, "skeletons", pluralLower)
+            s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
+            s = strings.ReplaceAll(s, "skeleton", modelName)
+            newContentStr = s
+        }
+        if genErr != nil {
+            return fmt.Errorf("generating transport content for %s: %w", destPath, genErr)
+        }
+        return os.WriteFile(destPath, []byte(newContentStr), info.Mode())
+    })
+}
+
+func generateTransportRouteContent(modelName, capitalizedModelName, pluralLower, pluralCap string, columns []Column) (string, error) {
+    templatePath := "./app/service-core/transport/skeleton/route.go"
+    contentBytes, err := os.ReadFile(templatePath)
+    if err != nil {
+        return "", fmt.Errorf("reading template file %s: %w", templatePath, err)
+    }
+    s := string(contentBytes)
+    s = strings.ReplaceAll(s, "Skeletons", pluralCap)
+    s = strings.ReplaceAll(s, "skeletons", pluralLower)
+    s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
+    s = strings.ReplaceAll(s, "skeleton", modelName)
+    // Rename leftover template-local variable names
+    s = strings.ReplaceAll(s, "skelProto", modelName+"Proto")
+
+    // Build dynamic queryToProto mapping based on columns
+    // Numeric columns are strings in proto; no strconv needed
+
+    // Construct struct fields
+    var b strings.Builder
+    b.WriteString("\t\tId:      "+modelName+".ID.String(),\n")
+    b.WriteString("\t\tCreated: "+modelName+".Created.Format(time.RFC3339),\n")
+    b.WriteString("\t\tUpdated: "+modelName+".Updated.Format(time.RFC3339),\n")
+    for _, c := range columns {
+        field := toCamelCase(c.Name)
+        switch c.Type {
+        case "string":
+            b.WriteString("\t\t"+field+": "+modelName+"."+field+",\n")
+        case "time":
+            b.WriteString("\t\t"+field+": "+modelName+"."+field+".Format(time.RFC3339),\n")
+        case "bool":
+            b.WriteString("\t\t"+field+": "+modelName+"."+field+",\n")
+        case "number":
+            // sqlc numeric is string; proto is also string
+            b.WriteString("\t\t"+field+": "+modelName+"."+field+",\n")
+        }
+    }
+    fields := b.String()
+
+    // Replace the queryToProto function body
+    fnStart := strings.Index(s, "func queryToProto(")
+    if fnStart == -1 {
+        return "", fmt.Errorf("queryToProto function not found in transport template")
+    }
+    // Find function end by counting braces
+    braceIdx := strings.Index(s[fnStart:], "{")
+    if braceIdx == -1 { return "", fmt.Errorf("malformed queryToProto: no opening brace") }
+    absOpen := fnStart + braceIdx
+    depth := 0
+    end := absOpen
+    for i := absOpen; i < len(s); i++ {
+        switch s[i] {
+        case '{':
+            depth++
+        case '}':
+            depth--
+            if depth == 0 {
+                end = i + 1
+                i = len(s)
+            }
+        }
+    }
+    newFn := "func queryToProto("+modelName+" *query."+capitalizedModelName+") *proto."+capitalizedModelName+" {\n\treturn &proto."+capitalizedModelName+"{\n" + fields + "\t}\n}\n"
+    s = s[:fnStart] + newFn + s[end:]
+    return s, nil
+}
+
+func generateTransportTestContent(modelName, capitalizedModelName string, columns []Column, pluralLower, pluralCap string) (string, error) {
+    templatePath := "./app/service-core/transport/skeleton/route_test.go"
+    contentBytes, err := os.ReadFile(templatePath)
+    if err != nil {
+        return "", fmt.Errorf("reading template file %s: %w", templatePath, err)
+    }
+
+    // Helpers similar to service test generation
+    toFieldName := func(col string) string { return toCamelCase(col) }
+    zeroQueryVal := func(colType string) string {
+        switch colType {
+        case "string", "number":
+            return "\"\""
+        case "time":
+            return "time.Time{}"
+        case "bool":
+            return "false"
+        default:
+            return "\"\""
+        }
+    }
+    protoVal := func(colType string, isEdit bool) string {
+        switch colType {
+        case "string":
+            if isEdit { return "\"Updated\"" }
+            return "\"Test\""
+        case "number":
+            if isEdit { return "\"200\"" }
+            return "\"100\""
+        case "time":
+            return "\"2023-10-01\""
+        case "bool":
+            return "true"
+        default:
+            return "\"\""
+        }
+    }
+    zeroProtoVal := func(colType string) string {
+        switch colType {
+        case "string":
+            return "\"\""
+        case "number":
+            return "\"\""
+        case "time":
+            return "\"\""
+        case "bool":
+            return "false"
+        default:
+            return "\"\""
+        }
+    }
+
+    buildQueryFieldsWithI := func(zero bool) string {
+        parts := []string{
+            "ID: uuid.New()",
+            "Created: time.Now()",
+            "Updated: time.Now()",
+        }
+        if zero {
+            parts = []string{
+                "ID: uuid.Nil",
+                "Created: time.Time{}",
+                "Updated: time.Time{}",
+            }
+        }
+        for _, c := range columns {
+            name := toFieldName(c.Name)
+            if zero {
+                parts = append(parts, fmt.Sprintf("%s: %s", name, zeroQueryVal(c.Type)))
+                continue
+            }
+            switch c.Type {
+            case "string":
+                // Generate: <Field>: fmt.Sprintf("Test %d", i)
+                parts = append(parts, fmt.Sprintf("%s: fmt.Sprintf(\"Test %s\", i)", name, "%d"))
+            case "number":
+                // sqlc maps numeric to string; use a quoted literal
+                parts = append(parts, fmt.Sprintf("%s: \"100\"", name))
+            case "time":
+                parts = append(parts, fmt.Sprintf("%s: time.Now()", name))
+            case "bool":
+                parts = append(parts, fmt.Sprintf("%s: i%%2 == 1", name))
+            default:
+                parts = append(parts, fmt.Sprintf("%s: \"\"", name))
+            }
+        }
+        return strings.Join(parts, ",\n")
+    }
+
+    buildProtoFields := func(zero bool, useEditID bool) string {
+        parts := []string{}
+        if useEditID {
+            parts = append(parts, "Id: id.String()")
+        } else {
+            parts = append(parts, "Id: \"\"")
+        }
+        parts = append(parts, "Created: \"\"")
+        parts = append(parts, "Updated: \"\"")
+        for _, c := range columns {
+            name := toFieldName(c.Name)
+            if zero {
+                parts = append(parts, fmt.Sprintf("%s: %s", name, zeroProtoVal(c.Type)))
+            } else {
+                parts = append(parts, fmt.Sprintf("%s: %s", name, protoVal(c.Type, useEditID)))
+            }
+        }
+        return strings.Join(parts, ",\n\t\t\t\t")
+    }
+
+    lines := strings.Split(string(contentBytes), "\n")
+    var out []string
+    for i := 0; i < len(lines); i++ {
+        line := lines[i]
+        trimmed := strings.TrimSpace(line)
+        switch trimmed {
+        case "// GF_FIXTURES_START":
+            out = append(out, line)
+            indent := strings.Repeat("\t", strings.Count(line, "\t"))
+
+            out = append(out, indent+fmt.Sprintf("func makeQuery%s(i int) query.%s {", capitalizedModelName, capitalizedModelName))
+            out = append(out, indent+"\treturn query."+capitalizedModelName+"{")
+            fields := buildQueryFieldsWithI(false)
+            fields = strings.ReplaceAll(fields, "\n", "\n"+indent+"\t\t")
+            out = append(out, indent+"\t\t"+fields+",")
+            out = append(out, indent+"\t}")
+            out = append(out, indent+"}")
+            out = append(out, "")
+
+            out = append(out, indent+fmt.Sprintf("func makeQuery%sPtr(i int) *query.%s {", capitalizedModelName, capitalizedModelName))
+            out = append(out, indent+"\tv := makeQuery"+capitalizedModelName+"(i)")
+            out = append(out, indent+"\treturn &v")
+            out = append(out, indent+"}")
+            out = append(out, "")
+
+            out = append(out, indent+fmt.Sprintf("func makeCreate%sReq() *proto.Create%sRequest {", capitalizedModelName, capitalizedModelName))
+            out = append(out, indent+"\treturn &proto.Create"+capitalizedModelName+"Request{")
+            out = append(out, indent+"\t\t"+capitalizedModelName+": &proto."+capitalizedModelName+"{")
+            out = append(out, indent+"\t\t\t"+buildProtoFields(false, false)+",")
+            out = append(out, indent+"\t\t},")
+            out = append(out, indent+"\t}")
+            out = append(out, indent+"}")
+            out = append(out, "")
+
+            out = append(out, indent+fmt.Sprintf("func makeEdit%sReq(id uuid.UUID) *proto.Edit%sRequest {", capitalizedModelName, capitalizedModelName))
+            out = append(out, indent+"\treturn &proto.Edit"+capitalizedModelName+"Request{")
+            out = append(out, indent+"\t\t"+capitalizedModelName+": &proto."+capitalizedModelName+"{")
+            out = append(out, indent+"\t\t\t"+buildProtoFields(false, true)+",")
+            out = append(out, indent+"\t\t},")
+            out = append(out, indent+"\t}")
+            out = append(out, indent+"}")
+            out = append(out, "")
+
+            // Minimal request helpers used by tests
+            
+            // Nil-skeleton helpers
+            out = append(out, indent+fmt.Sprintf("func makeNilCreate%sReq() *proto.Create%sRequest {", capitalizedModelName, capitalizedModelName))
+            out = append(out, indent+"\treturn &proto.Create"+capitalizedModelName+"Request{ "+capitalizedModelName+": nil }")
+            out = append(out, indent+"}")
+            out = append(out, "")
+            out = append(out, indent+fmt.Sprintf("func makeNilEdit%sReq() *proto.Edit%sRequest {", capitalizedModelName, capitalizedModelName))
+            out = append(out, indent+"\treturn &proto.Edit"+capitalizedModelName+"Request{ "+capitalizedModelName+": nil }")
+            out = append(out, indent+"}")
+
+            // skip existing until END
+            for i+1 < len(lines) && strings.TrimSpace(lines[i+1]) != "// GF_FIXTURES_END" {
+                i++
+            }
+        default:
+            out = append(out, line)
+        }
+    }
+    content := strings.Join(out, "\n")
+    // Replace identifiers
+    content = strings.ReplaceAll(content, "Skeletons", pluralCap)
+    content = strings.ReplaceAll(content, "skeletons", pluralLower)
+    content = strings.ReplaceAll(content, "skeleton", modelName)
+    content = strings.ReplaceAll(content, "Skeleton", capitalizedModelName)
+
+    // Adjust template-local variable names
+    content = strings.ReplaceAll(content, "protoSkel", "proto"+capitalizedModelName)
+
+    // Column-aware test adjustments
+    // Map first occurrence per type for assertions/modifications
+    var firstStr, firstNum, firstTime, firstBool string
+    for _, c := range columns {
+        switch c.Type {
+        case "string":
+            if firstStr == "" { firstStr = toFieldName(c.Name) }
+        case "number":
+            if firstNum == "" { firstNum = toFieldName(c.Name) }
+        case "time":
+            if firstTime == "" { firstTime = toFieldName(c.Name) }
+        case "bool":
+            if firstBool == "" { firstBool = toFieldName(c.Name) }
+        }
+    }
+
+    // Replace Name usages with the first string field
+    if firstStr != "" {
+        content = strings.ReplaceAll(content, ".GetName()", ".Get"+firstStr+"()")
+        content = strings.ReplaceAll(content, ".Name", "."+firstStr)
+    } else {
+        // Remove lines that assert on Name when no string fields exist
+        filtered := []string{}
+        for _, ln := range strings.Split(content, "\n") {
+            t := strings.TrimSpace(ln)
+            if strings.Contains(t, ".GetName()") || strings.Contains(t, ".Name") {
+                continue
+            }
+            filtered = append(filtered, ln)
+        }
+        content = strings.Join(filtered, "\n")
+    }
+
+    // Remove or adapt numeric/time/bool asserts that come from skeleton template
+    if firstNum != "" {
+        content = strings.ReplaceAll(content, ".GetAge()", ".Get"+firstNum+"()")
+        content = strings.ReplaceAll(content, ".Age", "."+firstNum)
+    } else {
+        filtered := []string{}
+        for _, ln := range strings.Split(content, "\n") {
+            t := strings.TrimSpace(ln)
+            if strings.Contains(t, ".GetAge()") || strings.Contains(t, ".Age") {
+                continue
+            }
+            filtered = append(filtered, ln)
+        }
+        content = strings.Join(filtered, "\n")
+    }
+
+    if firstTime != "" {
+        content = strings.ReplaceAll(content, ".GetDeath()", ".Get"+firstTime+"()")
+        content = strings.ReplaceAll(content, ".Death", "."+firstTime)
+    } else {
+        filtered := []string{}
+        for _, ln := range strings.Split(content, "\n") {
+            t := strings.TrimSpace(ln)
+            if strings.Contains(t, ".GetDeath()") || strings.Contains(t, ".Death") {
+                continue
+            }
+            filtered = append(filtered, ln)
+        }
+        content = strings.Join(filtered, "\n")
+        // Also drop the unused local variable `death := ...` from the template
+        filtered2 := []string{}
+        for _, ln := range strings.Split(content, "\n") {
+            t := strings.TrimSpace(ln)
+            if strings.HasPrefix(t, "death :=") || strings.HasPrefix(t, "death:=") {
+                continue
+            }
+            filtered2 = append(filtered2, ln)
+        }
+        content = strings.Join(filtered2, "\n")
+    }
+
+    if firstBool != "" {
+        content = strings.ReplaceAll(content, ".GetZombie()", ".Get"+firstBool+"()")
+        content = strings.ReplaceAll(content, ".Zombie", "."+firstBool)
+    } else {
+        filtered := []string{}
+        for _, ln := range strings.Split(content, "\n") {
+            t := strings.TrimSpace(ln)
+            if strings.Contains(t, ".GetZombie()") || strings.Contains(t, ".Zombie") {
+                continue
+            }
+            filtered = append(filtered, ln)
+        }
+        content = strings.Join(filtered, "\n")
+    }
+
+    return content, nil
+}
+
 func generateServiceContent(modelName string, capitalizedModelName string) (string, error) {
     templatePath := "./app/service-core/domain/skeleton/service.go"
     contentBytes, err := os.ReadFile(templatePath)
@@ -490,8 +886,8 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
             if isEdit { return "\"Updated\"" }
             return "\"Test\""
         case "number":
-            if isEdit { return "200" }
-            return "100"
+            if isEdit { return "\"200\"" }
+            return "\"100\""
         case "time":
             return "\"2023-10-01\""
         case "bool":
@@ -505,7 +901,7 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
         case "string":
             return "\"\""
         case "number":
-            return "0"
+            return "\"\""
         case "time":
             return "\"\""
         case "bool":
@@ -572,8 +968,9 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
         }
         return strings.Join(parts, ",\n")
     }
-    buildInsertParams := func() string {
+    buildInsertParams := func() (pre string, fields string) {
         parts := []string{}
+        predecl := []string{}
         for _, c := range columns {
             name := toFieldName(c.Name)
             switch c.Type {
@@ -582,17 +979,20 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
             case "number":
                 parts = append(parts, fmt.Sprintf("%s: \"100\"", name))
             case "time":
-                parts = append(parts, fmt.Sprintf("%s: time.Now()", name))
+                v := toVarName(name)
+                predecl = append(predecl, fmt.Sprintf("%s, _ := time.Parse(\"2006-01-02\", \"2023-10-01\")", v))
+                parts = append(parts, fmt.Sprintf("%s: %s", name, v))
             case "bool":
                 parts = append(parts, fmt.Sprintf("%s: true", name))
             default:
                 parts = append(parts, fmt.Sprintf("%s: \"\"", name))
             }
         }
-        return strings.Join(parts, ", ")
+        return strings.Join(predecl, "\n\t"), strings.Join(parts, ", ")
     }
-    buildUpdateParams := func() string {
+    buildUpdateParams := func() (pre string, fields string) {
         parts := []string{"ID: id"}
+        predecl := []string{}
         for _, c := range columns {
             name := toFieldName(c.Name)
             switch c.Type {
@@ -601,14 +1001,16 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
             case "number":
                 parts = append(parts, fmt.Sprintf("%s: \"200\"", name))
             case "time":
-                parts = append(parts, fmt.Sprintf("%s: time.Now()", name))
+                v := toVarName(name)
+                predecl = append(predecl, fmt.Sprintf("%s, _ := time.Parse(\"2006-01-02\", \"2023-10-01\")", v))
+                parts = append(parts, fmt.Sprintf("%s: %s", name, v))
             case "bool":
                 parts = append(parts, fmt.Sprintf("%s: true", name))
             default:
                 parts = append(parts, fmt.Sprintf("%s: \"\"", name))
             }
         }
-        return strings.Join(parts, ", ")
+        return strings.Join(predecl, "\n\t"), strings.Join(parts, ", ")
     }
     buildProtoFields := func(index int, zero bool, useEditID bool) string {
         parts := []string{}
@@ -659,15 +1061,27 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
             out = append(out, "")
 
             out = append(out, indent+fmt.Sprintf("func makeInsert%sParams() query.Insert%sParams {", capitalizedModelName, capitalizedModelName))
+            pre, fieldsIns := buildInsertParams()
+            if strings.TrimSpace(pre) != "" {
+                for _, pl := range strings.Split(pre, "\n") {
+                    out = append(out, indent+"\t"+pl)
+                }
+            }
             out = append(out, indent+"\treturn query.Insert"+capitalizedModelName+"Params{")
-            out = append(out, indent+"\t\t"+buildInsertParams()+",")
+            out = append(out, indent+"\t\t"+fieldsIns+",")
             out = append(out, indent+"\t}")
             out = append(out, indent+"}")
             out = append(out, "")
 
             out = append(out, indent+fmt.Sprintf("func makeUpdate%sParams(id uuid.UUID) query.Update%sParams {", capitalizedModelName, capitalizedModelName))
+            preU, fieldsUpd := buildUpdateParams()
+            if strings.TrimSpace(preU) != "" {
+                for _, pl := range strings.Split(preU, "\n") {
+                    out = append(out, indent+"\t"+pl)
+                }
+            }
             out = append(out, indent+"\treturn query.Update"+capitalizedModelName+"Params{")
-            out = append(out, indent+"\t\t"+buildUpdateParams()+",")
+            out = append(out, indent+"\t\t"+fieldsUpd+",")
             out = append(out, indent+"\t}")
             out = append(out, indent+"}")
             out = append(out, "")
@@ -787,7 +1201,13 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
             fmt.Fprintf(&b, "\tif %s.Get%s() == \"\" {\n\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"required\", Message: \"%s is required\"})\n\t}\n", modelName, field, c.Name, toFieldName(c.Name))
             fmt.Fprintf(&b, "\tif %s.Get%s() != \"\" && len(%s.Get%s()) < 3 {\n\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"})\n\t}\n", modelName, field, modelName, field, c.Name, toFieldName(c.Name))
         case "number":
-            fmt.Fprintf(&b, "\tif %s.Get%s() < 1 {\n\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"})\n\t}\n", modelName, field, c.Name, toFieldName(c.Name))
+            v := toVarName(field)+"Float"
+            fmt.Fprintf(&b, "\t%s, err := strconv.ParseFloat(%s.Get%s(), 64)\n", v, modelName, field)
+            b.WriteString("\tif err != nil {\n")
+            fmt.Fprintf(&b, "\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"number\", Message: \"%s must be a number\"})\n", c.Name, toFieldName(c.Name))
+            b.WriteString("\t} else if "+v+" < 1 {\n")
+            fmt.Fprintf(&b, "\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"})\n", c.Name, toFieldName(c.Name))
+            b.WriteString("\t}\n")
         case "time":
             v := toVarName(field)
             fmt.Fprintf(&b, "\t%s, err := str.ParseDate(%s.Get%s())\n", v, modelName, field)
@@ -807,7 +1227,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
         case "string":
             fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, modelName, field)
         case "number":
-            fmt.Fprintf(&b, "\t\t%s: strconv.FormatInt(%s.Get%s(), 10),\n", field, modelName, field)
+            fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, modelName, field)
         case "time":
             v := toVarName(field)
             fmt.Fprintf(&b, "\t\t%s: %s,\n", field, v)
@@ -836,7 +1256,13 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
             fmt.Fprintf(&b, "\tif %s.Get%s() == \"\" {\n\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"required\", Message: \"%s is required\"})\n\t}\n", modelName, field, c.Name, toFieldName(c.Name))
             fmt.Fprintf(&b, "\tif %s.Get%s() != \"\" && len(%s.Get%s()) < 3 {\n\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"})\n\t}\n", modelName, field, modelName, field, c.Name, toFieldName(c.Name))
         case "number":
-            fmt.Fprintf(&b, "\tif %s.Get%s() < 1 {\n\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"})\n\t}\n", modelName, field, c.Name, toFieldName(c.Name))
+            v := toVarName(field)+"Float"
+            fmt.Fprintf(&b, "\t%s, err := strconv.ParseFloat(%s.Get%s(), 64)\n", v, modelName, field)
+            b.WriteString("\tif err != nil {\n")
+            fmt.Fprintf(&b, "\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"number\", Message: \"%s must be a number\"})\n", c.Name, toFieldName(c.Name))
+            b.WriteString("\t} else if "+v+" < 1 {\n")
+            fmt.Fprintf(&b, "\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"})\n", c.Name, toFieldName(c.Name))
+            b.WriteString("\t}\n")
         case "time":
             v := toVarName(field)
             fmt.Fprintf(&b, "\t%s, err := str.ParseDate(%s.Get%s())\n", v, modelName, field)
@@ -857,7 +1283,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
         case "string":
             fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, modelName, field)
         case "number":
-            fmt.Fprintf(&b, "\t\t%s: strconv.FormatInt(%s.Get%s(), 10),\n", field, modelName, field)
+            fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, modelName, field)
         case "time":
             v := toVarName(field)
             fmt.Fprintf(&b, "\t\t%s: %s,\n", field, v)
@@ -898,7 +1324,7 @@ func generateValidationTestContent(modelName, capitalizedModelName string, colum
         case "string":
             varType = "string"
         case "number":
-            varType = "int64"
+            varType = "string"
         case "time":
             varType = "string"
         case "bool":
@@ -969,7 +1395,7 @@ func generateValidationTestContent(modelName, capitalizedModelName string, colum
             case "string":
                 args = append(args, "\"Valid\"")
             case "number":
-                args = append(args, "10")
+                args = append(args, "\"10\"")
             case "time":
                 args = append(args, "\"2025-01-01\"")
             case "bool":
@@ -1005,7 +1431,7 @@ func generateValidationTestContent(modelName, capitalizedModelName string, colum
             fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"%s too short\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError: true,\n\t\t\texpectedError: pkg.ValidationErrors{\n\t\t\t\t{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
         case "number":
             for i := range columns {
-                if columns[i].Name == c.Name { args[i] = "0" }
+                if columns[i].Name == c.Name { args[i] = "\"0\"" }
             }
             fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"%s less than 1\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError: true,\n\t\t\texpectedError: pkg.ValidationErrors{\n\t\t\t\t{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
         case "time":
@@ -1038,7 +1464,7 @@ func generateValidationTestContent(modelName, capitalizedModelName string, colum
             fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"%s too short\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError: true,\n\t\t\texpectedError: pkg.ValidationErrors{\n\t\t\t\t{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
         case "number":
             for i := range columns {
-                if columns[i].Name == c.Name { args[i] = "0" }
+                if columns[i].Name == c.Name { args[i] = "\"0\"" }
             }
             fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"%s less than 1\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError: true,\n\t\t\texpectedError: pkg.ValidationErrors{\n\t\t\t\t{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
         case "time":
