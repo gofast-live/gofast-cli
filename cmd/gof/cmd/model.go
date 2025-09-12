@@ -186,8 +186,8 @@ Example:
 			cmd.Printf("  - Name: %s, Type: %v\n", col.Name, typeMap[col.Type])
 		}
 
-		cmd.Printf("Protobuf definitions generated in: %s\n", config.SuccessStyle.Render("./proto/v1/"+modelName+".proto"))
-		cmd.Printf("\nSchema generated in: %s\n", config.SuccessStyle.Render("./app/service-core/storage/schema.sql"))
+		cmd.Printf("\nProtobuf definitions generated in: %s\n", config.SuccessStyle.Render("./proto/v1/"+modelName+".proto"))
+		cmd.Printf("Schema generated in: %s\n", config.SuccessStyle.Render("./app/service-core/storage/schema.sql"))
 		cmd.Printf("Queries generated in: %s\n", config.SuccessStyle.Render("./app/service-core/storage/query.sql"))
 		cmd.Printf("Service layer generated in: %s\n", config.SuccessStyle.Render("./app/service-core/domain/"+modelName))
 		cmd.Printf("Transport layer generated in: %s\n", config.SuccessStyle.Render("./app/service-core/transport/"+modelName))
@@ -195,7 +195,7 @@ Example:
 
 		cmd.Printf("\nDon't forget to run %s to apply migrations.\n", config.SuccessStyle.Render("scripts/run_atlas.sh"))
 
-		cmd.Printf("\nIf you already created a user, run %s to update permissions for the new model.\n", config.SuccessStyle.Render("scripts/update_permissions.sh"))
+		cmd.Printf("\nIf you already created a user, run %s to update permissions for the new model.\n\n", config.SuccessStyle.Render("scripts/update_permissions.sh"))
 	},
 }
 
