@@ -165,6 +165,13 @@ Example:
 			return
 		}
 
+		// Add model to client navigation
+		err = addModelToNavigation(modelName)
+		if err != nil {
+			cmd.Printf("Error adding model to navigation: %v.\n", err)
+			return
+		}
+
 		cmdExec := exec.Command("sh", "scripts/run_sqlc.sh")
 		output, err := cmdExec.CombinedOutput()
 		if err != nil {
@@ -1877,6 +1884,41 @@ func wireCoreMain(modelName string) error {
         return fmt.Errorf("writing core main.go: %w", err)
     }
     return nil
+}
+
+// addModelToNavigation adds a new navigation item for the generated model
+// to the main Svelte layout file.
+func addModelToNavigation(modelName string) error {
+	layoutPath := "app/service-client/src/routes/(app)/+layout.svelte"
+	contentBytes, err := os.ReadFile(layoutPath)
+	if err != nil {
+		return fmt.Errorf("reading layout file %s: %w", layoutPath, err)
+	}
+	content := string(contentBytes)
+
+	pluralLower := pluralizeClient.Plural(modelName)
+	pluralCap := capitalize(pluralLower)
+
+	// Check if entry already exists to ensure idempotency.
+	if strings.Contains(content, fmt.Sprintf(`href: "/models/%s"`, pluralLower)) {
+		return nil
+	}
+
+	navEntry := fmt.Sprintf(`        {
+            name: "%s",
+            href: "/models/%s",
+            icon: Bone,
+        },`, pluralCap, pluralLower)
+
+	// Insert the new nav item before the closing bracket of the nav array.
+	navArrayEndMarker := `    ];`
+	newContent := strings.Replace(content, navArrayEndMarker, navEntry+"\n"+navArrayEndMarker, 1)
+
+	if newContent == content {
+		return fmt.Errorf("failed to add model to navigation: insertion point '%s' not found in %s", navArrayEndMarker, layoutPath)
+	}
+
+	return os.WriteFile(layoutPath, []byte(newContent), 0644)
 }
 
 // generateClientConnect updates the client-side ConnectRPC wiring by adding the
