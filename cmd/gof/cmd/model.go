@@ -186,8 +186,9 @@ Example:
 		cmd.Printf("Transport layer generated in: %s\n", config.SuccessStyle.Render("./app/service-core/transport/"+modelName))
 		cmd.Printf("Client pages generated in: %s\n", config.SuccessStyle.Render("./app/client/src/pages/"+pluralizeClient.Plural(modelName)))
 
-		cmd.Printf("\nDon't forget to run %s to apply migrations.\n\n", config.SuccessStyle.Render("scripts/run_atlas.sh"))
+		cmd.Printf("\nDon't forget to run %s to apply migrations.\n", config.SuccessStyle.Render("scripts/run_atlas.sh"))
 
+		cmd.Printf("\nIf you already created a user, do not forget to assign the appropriate permissions for the new model.\n\n")
 	},
 }
 
