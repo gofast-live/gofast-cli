@@ -12,7 +12,7 @@ import (
 
 const (
 	SERVER_URL     = "https://admin.gofast.live"
-	VERSION        = "v2.4.0"
+	VERSION        = "v2.5.0"
 	ConfigFileName = "gofast.json"
 )
 
