@@ -1,12 +1,11 @@
 package cmd
 
 import (
-    "encoding/json"
-    "archive/zip"
-    "fmt"
-    "io"
-    "net/http"
-    "os"
+	"archive/zip"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -47,34 +46,11 @@ var initCmd = &cobra.Command{
 			cmd.Printf("Error downloading repository: %v\n", err)
 			return
 		}
-        // create gofast.json config file (pretty-printed) with services
-        type service struct {
-            Name string `json:"name"`
-            Port string `json:"port"`
-        }
-        type initConfig struct {
-            ProjectName string    `json:"project_name"`
-            Models      []string  `json:"models"`
-            Services    []service `json:"services"`
-        }
-        cfg := initConfig{
-            ProjectName: projectName,
-            Models:      []string{"skeleton"},
-            Services: []service{
-                {Name: "core", Port: "4000"},
-                {Name: "client", Port: "3000"},
-            },
-        }
-        data, err := json.MarshalIndent(cfg, "", "  ")
-        if err != nil {
-            cmd.Printf("Error marshaling gofast.json: %v\n", err)
-            return
-        }
-        err = os.WriteFile(projectName+"/gofast.json", data, 0644)
-        if err != nil {
-            cmd.Printf("Error creating gofast.json file: %v\n", err)
-            return
-        }
+		// create gofast.json config using the config package
+		if err := config.Initialize(projectName); err != nil {
+			cmd.Printf("Error creating gofast.json file: %v\n", err)
+			return
+		}
 
 		// run scripts to set up the project
 		cmd.Printf("Running initialization scripts for project '%s'...\n", projectName)

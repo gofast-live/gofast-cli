@@ -27,8 +27,14 @@ var (
 )
 
 type Config struct {
-	ProjectName string   `json:"project_name"`
-	Models      []string `json:"models"`
+	ProjectName string    `json:"project_name"`
+	Models      []string  `json:"models"`
+	Services    []Service `json:"services"`
+}
+
+type Service struct {
+	Name string `json:"name"`
+	Port string `json:"port"`
 }
 
 func ParseConfig() (*Config, error) {
@@ -66,3 +72,22 @@ func AddModel(modelName string) error {
 	return os.WriteFile(ConfigFileName, data, 0644)
 }
 
+// Initialize creates an initial gofast.json in the provided project directory
+// using the Config struct as the canonical schema.
+func Initialize(projectName string) error {
+	cfg := Config{
+		ProjectName: projectName,
+		Models:      []string{"skeleton"},
+		Services: []Service{
+			{Name: "core", Port: "4000"},
+			{Name: "client", Port: "3000"},
+		},
+	}
+
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(projectName+"/"+ConfigFileName, data, 0644)
+}
