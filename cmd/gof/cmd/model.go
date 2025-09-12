@@ -195,7 +195,7 @@ Example:
 
 		cmd.Printf("\nDon't forget to run %s to apply migrations.\n", config.SuccessStyle.Render("scripts/run_atlas.sh"))
 
-		cmd.Printf("\nIf you already created a user, do not forget to assign the appropriate permissions for the new model.\n\n")
+		cmd.Printf("\nIf you already created a user, run %s to update permissions for the new model.\n", config.SuccessStyle.Render("scripts/update_permissions.sh"))
 	},
 }
 

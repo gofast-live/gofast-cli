@@ -24,6 +24,28 @@ var initCmd = &cobra.Command{
 	Long:  "Initialize the Go service with Docker and PostgreSQL setup",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		dependencies := map[string]string{
+			"buf":   "https://buf.build/docs/cli/installation/",
+			"atlas": "https://atlasgo.io/getting-started",
+			"sqlc":  "https://docs.sqlc.dev/en/latest/overview/install.html",
+		}
+
+		var missingDeps []string
+		for dep := range dependencies {
+			_, err := exec.LookPath(dep)
+			if err != nil {
+				missingDeps = append(missingDeps, dep)
+			}
+		}
+
+		if len(missingDeps) > 0 {
+			cmd.Println("Missing dependencies:")
+			for _, dep := range missingDeps {
+				cmd.Printf("  - %s: %s\n", dep, dependencies[dep])
+			}
+			return
+		}
+
 		email, apiKey, err := auth.CheckAuthentication()
 		if err != nil {
 			cmd.Printf("Authentication failed: %v.\n", err)
