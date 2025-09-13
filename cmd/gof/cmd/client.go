@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/svelte"
 	"github.com/spf13/cobra"
 )
 
@@ -131,10 +133,42 @@ var clientCmd = &cobra.Command{
 			}
 		}
 
-		for _, c := range con.Models {
+		// Change back to the original directory before generating svelte files.
+		if err := os.Chdir(cwd); err != nil {
+			cmd.Printf("Error changing back to original directory: %v\n", err)
+			return
 		}
 
-		cmd.Printf("Client '%s' installed at %s\n", serviceType, dstClientPath)
+		cmd.Printf("Client '%s' installed. Generating client pages for existing models...\n", serviceType)
+
+		for _, m := range con.Models {
+			if m.Name == "skeleton" {
+				continue
+			}
+
+			svelteColumns := make([]svelte.Column, len(m.Columns))
+			for i, col := range m.Columns {
+				svelteColumns[i] = svelte.Column{
+					Name: col.Name,
+					Type: col.Type,
+				}
+			}
+
+			if err := svelte.GenerateSvelteScaffolding(m.Name, svelteColumns); err != nil {
+				cmd.Printf("Error generating Svelte scaffolding for model %s: %v\n", m.Name, err)
+			} else {
+				cmd.Printf("Successfully generated client pages for model '%s'\n", m.Name)
+			}
+		}
+
+		bufCmd := exec.Command("sh", "scripts/run_buf.sh")
+		bufOut, err := bufCmd.CombinedOutput()
+		if err != nil {
+			cmd.Printf("Error running buf generation: %v\nOutput: %s\n", err, string(bufOut))
+			return
+		}
+
+		cmd.Printf("Client setup complete at %s\n", dstClientPath)
 	},
 }
 
@@ -193,3 +227,4 @@ func copyFile(src string, dst string) error {
 	}
 	return nil
 }
+

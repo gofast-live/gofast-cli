@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"slices"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -26,9 +25,19 @@ var (
 	HelpStyle    = BlurredStyle
 )
 
+type Column struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+type Model struct {
+	Name    string   `json:"name"`
+	Columns []Column `json:"columns"`
+}
+
 type Config struct {
 	ProjectName string    `json:"project_name"`
-	Models      []string  `json:"models"`
+	Models      []Model   `json:"models"`
 	Services    []Service `json:"services"`
 }
 
@@ -52,17 +61,23 @@ func ParseConfig() (*Config, error) {
 	return &config, nil
 }
 
-func AddModel(modelName string) error {
+func AddModel(modelName string, columns []Column) error {
 	config, err := ParseConfig()
 	if err != nil {
 		return err
 	}
 
-	if slices.Contains(config.Models, modelName) {
-		return fmt.Errorf("model '%s' already exists in the config", modelName)
+	for _, m := range config.Models {
+		if m.Name == modelName {
+			return fmt.Errorf("model '%s' already exists in the config", modelName)
+		}
 	}
 
-	config.Models = append(config.Models, modelName)
+	newModel := Model{
+		Name:    modelName,
+		Columns: columns,
+	}
+	config.Models = append(config.Models, newModel)
 
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
@@ -75,7 +90,17 @@ func AddModel(modelName string) error {
 func Initialize(projectName string) error {
 	cfg := Config{
 		ProjectName: projectName,
-		Models:      []string{"skeleton"},
+		Models: []Model{
+			{
+				Name: "skeleton",
+				Columns: []Column{
+					{Name: "name", Type: "string"},
+					{Name: "age", Type: "number"},
+					{Name: "death", Type: "time"},
+					{Name: "zombie", Type: "bool"},
+				},
+			},
+		},
 		Services: []Service{
 			{Name: "core", Port: "4000"},
 		},

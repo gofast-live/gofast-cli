@@ -54,11 +54,11 @@ Example:
 			return
 		}
 
-        // Ensure we are inside a valid gofast project (has gofast.json)
-        if _, err := config.ParseConfig(); err != nil {
-            cmd.Printf("%v\n", err)
-            return
-        }
+		// Ensure we are inside a valid gofast project (has gofast.json)
+		if _, err := config.ParseConfig(); err != nil {
+			cmd.Printf("%v\n", err)
+			return
+		}
 
 		modelName := args[0]
 		columnStrings := args[1:]
@@ -99,7 +99,14 @@ Example:
 			})
 		}
 
-		err = config.AddModel(modelName)
+		configColumns := make([]config.Column, len(columns))
+		for i, col := range columns {
+			configColumns[i] = config.Column{
+				Name: col.Name,
+				Type: col.Type,
+			}
+		}
+		err = config.AddModel(modelName, configColumns)
 		if err != nil {
 			cmd.Printf("Error adding model: %v.\n", err)
 			return
@@ -191,7 +198,9 @@ Example:
 		cmd.Printf("Queries generated in: %s\n", config.SuccessStyle.Render("./app/service-core/storage/query.sql"))
 		cmd.Printf("Service layer generated in: %s\n", config.SuccessStyle.Render("./app/service-core/domain/"+modelName))
 		cmd.Printf("Transport layer generated in: %s\n", config.SuccessStyle.Render("./app/service-core/transport/"+modelName))
-		cmd.Printf("Client pages generated in: %s\n", config.SuccessStyle.Render("./app/client/src/pages/"+pluralizeClient.Plural(modelName)))
+		if config.HaveSvelte() {
+			cmd.Printf("Client pages generated in: %s\n", config.SuccessStyle.Render("./app/client/src/pages/"+pluralizeClient.Plural(modelName)))
+		}
 
 		cmd.Printf("\nDon't forget to run %s to apply migrations.\n", config.SuccessStyle.Render("scripts/run_atlas.sh"))
 

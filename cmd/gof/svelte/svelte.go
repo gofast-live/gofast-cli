@@ -42,7 +42,7 @@ func GenerateSvelteScaffolding(modelName string, columns []Column) error {
 // addModelToNavigation adds a new navigation item for the generated model
 // to the main Svelte layout file.
 func addModelToNavigation(modelName string) error {
-	layoutPath := "app/service-client/src/routes/(app)/+layout.svelte"
+	layoutPath := "./app/service-client/src/routes/(app)/+layout.svelte"
 	contentBytes, err := os.ReadFile(layoutPath)
 	if err != nil {
 		return fmt.Errorf("reading layout file %s: %w", layoutPath, err)
