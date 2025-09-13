@@ -8,7 +8,9 @@ import (
 	"strings"
 
 	"github.com/gertd/go-pluralize"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/svelte"
 	"github.com/spf13/cobra"
 )
 
@@ -46,6 +48,11 @@ Example:
 `,
 	Args: cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
+		_, _, err := auth.CheckAuthentication()
+		if err != nil {
+			cmd.Printf("Authentication failed: %v.\n", err)
+			return
+		}
 		modelName := args[0]
 		columnStrings := args[1:]
 
@@ -85,7 +92,7 @@ Example:
 			})
 		}
 
-		err := config.AddModel(modelName)
+		err = config.AddModel(modelName)
 		if err != nil {
 			cmd.Printf("Error adding model: %v.\n", err)
 			return
@@ -143,33 +150,19 @@ Example:
 			return
 		}
 
-		// Generate client list page from skeleton template with smart replacements
-		// Before generating pages, wire the client connect service for this model
-		err = generateClientConnect(modelName)
-		if err != nil {
-			cmd.Printf("Error updating client connect service: %v.\n", err)
-			return
-		}
-
-		// Generate client list page from skeleton template with smart replacements
-		err = generateClientListPage(modelName, columns)
-		if err != nil {
-			cmd.Printf("Error generating client list page: %v.\n", err)
-			return
-		}
-
-		// Generate client detail/create page
-		err = generateClientDetailPage(modelName, columns)
-		if err != nil {
-			cmd.Printf("Error generating client detail page: %v.\n", err)
-			return
-		}
-
-		// Add model to client navigation
-		err = addModelToNavigation(modelName)
-		if err != nil {
-			cmd.Printf("Error adding model to navigation: %v.\n", err)
-			return
+		if config.HaveSvelte() {
+			svelteColumns := make([]svelte.Column, len(columns))
+			for i, col := range columns {
+				svelteColumns[i] = svelte.Column{
+					Name: col.Name,
+					Type: col.Type,
+				}
+			}
+			err = svelte.GenerateSvelteScaffolding(modelName, svelteColumns)
+			if err != nil {
+				cmd.Printf("Error generating Svelte client pages: %v.\n", err)
+				return
+			}
 		}
 
 		cmdExec := exec.Command("sh", "scripts/run_sqlc.sh")
@@ -1700,7 +1693,7 @@ func generateAuthAccessFlags(modelName string) error {
 			}
 			t = strings.TrimSuffix(t, "|")
 			t = strings.TrimSpace(t)
-			if after, ok :=strings.CutPrefix(t, "|"); ok  {
+			if after, ok := strings.CutPrefix(t, "|"); ok {
 				t = strings.TrimSpace(after)
 			}
 			if t != "" {
@@ -1836,475 +1829,62 @@ func wireCoreTransportServer(modelName string) error {
 // wireCoreMain injects imports, service initialization, and handler arguments for
 // a new model into ./app/service-core/main.go using marker regions.
 func wireCoreMain(modelName string) error {
-    path := "./app/service-core/main.go"
-    b, err := os.ReadFile(path)
-    if err != nil {
-        return fmt.Errorf("reading core main.go: %w", err)
-    }
-    s := string(b)
-
-    svcAlias := modelName + "Svc"
-    importLine := "\t" + svcAlias + " \"gofast/service-core/domain/" + modelName + "\""
-    initLine := "\t" + modelName + "Service := " + svcAlias + ".NewService(cfg, store, authService)"
-    argLine := "\t" + modelName + "Service,"
-
-    // Append unique lines to regions
-    appendUniqueLine := func(content, startMarker, endMarker, line string) (string, error) {
-        sidx := strings.Index(content, startMarker)
-        eidx := strings.Index(content, endMarker)
-        if sidx == -1 || eidx == -1 || eidx <= sidx {
-            return content, fmt.Errorf("markers %q..%q not found", startMarker, endMarker)
-        }
-        // Find region bounds: after start line to start of end line
-        startLineEndRel := strings.Index(content[sidx:], "\n")
-        if startLineEndRel == -1 { return content, fmt.Errorf("cannot locate end of start marker line for %s", startMarker) }
-        regionStart := sidx + startLineEndRel + 1
-        endLineStart := strings.LastIndex(content[:eidx], "\n") + 1
-        region := content[regionStart:endLineStart]
-        if strings.Contains(region, strings.TrimSpace(line)) {
-            return content, nil
-        }
-        if region != "" && !strings.HasSuffix(region, "\n") {
-            region += "\n"
-        }
-        if !strings.HasSuffix(line, "\n") { line += "\n" }
-        region += line
-        return content[:regionStart] + region + content[endLineStart:], nil
-    }
-
-    var aerr error
-    s, aerr = appendUniqueLine(s, "GF_MAIN_IMPORT_SERVICES_START", "GF_MAIN_IMPORT_SERVICES_END", importLine)
-    if aerr != nil { return fmt.Errorf("adding main import: %w", aerr) }
-    s, aerr = appendUniqueLine(s, "GF_MAIN_INIT_SERVICES_START", "GF_MAIN_INIT_SERVICES_END", initLine)
-    if aerr != nil { return fmt.Errorf("adding main init service: %w", aerr) }
-    s, aerr = appendUniqueLine(s, "GF_MAIN_HANDLER_ARGS_START", "GF_MAIN_HANDLER_ARGS_END", argLine)
-    if aerr != nil { return fmt.Errorf("adding main handler arg: %w", aerr) }
-
-    if err := os.WriteFile(path, []byte(s), 0o644); err != nil {
-        return fmt.Errorf("writing core main.go: %w", err)
-    }
-    return nil
-}
-
-// addModelToNavigation adds a new navigation item for the generated model
-// to the main Svelte layout file.
-func addModelToNavigation(modelName string) error {
-	layoutPath := "app/service-client/src/routes/(app)/+layout.svelte"
-	contentBytes, err := os.ReadFile(layoutPath)
-	if err != nil {
-		return fmt.Errorf("reading layout file %s: %w", layoutPath, err)
-	}
-	content := string(contentBytes)
-
-	pluralLower := pluralizeClient.Plural(modelName)
-	pluralCap := capitalize(pluralLower)
-
-	// Check if entry already exists to ensure idempotency.
-	if strings.Contains(content, fmt.Sprintf(`href: "/models/%s"`, pluralLower)) {
-		return nil
-	}
-
-	navEntry := fmt.Sprintf(`        {
-            name: "%s",
-            href: "/models/%s",
-            icon: Bone,
-        },`, pluralCap, pluralLower)
-
-	// Insert the new nav item before the closing bracket of the nav array.
-	navArrayEndMarker := `    ];`
-	newContent := strings.Replace(content, navArrayEndMarker, navEntry+"\n"+navArrayEndMarker, 1)
-
-	if newContent == content {
-		return fmt.Errorf("failed to add model to navigation: insertion point '%s' not found in %s", navArrayEndMarker, layoutPath)
-	}
-
-	return os.WriteFile(layoutPath, []byte(newContent), 0644)
-}
-
-// generateClientConnect updates the client-side ConnectRPC wiring by adding the
-// <Model>Service import and exporting a typed client instance in connect.ts.
-func generateClientConnect(modelName string) error {
-	path := "./app/service-client/src/lib/connect.ts"
+	path := "./app/service-core/main.go"
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("reading connect.ts: %w", err)
+		return fmt.Errorf("reading core main.go: %w", err)
 	}
 	s := string(b)
 
-	capitalized := capitalize(modelName)
-	serviceToken := capitalized + "Service"
-	clientExport := "export const " + modelName + "_client = createClient(" + serviceToken + ", transport);"
+	svcAlias := modelName + "Svc"
+	importLine := "\t" + svcAlias + " \"gofast/service-core/domain/" + modelName + "\""
+	initLine := "\t" + modelName + "Service := " + svcAlias + ".NewService(cfg, store, authService)"
+	argLine := "\t" + modelName + "Service,"
 
-	// Ensure the service is imported from main_pb
-	if !strings.Contains(s, serviceToken) {
-		marker := "from '$lib/gen/proto/v1/main_pb'"
-		idx := strings.Index(s, marker)
-		if idx == -1 {
-			return fmt.Errorf("main_pb import not found in connect.ts")
+	// Append unique lines to regions
+	appendUniqueLine := func(content, startMarker, endMarker, line string) (string, error) {
+		sidx := strings.Index(content, startMarker)
+		eidx := strings.Index(content, endMarker)
+		if sidx == -1 || eidx == -1 || eidx <= sidx {
+			return content, fmt.Errorf("markers %q..%q not found", startMarker, endMarker)
 		}
-		// Find the opening brace for the import list
-		pre := s[:idx]
-		braceOpen := strings.LastIndex(pre, "{")
-		braceClose := strings.LastIndex(pre, "}")
-		if braceOpen == -1 || braceClose == -1 || braceClose < braceOpen {
-			return fmt.Errorf("malformed main_pb import in connect.ts")
+		// Find region bounds: after start line to start of end line
+		startLineEndRel := strings.Index(content[sidx:], "\n")
+		if startLineEndRel == -1 {
+			return content, fmt.Errorf("cannot locate end of start marker line for %s", startMarker)
 		}
-		importList := pre[braceOpen+1 : braceClose]
-		importList = strings.TrimSpace(importList)
-		if importList == "" {
-			importList = serviceToken
-		} else {
-			if !strings.HasSuffix(importList, ",") {
-				importList += ","
-			}
-			importList += " " + serviceToken
+		regionStart := sidx + startLineEndRel + 1
+		endLineStart := strings.LastIndex(content[:eidx], "\n") + 1
+		region := content[regionStart:endLineStart]
+		if strings.Contains(region, strings.TrimSpace(line)) {
+			return content, nil
 		}
-		// Rebuild the string with updated import list
-		s = s[:braceOpen+1] + importList + s[braceClose:]
+		if region != "" && !strings.HasSuffix(region, "\n") {
+			region += "\n"
+		}
+		if !strings.HasSuffix(line, "\n") {
+			line += "\n"
+		}
+		region += line
+		return content[:regionStart] + region + content[endLineStart:], nil
 	}
 
-	// Ensure the client export exists
-	if !strings.Contains(s, clientExport) {
-		// Insert after the transport or after last existing client export
-		insertAfter := "export const skeleton_client = createClient(SkeletonService, transport);"
-		pos := strings.Index(s, insertAfter)
-		if pos == -1 {
-			// Fallback: append at end
-			if !strings.HasSuffix(s, "\n") {
-				s += "\n"
-			}
-			s += clientExport + "\n"
-		} else {
-			// Find end of that line
-			lineEnd := pos + len(insertAfter)
-			// Insert a newline and the new export after
-			s = s[:lineEnd] + "\n" + clientExport + s[lineEnd:]
-		}
+	var aerr error
+	s, aerr = appendUniqueLine(s, "GF_MAIN_IMPORT_SERVICES_START", "GF_MAIN_IMPORT_SERVICES_END", importLine)
+	if aerr != nil {
+		return fmt.Errorf("adding main import: %w", aerr)
+	}
+	s, aerr = appendUniqueLine(s, "GF_MAIN_INIT_SERVICES_START", "GF_MAIN_INIT_SERVICES_END", initLine)
+	if aerr != nil {
+		return fmt.Errorf("adding main init service: %w", aerr)
+	}
+	s, aerr = appendUniqueLine(s, "GF_MAIN_HANDLER_ARGS_START", "GF_MAIN_HANDLER_ARGS_END", argLine)
+	if aerr != nil {
+		return fmt.Errorf("adding main handler arg: %w", aerr)
 	}
 
 	if err := os.WriteFile(path, []byte(s), 0o644); err != nil {
-		return fmt.Errorf("writing connect.ts: %w", err)
-	}
-	return nil
-}
-
-// generateClientListPage scaffolds a client list page by copying the
-// skeleton list Svelte file and performing token replacements for
-// singular/plural model variants. Columns are not yet expanded; this
-// is a straight token-based clone of the skeleton UI.
-func generateClientListPage(modelName string, columns []Column) error {
-	sourcePath := "./app/service-client/src/routes/(app)/models/skeletons/+page.svelte"
-	pluralLower := pluralizeClient.Plural(modelName)
-	pluralCap := capitalize(pluralLower)
-	capitalizedModelName := capitalize(modelName)
-
-	// Ensure destination directory exists
-	destDir := filepath.Join("app/service-client/src/routes/(app)/models", pluralLower)
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
-		return fmt.Errorf("creating destination directory %s: %w", destDir, err)
-	}
-	destPath := filepath.Join(destDir, "+page.svelte")
-
-	// Read template
-	contentBytes, err := os.ReadFile(sourcePath)
-	if err != nil {
-		return fmt.Errorf("reading template file %s: %w", sourcePath, err)
-	}
-
-	// Token replacements (plural/title before singular to avoid partial stomps)
-	s := string(contentBytes)
-	s = strings.ReplaceAll(s, "Skeletons", pluralCap)
-	s = strings.ReplaceAll(s, "skeletons", pluralLower)
-	s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
-	s = strings.ReplaceAll(s, "skeleton", modelName)
-
-	// Helper: Title-case a label from snake_case
-	toTitle := func(name string) string {
-		parts := strings.Split(name, "_")
-		for i := range parts {
-			if parts[i] == "" {
-				continue
-			}
-			parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
-		}
-		return strings.Join(parts, " ")
-	}
-
-	// Build headers: per model columns + Created/Updated
-	var h strings.Builder
-	for _, c := range columns {
-		h.WriteString("                <th role=\"columnheader\">")
-		h.WriteString(toTitle(c.Name))
-		h.WriteString("</th>\n")
-	}
-	h.WriteString("                <th role=\"columnheader\">Created</th>\n")
-	h.WriteString("                <th role=\"columnheader\">Updated</th>\n")
-	headers := h.String()
-
-	// Build cells: per model columns + Created/Updated
-	var b strings.Builder
-	for _, c := range columns {
-		field := c.Name
-		switch c.Type {
-		case "time":
-			b.WriteString("                        <td>{new Date(" + modelName + "." + field + ").toLocaleDateString()}</td>\n")
-		case "bool":
-			b.WriteString("                        <td>{" + modelName + "." + field + " ? \"Yes\" : \"No\"}</td>\n")
-		default:
-			b.WriteString("                        <td>{" + modelName + "." + field + "}</td>\n")
-		}
-	}
-	b.WriteString("                        <td>{new Date(" + modelName + ".created).toLocaleDateString()}</td>\n")
-	b.WriteString("                        <td>{new Date(" + modelName + ".updated).toLocaleDateString()}</td>\n")
-	cells := b.String()
-
-	// Replace regions delimited by markers
-	replaceRegion := func(content, startMarker, endMarker, replacement string) (string, error) {
-		start := strings.Index(content, startMarker)
-		end := strings.Index(content, endMarker)
-		if start == -1 || end == -1 || end < start {
-			return content, fmt.Errorf("markers %q .. %q not found", startMarker, endMarker)
-		}
-		start += len(startMarker)
-		return content[:start] + "\n" + replacement + content[end:], nil
-	}
-
-	var rErr error
-	s, rErr = replaceRegion(s, "<!-- GF_LIST_HEADERS_START -->", "<!-- GF_LIST_HEADERS_END -->", headers)
-	if rErr != nil {
-		return fmt.Errorf("replacing headers: %w", rErr)
-	}
-	s, rErr = replaceRegion(s, "<!-- GF_LIST_CELLS_START -->", "<!-- GF_LIST_CELLS_END -->", cells)
-	if rErr != nil {
-		return fmt.Errorf("replacing cells: %w", rErr)
-	}
-
-	// Remove lines that contain marker comments to avoid extra spacing
-	markers := []string{
-		"<!-- GF_LIST_HEADERS_START -->",
-		"<!-- GF_LIST_HEADERS_END -->",
-		"<!-- GF_LIST_CELLS_START -->",
-		"<!-- GF_LIST_CELLS_END -->",
-	}
-	var outLines []string
-	for line := range strings.SplitSeq(s, "\n") {
-		skip := false
-		for _, m := range markers {
-			if strings.Contains(line, m) {
-				skip = true
-				break
-			}
-		}
-		if !skip {
-			outLines = append(outLines, line)
-		}
-	}
-	s = strings.Join(outLines, "\n")
-
-	// Write out the generated file
-	if err := os.WriteFile(destPath, []byte(s), 0o644); err != nil {
-		return fmt.Errorf("writing client list page %s: %w", destPath, err)
-	}
-	return nil
-}
-
-// generateClientDetailPage scaffolds a client detail/create page by copying the
-// skeleton detail Svelte file and performing token replacements for
-// singular/plural model variants. It also expands the column-aware regions for
-// empty model defaults, form-data extraction, request payload fields, and form inputs.
-func generateClientDetailPage(modelName string, columns []Column) error {
-	sourcePath := "./app/service-client/src/routes/(app)/models/skeletons/[skeleton_id]/+page.svelte"
-	pluralLower := pluralizeClient.Plural(modelName)
-	pluralCap := capitalize(pluralLower)
-	capitalizedModelName := capitalize(modelName)
-
-	// Ensure destination directory exists: /(app)/models/<plural>/[<model>_id]
-	destDir := filepath.Join(
-		"app/service-client/src/routes/(app)/models",
-		pluralLower,
-		"["+modelName+"_id]",
-	)
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
-		return fmt.Errorf("creating destination directory %s: %w", destDir, err)
-	}
-	destPath := filepath.Join(destDir, "+page.svelte")
-
-	// Read template
-	contentBytes, err := os.ReadFile(sourcePath)
-	if err != nil {
-		return fmt.Errorf("reading template file %s: %w", sourcePath, err)
-	}
-
-	// Token replacements (plural/title before singular to avoid partial stomps)
-	s := string(contentBytes)
-	s = strings.ReplaceAll(s, "Skeletons", pluralCap)
-	s = strings.ReplaceAll(s, "skeletons", pluralLower)
-	s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
-	s = strings.ReplaceAll(s, "skeleton", modelName)
-
-	// Build replacement snippets
-	// 1) Empty model defaults inside empty<Model>
-	var emptyB strings.Builder
-	emptyIndent := "        "
-	emptyB.WriteString(emptyIndent + "created: \"\",\n")
-	emptyB.WriteString(emptyIndent + "updated: \"\",\n")
-	emptyB.WriteString(emptyIndent + "id: \"\",\n")
-	for _, c := range columns {
-		switch c.Type {
-		case "bool":
-			emptyB.WriteString(emptyIndent + c.Name + ": false,\n")
-		default:
-			emptyB.WriteString(emptyIndent + c.Name + ": \"\",\n")
-		}
-	}
-	emptySnippet := strings.TrimRight(emptyB.String(), "\n")
-
-	// 2) FormData extraction
-	var fdB strings.Builder
-	fdIndent := "        "
-	for _, c := range columns {
-		if c.Type == "bool" {
-			fdB.WriteString(fdIndent + "const " + c.Name + " = formData.get(\"" + c.Name + "\") === \"on\";\n")
-		} else {
-			fdB.WriteString(fdIndent + "const " + c.Name + " = formData.get(\"" + c.Name + "\")?.toString() ?? \"\";\n")
-		}
-	}
-	formDataSnippet := strings.TrimRight(fdB.String(), "\n")
-
-	// 3) Request payload fields for create/edit
-	var reqB strings.Builder
-	for _, c := range columns {
-		reqB.WriteString("                        " + c.Name + ",\n")
-	}
-	payloadFields := strings.TrimRight(reqB.String(), "\n")
-
-	// 4) Form input fields markup
-	toTitle := func(name string) string {
-		parts := strings.Split(name, "_")
-		for i := range parts {
-			if parts[i] == "" {
-				continue
-			}
-			parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
-		}
-		return strings.Join(parts, " ")
-	}
-	var uiB strings.Builder
-	for _, c := range columns {
-		label := toTitle(c.Name)
-		switch c.Type {
-		case "string":
-			uiB.WriteString("        <label class=\"label\" for=\"" + c.Name + "\">" + label + "</label>\n")
-			uiB.WriteString("        <div>\n")
-			uiB.WriteString("            <input\n")
-			uiB.WriteString("                type=\"text\"\n")
-			uiB.WriteString("                id=\"" + c.Name + "\"\n")
-			uiB.WriteString("                name=\"" + c.Name + "\"\n")
-			uiB.WriteString("                required\n")
-			uiB.WriteString("                class=\"input input-bordered validator w-full\"\n")
-			uiB.WriteString("                value={" + modelName + "." + c.Name + "}\n")
-			uiB.WriteString("            />\n")
-			uiB.WriteString("            <div class=\"validator-hint\">Enter at least 3 characters</div>\n")
-			uiB.WriteString("        </div>\n\n")
-		case "number":
-			uiB.WriteString("        <label class=\"label\" for=\"" + c.Name + "\">" + label + "</label>\n")
-			uiB.WriteString("        <div>\n")
-			uiB.WriteString("            <input\n")
-			uiB.WriteString("                type=\"number\"\n")
-			uiB.WriteString("                id=\"" + c.Name + "\"\n")
-			uiB.WriteString("                name=\"" + c.Name + "\"\n")
-			uiB.WriteString("                required\n")
-			uiB.WriteString("                class=\"input input-bordered validator w-full\"\n")
-			uiB.WriteString("                value={" + modelName + "." + c.Name + "}\n")
-			uiB.WriteString("            />\n")
-			uiB.WriteString("            <div class=\"validator-hint\">Enter a positive number</div>\n")
-			uiB.WriteString("        </div>\n\n")
-		case "time":
-			uiB.WriteString("        <label class=\"label\" for=\"" + c.Name + "\">" + label + "</label>\n")
-			uiB.WriteString("        <div>\n")
-			uiB.WriteString("            <input\n")
-			uiB.WriteString("                type=\"date\"\n")
-			uiB.WriteString("                id=\"" + c.Name + "\"\n")
-			uiB.WriteString("                required\n")
-			uiB.WriteString("                name=\"" + c.Name + "\"\n")
-			uiB.WriteString("                class=\"input input-bordered validator w-full\"\n")
-			uiB.WriteString("                value={formatDate(" + modelName + "." + c.Name + ")}\n")
-			uiB.WriteString("            />\n")
-			uiB.WriteString("            <div class=\"validator-hint\">Select a valid date</div>\n")
-			uiB.WriteString("        </div>\n\n")
-		case "bool":
-			uiB.WriteString("        <label class=\"label cursor-pointer my-2\">\n")
-			uiB.WriteString("            <span class=\"label-text\">" + label + "</span>\n")
-			uiB.WriteString("            <input\n")
-			uiB.WriteString("                name=\"" + c.Name + "\"\n")
-			uiB.WriteString("                type=\"checkbox\"\n")
-			uiB.WriteString("                class=\"toggle\"\n")
-			uiB.WriteString("                checked={" + modelName + "." + c.Name + "}\n")
-			uiB.WriteString("            />\n")
-			uiB.WriteString("        </label>\n\n")
-		}
-	}
-	fieldsSnippet := strings.TrimRight(uiB.String(), "\n")
-
-	// Replace regions delimited by markers
-	replaceRegion := func(content, startMarker, endMarker, replacement string) (string, error) {
-		start := strings.Index(content, startMarker)
-		end := strings.Index(content, endMarker)
-		if start == -1 || end == -1 || end < start {
-			return content, fmt.Errorf("markers %q .. %q not found", startMarker, endMarker)
-		}
-		start += len(startMarker)
-		return content[:start] + "\n" + replacement + "\n" + content[end:], nil
-	}
-
-	var rErr error
-	s, rErr = replaceRegion(s, "// GF_DETAIL_EMPTY_START", "// GF_DETAIL_EMPTY_END", emptySnippet)
-	if rErr != nil {
-		return fmt.Errorf("replacing empty defaults: %w", rErr)
-	}
-	s, rErr = replaceRegion(s, "// GF_DETAIL_FORMDATA_START", "// GF_DETAIL_FORMDATA_END", formDataSnippet)
-	if rErr != nil {
-		return fmt.Errorf("replacing form data: %w", rErr)
-	}
-	s, rErr = replaceRegion(s, "// GF_DETAIL_CREATE_FIELDS_START", "// GF_DETAIL_CREATE_FIELDS_END", payloadFields)
-	if rErr != nil {
-		return fmt.Errorf("replacing create fields: %w", rErr)
-	}
-	s, rErr = replaceRegion(s, "// GF_DETAIL_EDIT_FIELDS_START", "// GF_DETAIL_EDIT_FIELDS_END", payloadFields)
-	if rErr != nil {
-		return fmt.Errorf("replacing edit fields: %w", rErr)
-	}
-	s, rErr = replaceRegion(s, "<!-- GF_DETAIL_FIELDS_START -->", "<!-- GF_DETAIL_FIELDS_END -->", fieldsSnippet)
-	if rErr != nil {
-		return fmt.Errorf("replacing UI fields: %w", rErr)
-	}
-
-	// Remove lines that contain marker comments to avoid extra spacing
-	markers := []string{
-		"// GF_DETAIL_EMPTY_START", "// GF_DETAIL_EMPTY_END",
-		"// GF_DETAIL_FORMDATA_START", "// GF_DETAIL_FORMDATA_END",
-		"// GF_DETAIL_CREATE_FIELDS_START", "// GF_DETAIL_CREATE_FIELDS_END",
-		"// GF_DETAIL_EDIT_FIELDS_START", "// GF_DETAIL_EDIT_FIELDS_END",
-		"<!-- GF_DETAIL_FIELDS_START -->", "<!-- GF_DETAIL_FIELDS_END -->",
-	}
-	var outLines []string
-	for line := range strings.SplitSeq(s, "\n") {
-		skip := false
-		for _, m := range markers {
-			if strings.Contains(line, m) {
-				skip = true
-				break
-			}
-		}
-		if !skip {
-			outLines = append(outLines, line)
-		}
-	}
-	s = strings.Join(outLines, "\n")
-
-	// Write out the generated file
-	if err := os.WriteFile(destPath, []byte(s), 0o644); err != nil {
-		return fmt.Errorf("writing client detail page %s: %w", destPath, err)
+		return fmt.Errorf("writing core main.go: %w", err)
 	}
 	return nil
 }

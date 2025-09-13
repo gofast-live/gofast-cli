@@ -72,15 +72,12 @@ func AddModel(modelName string) error {
 	return os.WriteFile(ConfigFileName, data, 0644)
 }
 
-// Initialize creates an initial gofast.json in the provided project directory
-// using the Config struct as the canonical schema.
 func Initialize(projectName string) error {
 	cfg := Config{
 		ProjectName: projectName,
 		Models:      []string{"skeleton"},
 		Services: []Service{
 			{Name: "core", Port: "4000"},
-			{Name: "client", Port: "3000"},
 		},
 	}
 
@@ -90,4 +87,17 @@ func Initialize(projectName string) error {
 	}
 
 	return os.WriteFile(projectName+"/"+ConfigFileName, data, 0644)
+}
+
+func HaveSvelte() bool {
+	config, err := ParseConfig()
+	if err != nil {
+		return false
+	}
+	for _, service := range config.Services {
+		if service.Name == "svelte" {
+			return true
+		}
+	}
+	return false
 }
