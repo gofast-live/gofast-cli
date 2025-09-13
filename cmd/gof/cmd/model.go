@@ -53,6 +53,13 @@ Example:
 			cmd.Printf("Authentication failed: %v.\n", err)
 			return
 		}
+
+        // Ensure we are inside a valid gofast project (has gofast.json)
+        if _, err := config.ParseConfig(); err != nil {
+            cmd.Printf("%v\n", err)
+            return
+        }
+
 		modelName := args[0]
 		columnStrings := args[1:]
 

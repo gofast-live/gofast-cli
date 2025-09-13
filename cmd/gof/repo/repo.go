@@ -42,22 +42,17 @@ func DownloadRepo(email string, apiKey string, projectName string) error {
 	if err != nil {
 		return fmt.Errorf("error reading current directory: %w", err)
 	}
-	for _, f := range files {
-		if f.IsDir() {
-			if strings.HasPrefix(f.Name(), "gofast-live-gofast-app-") {
-				// remove the service-client directory
-				err := os.RemoveAll(f.Name() + "/app/service-client")
-				if err != nil {
-					return fmt.Errorf("error removing service-client directory: %w", err)
-				}
-				err = os.Rename(f.Name(), projectName)
-				if err != nil {
-					return err
-				}
-				break
-			}
-		}
-	}
+    for _, f := range files {
+        if f.IsDir() {
+            if strings.HasPrefix(f.Name(), "gofast-live-gofast-app-") {
+                err = os.Rename(f.Name(), projectName)
+                if err != nil {
+                    return err
+                }
+                break
+            }
+        }
+    }
 
 	return nil
 }
@@ -158,4 +153,3 @@ func unzipFile() error {
 	}
 	return nil
 }
-
