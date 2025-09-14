@@ -11,7 +11,7 @@ import (
 
 const (
 	SERVER_URL     = "https://admin.gofast.live"
-	VERSION        = "v2.6.0"
+	VERSION        = "v2.7.0"
 	ConfigFileName = "gofast.json"
 )
 
@@ -37,8 +37,8 @@ type Model struct {
 
 type Config struct {
 	ProjectName string    `json:"project_name"`
-	Models      []Model   `json:"models"`
 	Services    []Service `json:"services"`
+	Models      []Model   `json:"models"`
 }
 
 type Service struct {
@@ -90,6 +90,9 @@ func AddModel(modelName string, columns []Column) error {
 func Initialize(projectName string) error {
 	cfg := Config{
 		ProjectName: projectName,
+		Services: []Service{
+			{Name: "core", Port: "4000"},
+		},
 		Models: []Model{
 			{
 				Name: "skeleton",
@@ -100,9 +103,6 @@ func Initialize(projectName string) error {
 					{Name: "zombie", Type: "bool"},
 				},
 			},
-		},
-		Services: []Service{
-			{Name: "core", Port: "4000"},
 		},
 	}
 
