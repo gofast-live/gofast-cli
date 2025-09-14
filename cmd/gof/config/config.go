@@ -11,7 +11,7 @@ import (
 
 const (
 	SERVER_URL     = "https://admin.gofast.live"
-	VERSION        = "v2.5.0"
+	VERSION        = "v2.6.0"
 	ConfigFileName = "gofast.json"
 )
 
@@ -114,7 +114,7 @@ func Initialize(projectName string) error {
 	return os.WriteFile(projectName+"/"+ConfigFileName, data, 0644)
 }
 
-func HaveSvelte() bool {
+func IsSvelte() bool {
 	config, err := ParseConfig()
 	if err != nil {
 		return false

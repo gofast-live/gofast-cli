@@ -164,7 +164,7 @@ Example:
 			return
 		}
 
-		if config.HaveSvelte() {
+		if config.IsSvelte() {
 			svelteColumns := make([]svelte.Column, len(columns))
 			for i, col := range columns {
 				svelteColumns[i] = svelte.Column{
@@ -198,13 +198,14 @@ Example:
 		cmd.Printf("Queries generated in: %s\n", config.SuccessStyle.Render("./app/service-core/storage/query.sql"))
 		cmd.Printf("Service layer generated in: %s\n", config.SuccessStyle.Render("./app/service-core/domain/"+modelName))
 		cmd.Printf("Transport layer generated in: %s\n", config.SuccessStyle.Render("./app/service-core/transport/"+modelName))
-		if config.HaveSvelte() {
+		if config.IsSvelte() {
 			cmd.Printf("Client pages generated in: %s\n", config.SuccessStyle.Render("./app/client/src/pages/"+pluralizeClient.Plural(modelName)))
 		}
 
 		cmd.Printf("\nDon't forget to run %s to apply migrations.\n", config.SuccessStyle.Render("scripts/run_atlas.sh"))
 
-		cmd.Printf("\nIf you already created a user, run %s to update permissions for the new model.\n\n", config.SuccessStyle.Render("scripts/update_permissions.sh"))
+		cmd.Printf("\nIf you already created a user, remember to update permissions for the new model.\n")
+		cmd.Printf("\nYou can also run %s to update all users with admin permissions.\n\n", config.SuccessStyle.Render("scripts/update_permissions.sh"))
 	},
 }
 
@@ -394,6 +395,7 @@ func generateSchema(modelName string, columns []Column) error {
 	columnDefs = append(columnDefs, "    id uuid primary key default gen_random_uuid()")
 	columnDefs = append(columnDefs, "    created timestamptz not null default current_timestamp")
 	columnDefs = append(columnDefs, "    updated timestamptz not null default current_timestamp")
+	columnDefs = append(columnDefs, "    user_id uuid not null references users(id) on delete cascade")
 
 	for _, col := range columns {
 		columnDefs = append(columnDefs, fmt.Sprintf("    %s %s not null", col.Name, typeMap[col.Type]))
@@ -418,24 +420,31 @@ func generateQueries(modelName string, columns []Column) error {
 	modelNameSingular := capitalize(modelName)
 	modelNamePlural := capitalize(tableName)
 
-	var colNames, placeholders, updatePairs []string
+	// For insert
+	var insertColNames []string = []string{"user_id"}
+	var placeholders []string = []string{"$1"}
 	for i, col := range columns {
-		colNames = append(colNames, col.Name)
-		placeholders = append(placeholders, fmt.Sprintf("$%d", i+1))
+		insertColNames = append(insertColNames, col.Name)
+		placeholders = append(placeholders, fmt.Sprintf("$%d", i+2))
+	}
+	insertColNamesStr := strings.Join(insertColNames, ", ")
+	placeholdersStr := strings.Join(placeholders, ", ")
+
+	// For update
+	var updatePairs []string
+	for i, col := range columns {
 		updatePairs = append(updatePairs, fmt.Sprintf("%s = $%d", col.Name, i+1))
 	}
-	colNamesStr := strings.Join(colNames, ", ")
-	placeholdersStr := strings.Join(placeholders, ", ")
 	updatePairsStr := strings.Join(updatePairs, ",\n    ")
 
 	queries := fmt.Sprintf(`
 -- %s --
 
 -- name: SelectAll%s :many
-select * from %s;
+select * from %s where user_id = $1 order by created desc;
 
 -- name: Select%sByID :one
-select * from %s where id = $1;
+select * from %s where id = $1 and user_id = $2;
 
 -- name: Insert%s :one
 insert into %s (%s) values (%s) returning *;
@@ -444,11 +453,11 @@ insert into %s (%s) values (%s) returning *;
 update %s set
     %s,
     updated = current_timestamp
-where id = $%d returning *;
+where id = $%d and user_id = $%d returning *;
 
 -- name: Delete%s :exec
-delete from %s where id = $1;
-`, modelNamePlural, modelNamePlural, tableName, modelNameSingular, tableName, modelNameSingular, tableName, colNamesStr, placeholdersStr, modelNameSingular, tableName, updatePairsStr, len(columns)+1, modelNameSingular, tableName)
+delete from %s where id = $1 and user_id = $2;
+`, modelNamePlural, modelNamePlural, tableName, modelNameSingular, tableName, modelNameSingular, tableName, insertColNamesStr, placeholdersStr, modelNameSingular, tableName, updatePairsStr, len(columns)+1, len(columns)+2, modelNameSingular, tableName)
 
 	err := appendToFile("./app/service-core/storage/query.sql", queries)
 	if err != nil {
@@ -456,6 +465,7 @@ delete from %s where id = $1;
 	}
 	return nil
 }
+
 
 func generateServiceLayer(modelName string, columns []Column) error {
 	sourceDir := "./app/service-core/domain/skeleton"
@@ -1642,7 +1652,6 @@ func generateAuthAccessFlags(modelName string) error {
 
 	flagsSnippet := fmt.Sprintf("\n\tGet%[1]s   int64 = 1 << iota\n\tCreate%[2]s int64 = 1 << iota\n\tEdit%[2]s   int64 = 1 << iota\n\tRemove%[2]s int64 = 1 << iota\n", modelPluralCap, modelCap)
 	userListSnippet := fmt.Sprintf("Get%[1]s | Create%[2]s | Edit%[2]s | Remove%[2]s", modelPluralCap, modelCap)
-	adminListSnippet := userListSnippet
 
 	// Insert flags inside GF_ACCESS_FLAGS markers (before END) unless already present
 	const flagsStart = "GF_ACCESS_FLAGS_START"
@@ -1738,10 +1747,6 @@ func generateAuthAccessFlags(modelName string) error {
 
 	var uErr error
 	content, uErr = appendToRegion(content, "GF_USER_ACCESS_START", "GF_USER_ACCESS_END", userListSnippet)
-	if uErr != nil {
-		return uErr
-	}
-	content, uErr = appendToRegion(content, "GF_ADMIN_ACCESS_START", "GF_ADMIN_ACCESS_END", adminListSnippet)
 	if uErr != nil {
 		return uErr
 	}
