@@ -152,116 +152,117 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 
-		case tea.KeyEnter:
-			m.err = nil
-			if m.step == authStep {
-				email := m.emailInput.Value()
-				apiKey := m.apiKeyInput.Value()
-				m.focusIndex = 0
-				return m, checkConfig(email, apiKey)
-			} else if m.step == startStep {
-				m.step = clientStep
-				return m, textinput.Blink
-			} else if m.step == clientStep {
-				m.selectedClient = m.clients[m.focusIndex]
-				m.focusIndex = 0
-				m.step = startOptionStep
-			} else if m.step == startOptionStep {
-				m.selectedStartOption = m.startOptions[m.focusIndex]
-				m.focusIndex = 0
-				if m.selectedStartOption == "Generate base project (Local PostgreSQL, Mocked payments, Log Emails, Local files)" {
-					m.step = projectNameStep
-					blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput, &m.projectNameInput})
-					m.projectNameInput.Focus()
-					m.projectNameInput.PromptStyle = focusedStyle
-					m.projectNameInput.TextStyle = focusedStyle
-					return m, textinput.Blink
-				} else {
-					m.focusIndex = 0
-					m.step = databaseProviderStep
-				}
-			} else if m.step == databaseProviderStep {
-				m.selectedDatabaseProvider = m.databaseProviders[m.focusIndex]
-				m.focusIndex = 0
-				m.step = paymentsProviderStep
-			} else if m.step == paymentsProviderStep {
-				m.selectedPaymentsProvider = m.paymentsProviders[m.focusIndex]
-				m.focusIndex = 0
-				m.step = emailProviderStep
-			} else if m.step == emailProviderStep {
-				m.selectedEmailProvider = m.emailsProviders[m.focusIndex]
-				m.focusIndex = 0
-				m.step = filesProviderStep
-			} else if m.step == filesProviderStep {
-				m.selectedFilesProvider = m.filesProviders[m.focusIndex]
-				m.focusIndex = 0
-				m.step = monitoringStep
-			} else if m.step == monitoringStep {
-				m.selectedMonitoring = m.monitoringOptions[m.focusIndex]
-				m.focusIndex = 0
-				m.step = projectNameStep
+        case tea.KeyEnter:
+            m.err = nil
+            switch m.step {
+            case authStep:
+                email := m.emailInput.Value()
+                apiKey := m.apiKeyInput.Value()
+                m.focusIndex = 0
+                return m, checkConfig(email, apiKey)
+            case startStep:
+                m.step = clientStep
+                return m, textinput.Blink
+            case clientStep:
+                m.selectedClient = m.clients[m.focusIndex]
+                m.focusIndex = 0
+                m.step = startOptionStep
+            case startOptionStep:
+                m.selectedStartOption = m.startOptions[m.focusIndex]
+                m.focusIndex = 0
+                if m.selectedStartOption == "Generate base project (Local PostgreSQL, Mocked payments, Log Emails, Local files)" {
+                    m.step = projectNameStep
+                    blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput, &m.projectNameInput})
+                    m.projectNameInput.Focus()
+                    m.projectNameInput.PromptStyle = focusedStyle
+                    m.projectNameInput.TextStyle = focusedStyle
+                    return m, textinput.Blink
+                }
+                m.focusIndex = 0
+                m.step = databaseProviderStep
+            case databaseProviderStep:
+                m.selectedDatabaseProvider = m.databaseProviders[m.focusIndex]
+                m.focusIndex = 0
+                m.step = paymentsProviderStep
+            case paymentsProviderStep:
+                m.selectedPaymentsProvider = m.paymentsProviders[m.focusIndex]
+                m.focusIndex = 0
+                m.step = emailProviderStep
+            case emailProviderStep:
+                m.selectedEmailProvider = m.emailsProviders[m.focusIndex]
+                m.focusIndex = 0
+                m.step = filesProviderStep
+            case filesProviderStep:
+                m.selectedFilesProvider = m.filesProviders[m.focusIndex]
+                m.focusIndex = 0
+                m.step = monitoringStep
+            case monitoringStep:
+                m.selectedMonitoring = m.monitoringOptions[m.focusIndex]
+                m.focusIndex = 0
+                m.step = projectNameStep
+                blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
+                m.projectNameInput.Focus()
+                m.projectNameInput.PromptStyle = focusedStyle
+                m.projectNameInput.TextStyle = focusedStyle
+                return m, textinput.Blink
+            case projectNameStep:
+                projectName := m.projectNameInput.Value()
+                if projectName == "" {
+                    return m, func() tea.Msg {
+                        return errMsg(fmt.Errorf("project name cannot be empty"))
+                    }
+                }
+                // check if there is a dir with the same name
+                if _, err := os.Stat(projectName); !os.IsNotExist(err) {
+                    return m, func() tea.Msg {
+                        return errMsg(fmt.Errorf("directory with the same name already exists"))
+                    }
+                }
+                m.step = cleaningStep
+                return m, m.downloadRepo(m.email, m.apiKey, projectName)
+            case successStep:
+                return m, tea.Quit
+            }
+            return m, cmd
 
-				blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
-				m.projectNameInput.Focus()
-				m.projectNameInput.PromptStyle = focusedStyle
-				m.projectNameInput.TextStyle = focusedStyle
-				return m, textinput.Blink
-			} else if m.step == projectNameStep {
-				projectName := m.projectNameInput.Value()
-				if projectName == "" {
-					return m, func() tea.Msg {
-						return errMsg(fmt.Errorf("Project name cannot be empty"))
-					}
-				}
-				// check if there is a dir with the same name
-				if _, err := os.Stat(projectName); !os.IsNotExist(err) {
-					return m, func() tea.Msg {
-						return errMsg(fmt.Errorf("Directory with the same name already exists"))
-					}
-				}
-				m.step = cleaningStep
-				return m, m.downloadRepo(m.email, m.apiKey, projectName)
-			} else if m.step == successStep {
-				return m, tea.Quit
-			}
-			return m, cmd
-
-		case tea.KeyTab, tea.KeyShiftTab, tea.KeyDown, tea.KeyUp:
-			if m.step == authStep {
-				cmd := m.toggleFocus([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
-				return m, cmd
-			} else if m.step == clientStep || m.step == startOptionStep || m.step == databaseProviderStep || m.step == paymentsProviderStep || m.step == emailProviderStep || m.step == filesProviderStep || m.step == monitoringStep {
-				var d []string
-				if m.step == clientStep {
-					d = m.clients
-				} else if m.step == startOptionStep {
-					d = m.startOptions
-				} else if m.step == databaseProviderStep {
-					d = m.databaseProviders
-				} else if m.step == paymentsProviderStep {
-					d = m.paymentsProviders
-				} else if m.step == emailProviderStep {
-					d = m.emailsProviders
-				} else if m.step == filesProviderStep {
-					d = m.filesProviders
-				} else if m.step == monitoringStep {
-					d = m.monitoringOptions
-				}
-				if tea.KeyDown == msg.Type || tea.KeyTab == msg.Type {
-					if m.focusIndex == len(d)-1 {
-						m.focusIndex = 0
-					} else {
-						m.focusIndex++
-					}
-				} else {
-					if m.focusIndex == 0 {
-						m.focusIndex = len(d) - 1
-					} else {
-						m.focusIndex--
-					}
-				}
-				return m, nil
-			}
+        case tea.KeyTab, tea.KeyShiftTab, tea.KeyDown, tea.KeyUp:
+            switch m.step {
+            case authStep:
+                cmd := m.toggleFocus([]*textinput.Model{&m.emailInput, &m.apiKeyInput})
+                return m, cmd
+            case clientStep, startOptionStep, databaseProviderStep, paymentsProviderStep, emailProviderStep, filesProviderStep, monitoringStep:
+                var d []string
+                switch m.step {
+                case clientStep:
+                    d = m.clients
+                case startOptionStep:
+                    d = m.startOptions
+                case databaseProviderStep:
+                    d = m.databaseProviders
+                case paymentsProviderStep:
+                    d = m.paymentsProviders
+                case emailProviderStep:
+                    d = m.emailsProviders
+                case filesProviderStep:
+                    d = m.filesProviders
+                case monitoringStep:
+                    d = m.monitoringOptions
+                }
+                if tea.KeyDown == msg.Type || tea.KeyTab == msg.Type {
+                    if m.focusIndex == len(d)-1 {
+                        m.focusIndex = 0
+                    } else {
+                        m.focusIndex++
+                    }
+                } else {
+                    if m.focusIndex == 0 {
+                        m.focusIndex = len(d) - 1
+                    } else {
+                        m.focusIndex--
+                    }
+                }
+                return m, nil
+            }
 		case tea.KeyCtrlQ:
 			m.err = nil
 			blurAll([]*textinput.Model{&m.emailInput, &m.apiKeyInput, &m.projectNameInput})
@@ -403,10 +404,10 @@ func getFile(email string, apiKey string) error {
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Error downloading repo")
-	}
-	defer resp.Body.Close()
+    if resp.StatusCode != http.StatusOK {
+        return fmt.Errorf("error downloading repo")
+    }
+    defer func() { _ = resp.Body.Close() }()
 
 	// save the file to the disk
 	_, err = os.Create("gofast-app.zip")
@@ -417,7 +418,7 @@ func getFile(email string, apiKey string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+    defer func() { _ = file.Close() }()
 	_, err = io.Copy(file, resp.Body)
 	if err != nil {
 		return err
@@ -434,13 +435,13 @@ func unzipFile() error {
 	if err != nil {
 		return err
 	}
-	defer archive.Close()
+    defer func() { _ = archive.Close() }()
 	for _, file := range archive.File {
 		src, err := file.Open()
 		if err != nil {
 			return err
 		}
-		defer src.Close()
+        defer func() { _ = src.Close() }()
 
 		if file.FileInfo().IsDir() {
 			err := os.MkdirAll(file.Name, os.ModePerm)
@@ -454,7 +455,7 @@ func unzipFile() error {
 		if err != nil {
 			return err
 		}
-		defer dst.Close()
+        defer func() { _ = dst.Close() }()
 
 		_, err = io.Copy(dst, src)
 		if err != nil {
