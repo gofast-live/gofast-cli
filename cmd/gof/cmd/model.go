@@ -466,7 +466,6 @@ delete from %s where id = $1 and user_id = $2;
 	return nil
 }
 
-
 func generateServiceLayer(modelName string, columns []Column) error {
 	sourceDir := "./app/service-core/domain/skeleton"
 	destDir := "app/service-core/domain/" + modelName
@@ -683,44 +682,44 @@ func generateTransportTestContent(modelName, capitalizedModelName string, column
 		}
 	}
 
-    buildQueryFieldsWithI := func(zero bool) string {
-        parts := []string{
-            "ID: uuid.New()",
-            "UserID: uuid.New()",
-            "Created: time.Now()",
-            "Updated: time.Now()",
-        }
-        if zero {
-            parts = []string{
-                "ID: uuid.Nil",
-                "UserID: uuid.Nil",
-                "Created: time.Time{}",
-                "Updated: time.Time{}",
-            }
-        }
-        for _, c := range columns {
-            name := toFieldName(c.Name)
-            if zero {
-                parts = append(parts, fmt.Sprintf("%s: %s", name, zeroQueryVal(c.Type)))
-                continue
-            }
-            switch c.Type {
-                case "string":
-                    // Generate: <Field>: fmt.Sprintf("Test %d", i)
-                    parts = append(parts, fmt.Sprintf("%s: fmt.Sprintf(\"Test %s\", i)", name, "%d"))
-                case "number":
-                    // sqlc maps numeric to string; use a quoted literal
-                    parts = append(parts, fmt.Sprintf("%s: \"100\"", name))
-                case "time":
-                    parts = append(parts, fmt.Sprintf("%s: time.Now()", name))
-                case "bool":
-                    parts = append(parts, fmt.Sprintf("%s: i%%2 == 1", name))
-                default:
-                    parts = append(parts, fmt.Sprintf("%s: \"\"", name))
-            }
-        }
-        return strings.Join(parts, ",\n")
-    }
+	buildQueryFieldsWithI := func(zero bool) string {
+		parts := []string{
+			"ID: uuid.New()",
+			"UserID: uuid.New()",
+			"Created: time.Now()",
+			"Updated: time.Now()",
+		}
+		if zero {
+			parts = []string{
+				"ID: uuid.Nil",
+				"UserID: uuid.Nil",
+				"Created: time.Time{}",
+				"Updated: time.Time{}",
+			}
+		}
+		for _, c := range columns {
+			name := toFieldName(c.Name)
+			if zero {
+				parts = append(parts, fmt.Sprintf("%s: %s", name, zeroQueryVal(c.Type)))
+				continue
+			}
+			switch c.Type {
+			case "string":
+				// Generate: <Field>: fmt.Sprintf("Test %d", i)
+				parts = append(parts, fmt.Sprintf("%s: fmt.Sprintf(\"Test %s\", i)", name, "%d"))
+			case "number":
+				// sqlc maps numeric to string; use a quoted literal
+				parts = append(parts, fmt.Sprintf("%s: \"100\"", name))
+			case "time":
+				parts = append(parts, fmt.Sprintf("%s: time.Now()", name))
+			case "bool":
+				parts = append(parts, fmt.Sprintf("%s: i%%2 == 1", name))
+			default:
+				parts = append(parts, fmt.Sprintf("%s: \"\"", name))
+			}
+		}
+		return strings.Join(parts, ",\n")
+	}
 
 	buildProtoFields := func(zero bool, useEditID bool) string {
 		parts := []string{}
@@ -1011,67 +1010,67 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 		}
 	}
 
-    buildQueryFields := func(index int, zero bool) string {
-        parts := []string{
-            "ID: uuid.New()",
-            "UserID: userID",
-            "Created: time.Now()",
-            "Updated: time.Now()",
-        }
-        if zero {
-            parts = []string{
-                "ID: uuid.Nil",
-                "UserID: uuid.Nil",
-                "Created: time.Time{}",
-                "Updated: time.Time{}",
-            }
-        }
-        for _, c := range columns {
-            name := toFieldName(c.Name)
-            if zero {
-                parts = append(parts, fmt.Sprintf("%s: %s", name, zeroQueryVal(c.Type)))
-            } else {
-                parts = append(parts, fmt.Sprintf("%s: %s", name, mockQueryVal(c.Type, index)))
-            }
-        }
-        return strings.Join(parts, ",\n")
-    }
-    buildQueryFieldsWithI := func(zero bool) string {
-        parts := []string{
-            "ID: uuid.New()",
-            "UserID: userID",
-            "Created: time.Now()",
-            "Updated: time.Now()",
-        }
-        if zero {
-            parts = []string{
-                "ID: uuid.Nil",
-                "UserID: uuid.Nil",
-                "Created: time.Time{}",
-                "Updated: time.Time{}",
-            }
-        }
-        for _, c := range columns {
-            name := toFieldName(c.Name)
-            if zero {
-                parts = append(parts, fmt.Sprintf("%s: %s", name, zeroQueryVal(c.Type)))
-                continue
-            }
-            switch c.Type {
-            case "string":
-                parts = append(parts, fmt.Sprintf("%s: fmt.Sprintf(\"Test %s\", i)", name, "%d"))
-            case "number":
-                parts = append(parts, fmt.Sprintf("%s: \"100\"", name))
-            case "time":
-                parts = append(parts, fmt.Sprintf("%s: time.Now()", name))
-            case "bool":
-                parts = append(parts, fmt.Sprintf("%s: i%%2 == 1", name))
-            default:
-                parts = append(parts, fmt.Sprintf("%s: \"\"", name))
-            }
-        }
-        return strings.Join(parts, ",\n")
-    }
+	buildQueryFields := func(index int, zero bool) string {
+		parts := []string{
+			"ID: uuid.New()",
+			"UserID: userID",
+			"Created: time.Now()",
+			"Updated: time.Now()",
+		}
+		if zero {
+			parts = []string{
+				"ID: uuid.Nil",
+				"UserID: uuid.Nil",
+				"Created: time.Time{}",
+				"Updated: time.Time{}",
+			}
+		}
+		for _, c := range columns {
+			name := toFieldName(c.Name)
+			if zero {
+				parts = append(parts, fmt.Sprintf("%s: %s", name, zeroQueryVal(c.Type)))
+			} else {
+				parts = append(parts, fmt.Sprintf("%s: %s", name, mockQueryVal(c.Type, index)))
+			}
+		}
+		return strings.Join(parts, ",\n")
+	}
+	buildQueryFieldsWithI := func(zero bool) string {
+		parts := []string{
+			"ID: uuid.New()",
+			"UserID: userID",
+			"Created: time.Now()",
+			"Updated: time.Now()",
+		}
+		if zero {
+			parts = []string{
+				"ID: uuid.Nil",
+				"UserID: uuid.Nil",
+				"Created: time.Time{}",
+				"Updated: time.Time{}",
+			}
+		}
+		for _, c := range columns {
+			name := toFieldName(c.Name)
+			if zero {
+				parts = append(parts, fmt.Sprintf("%s: %s", name, zeroQueryVal(c.Type)))
+				continue
+			}
+			switch c.Type {
+			case "string":
+				parts = append(parts, fmt.Sprintf("%s: fmt.Sprintf(\"Test %s\", i)", name, "%d"))
+			case "number":
+				parts = append(parts, fmt.Sprintf("%s: \"100\"", name))
+			case "time":
+				parts = append(parts, fmt.Sprintf("%s: time.Now()", name))
+			case "bool":
+				parts = append(parts, fmt.Sprintf("%s: i%%2 == 1", name))
+			default:
+				parts = append(parts, fmt.Sprintf("%s: \"\"", name))
+			}
+		}
+		return strings.Join(parts, ",\n")
+	}
 	buildInsertParams := func() (pre string, fields string) {
 		parts := []string{}
 		predecl := []string{}
@@ -1146,51 +1145,51 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 			out = append(out, line)
 			indent := strings.Repeat("\t", strings.Count(line, "\t"))
 
-            out = append(out, indent+fmt.Sprintf("func makeQuery%s(i int, userID uuid.UUID) query.%s {", capitalizedModelName, capitalizedModelName))
-            out = append(out, indent+"\treturn query."+capitalizedModelName+"{")
-            fields := buildQueryFieldsWithI(false)
-            fields = strings.ReplaceAll(fields, "\n", "\n"+indent+"\t\t")
-            out = append(out, indent+"\t\t"+fields+",")
-            out = append(out, indent+"\t}")
-            out = append(out, indent+"}")
-            out = append(out, "")
+			out = append(out, indent+fmt.Sprintf("func makeQuery%s(i int, userID uuid.UUID) query.%s {", capitalizedModelName, capitalizedModelName))
+			out = append(out, indent+"\treturn query."+capitalizedModelName+"{")
+			fields := buildQueryFieldsWithI(false)
+			fields = strings.ReplaceAll(fields, "\n", "\n"+indent+"\t\t")
+			out = append(out, indent+"\t\t"+fields+",")
+			out = append(out, indent+"\t}")
+			out = append(out, indent+"}")
+			out = append(out, "")
 
 			out = append(out, indent+fmt.Sprintf("func zeroQuery%s() query.%s {", capitalizedModelName, capitalizedModelName))
 			out = append(out, indent+"\treturn query."+capitalizedModelName+"{")
-            zfields := buildQueryFields(1, true)
-            zfields = strings.ReplaceAll(zfields, "\n", "\n"+indent+"\t\t")
-            out = append(out, indent+"\t\t"+zfields+",")
-            out = append(out, indent+"\t}")
-            out = append(out, indent+"}")
-            out = append(out, "")
+			zfields := buildQueryFields(1, true)
+			zfields = strings.ReplaceAll(zfields, "\n", "\n"+indent+"\t\t")
+			out = append(out, indent+"\t\t"+zfields+",")
+			out = append(out, indent+"\t}")
+			out = append(out, indent+"}")
+			out = append(out, "")
 
-            out = append(out, indent+fmt.Sprintf("func makeInsert%sParams(userID uuid.UUID) query.Insert%sParams {", capitalizedModelName, capitalizedModelName))
-            pre, fieldsIns := buildInsertParams()
-            if strings.TrimSpace(pre) != "" {
-                for pl := range strings.SplitSeq(pre, "\n") {
-                    out = append(out, indent+"\t"+pl)
-                }
-            }
-            out = append(out, indent+"\treturn query.Insert"+capitalizedModelName+"Params{")
-            out = append(out, indent+"\t\tUserID: userID,")
-            out = append(out, indent+"\t\t"+fieldsIns+",")
-            out = append(out, indent+"\t}")
-            out = append(out, indent+"}")
-            out = append(out, "")
+			out = append(out, indent+fmt.Sprintf("func makeInsert%sParams(userID uuid.UUID) query.Insert%sParams {", capitalizedModelName, capitalizedModelName))
+			pre, fieldsIns := buildInsertParams()
+			if strings.TrimSpace(pre) != "" {
+				for pl := range strings.SplitSeq(pre, "\n") {
+					out = append(out, indent+"\t"+pl)
+				}
+			}
+			out = append(out, indent+"\treturn query.Insert"+capitalizedModelName+"Params{")
+			out = append(out, indent+"\t\tUserID: userID,")
+			out = append(out, indent+"\t\t"+fieldsIns+",")
+			out = append(out, indent+"\t}")
+			out = append(out, indent+"}")
+			out = append(out, "")
 
-            out = append(out, indent+fmt.Sprintf("func makeUpdate%sParams(id uuid.UUID, userID uuid.UUID) query.Update%sParams {", capitalizedModelName, capitalizedModelName))
-            preU, fieldsUpd := buildUpdateParams()
-            if strings.TrimSpace(preU) != "" {
-                for pl := range strings.SplitSeq(preU, "\n") {
-                    out = append(out, indent+"\t"+pl)
-                }
-            }
-            out = append(out, indent+"\treturn query.Update"+capitalizedModelName+"Params{")
-            out = append(out, indent+"\t\t"+fieldsUpd+",")
-            out = append(out, indent+"\t\tUserID: userID,")
-            out = append(out, indent+"\t}")
-            out = append(out, indent+"}")
-            out = append(out, "")
+			out = append(out, indent+fmt.Sprintf("func makeUpdate%sParams(id uuid.UUID, userID uuid.UUID) query.Update%sParams {", capitalizedModelName, capitalizedModelName))
+			preU, fieldsUpd := buildUpdateParams()
+			if strings.TrimSpace(preU) != "" {
+				for pl := range strings.SplitSeq(preU, "\n") {
+					out = append(out, indent+"\t"+pl)
+				}
+			}
+			out = append(out, indent+"\treturn query.Update"+capitalizedModelName+"Params{")
+			out = append(out, indent+"\t\t"+fieldsUpd+",")
+			out = append(out, indent+"\t\tUserID: userID,")
+			out = append(out, indent+"\t}")
+			out = append(out, indent+"}")
+			out = append(out, "")
 
 			out = append(out, indent+fmt.Sprintf("func makeCreate%sReq() *proto.Create%sRequest {", capitalizedModelName, capitalizedModelName))
 			out = append(out, indent+"\treturn &proto.Create"+capitalizedModelName+"Request{")
