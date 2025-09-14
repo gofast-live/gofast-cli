@@ -675,9 +675,7 @@ func generateClientListPageSpec(modelName string, columns []Column) error {
             // Remove from start to end line inclusive
             s = s[:start] + s[end+len("// GF_BOOL_TEST_END"):]
         }
-    } else {
-        // Keep; nothing to do
-    }
+    } 
 
     // Finally, strip marker lines from output
     markers := []string{
