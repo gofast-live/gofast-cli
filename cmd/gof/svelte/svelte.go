@@ -547,10 +547,16 @@ func generateClientListPageSpec(modelName string, columns []Column) error {
     mf.WriteString("    return {\n")
     mf.WriteString("        '$typeName': 'proto.v1." + capitalizedModelName + "' as const,\n")
     mf.WriteString("        id: \"123\",\n")
+    didFirstStr := false
     for _, c := range columns {
         switch c.Type {
         case "string":
-            mf.WriteString("        " + c.Name + ": \"Test " + capitalizedModelName + "\",\n")
+            if !didFirstStr {
+                mf.WriteString("        " + c.Name + ": \"Test " + capitalizedModelName + "\",\n")
+                didFirstStr = true
+            } else {
+                mf.WriteString("        " + c.Name + ": \"Other " + toTitle(c.Name) + "\",\n")
+            }
         case "number":
             mf.WriteString("        " + c.Name + ": \"25\",\n")
         case "time":
@@ -607,12 +613,13 @@ func generateClientListPageSpec(modelName string, columns []Column) error {
 
     // Build delete test row selection (prefer string field, fallback to 'Edit')
     var delSel strings.Builder
+    rowVar := modelName + "Row"
     if firstStr != "" {
-        delSel.WriteString("        const skeletonRow = page.getByRole(\"row\", { name: /test " + modelName + "/i });\n")
-        delSel.WriteString("        await expect.element(skeletonRow).toBeInTheDocument();")
+        delSel.WriteString("        const " + rowVar + " = page.getByRole(\"row\", { name: /test " + modelName + "/i });\n")
+        delSel.WriteString("        await expect.element(" + rowVar + ").toBeInTheDocument();")
     } else {
-        delSel.WriteString("        const skeletonRow = page.getByRole(\"row\", { name: /Edit/i });\n")
-        delSel.WriteString("        await expect.element(skeletonRow).toBeInTheDocument();")
+        delSel.WriteString("        const " + rowVar + " = page.getByRole(\"row\", { name: /Edit/i });\n")
+        delSel.WriteString("        await expect.element(" + rowVar + ").toBeInTheDocument();")
     }
     deleteRowSelect := delSel.String()
 
@@ -638,6 +645,27 @@ func generateClientListPageSpec(modelName string, columns []Column) error {
     if rErr != nil { return fmt.Errorf("replacing row asserts: %w", rErr) }
     s, rErr = replaceRegion(s, "// GF_ROW_SELECT_DELETE_START", "// GF_ROW_SELECT_DELETE_END", deleteRowSelect)
     if rErr != nil { return fmt.Errorf("replacing delete row select: %w", rErr) }
+
+    // If we keep the bool test, update its row selection similarly
+    if firstBool != "" {
+        bStart := strings.Index(s, "// GF_BOOL_TEST_START")
+        bEnd := strings.Index(s, "// GF_BOOL_TEST_END")
+        if bStart != -1 && bEnd != -1 && bEnd > bStart {
+            region := s[bStart:bEnd]
+            // Replace the standard two-line selection with our rowSelectBlock
+            // Look for the first occurrence of "const row =" and the subsequent expect line
+            selIdx := strings.Index(region, "const row =")
+            if selIdx != -1 {
+                expNeedle := "await expect.element(row).toBeInTheDocument();"
+                expIdx := strings.Index(region[selIdx:], expNeedle)
+                if expIdx != -1 {
+                    expEnd := selIdx + expIdx + len(expNeedle)
+                    newRegion := region[:selIdx] + rowSelectBlock + region[expEnd:]
+                    s = s[:bStart] + newRegion + s[bEnd:]
+                }
+            }
+        }
+    }
 
     // Remove the non-bool test if model has no boolean columns
     if firstBool == "" {
