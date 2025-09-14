@@ -1290,7 +1290,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 	b.WriteString("\n)\n\n")
 
 	// ValidateAndBuildInsertParams
-	fmt.Fprintf(&b, "func ValidateAndBuildInsertParams(%s *proto.%s) (*query.Insert%sParams, error) {\n", modelName, capitalizedModelName, capitalizedModelName)
+	fmt.Fprintf(&b, "func ValidateAndBuildInsertParams(userID uuid.UUID, %s *proto.%s) (*query.Insert%sParams, error) {\n", modelName, capitalizedModelName, capitalizedModelName)
 	b.WriteString("\terrors := make([]pkg.ValidationError, 0)\n")
 
 	// Per-column validations (insert)
@@ -1321,6 +1321,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 
 	// Build Insert params
 	fmt.Fprintf(&b, "\treturn &query.Insert%sParams{\n", capitalizedModelName)
+	b.WriteString("\t\tUserID: userID,\n")
 	for _, c := range columns {
 		field := toFieldName(c.Name)
 		switch c.Type {
@@ -1338,7 +1339,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 	b.WriteString("\t}, nil\n}\n\n")
 
 	// ValidateAndBuildUpdateParams
-	fmt.Fprintf(&b, "func ValidateAndBuildUpdateParams(%s *proto.%s) (*query.Update%sParams, error) {\n", modelName, capitalizedModelName, capitalizedModelName)
+	fmt.Fprintf(&b, "func ValidateAndBuildUpdateParams(userID uuid.UUID, %s *proto.%s) (*query.Update%sParams, error) {\n", modelName, capitalizedModelName, capitalizedModelName)
 	b.WriteString("\terrors := make([]pkg.ValidationError, 0)\n")
 	fmt.Fprintf(&b, "\tid, err := uuid.Parse(%s.GetId())\n", modelName)
 	b.WriteString("\tif err != nil {\n")
@@ -1377,6 +1378,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 	// Build Update params
 	fmt.Fprintf(&b, "\treturn &query.Update%sParams{\n", capitalizedModelName)
 	b.WriteString("\t\tID: id,\n")
+	b.WriteString("\t\tUserID: userID,\n")
 	for _, c := range columns {
 		field := toFieldName(c.Name)
 		switch c.Type {
