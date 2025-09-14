@@ -24,19 +24,22 @@ func capitalize(s string) string {
 }
 
 func GenerateSvelteScaffolding(modelName string, columns []Column) error {
-	if err := addModelToNavigation(modelName); err != nil {
-		return fmt.Errorf("adding model to navigation: %w", err)
-	}
-	if err := generateClientConnect(modelName); err != nil {
-		return fmt.Errorf("generating client connect.ts: %w", err)
-	}
-	if err := generateClientListPage(modelName, columns); err != nil {
-		return fmt.Errorf("generating client list page: %w", err)
-	}
-	if err := generateClientDetailPage(modelName, columns); err != nil {
-		return fmt.Errorf("generating client detail page: %w", err)
-	}
-	return nil
+    if err := addModelToNavigation(modelName); err != nil {
+        return fmt.Errorf("adding model to navigation: %w", err)
+    }
+    if err := generateClientConnect(modelName); err != nil {
+        return fmt.Errorf("generating client connect.ts: %w", err)
+    }
+    if err := generateClientListPage(modelName, columns); err != nil {
+        return fmt.Errorf("generating client list page: %w", err)
+    }
+    if err := generateClientDetailPage(modelName, columns); err != nil {
+        return fmt.Errorf("generating client detail page: %w", err)
+    }
+    if err := generateClientListPageSpec(modelName, columns); err != nil {
+        return fmt.Errorf("generating client list page spec: %w", err)
+    }
+    return nil
 }
 
 // addModelToNavigation adds a new navigation item for the generated model
@@ -460,4 +463,222 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 		return fmt.Errorf("writing client detail page %s: %w", destPath, err)
 	}
 	return nil
+}
+
+// generateClientListPageSpec scaffolds a client list page test by copying the
+// skeleton spec and performing token and marker-based replacements for
+// singular/plural model variants and column-aware assertions.
+func generateClientListPageSpec(modelName string, columns []Column) error {
+    sourcePath := "./app/service-client/src/routes/(app)/models/skeletons/page.svelte.spec.ts"
+
+    pluralLower := pluralizeClient.Plural(modelName)
+    pluralCap := capitalize(pluralLower)
+    capitalizedModelName := capitalize(modelName)
+
+    // Ensure destination directory exists
+    destDir := filepath.Join("app/service-client/src/routes/(app)/models", pluralLower)
+    if err := os.MkdirAll(destDir, 0o755); err != nil {
+        return fmt.Errorf("creating destination directory %s: %w", destDir, err)
+    }
+    destPath := filepath.Join(destDir, "page.svelte.spec.ts")
+
+    // Read template
+    contentBytes, err := os.ReadFile(sourcePath)
+    if err != nil {
+        return fmt.Errorf("reading template file %s: %w", sourcePath, err)
+    }
+
+    // Token replacements (plural/title before singular to avoid partial stomps)
+    s := string(contentBytes)
+    s = strings.ReplaceAll(s, "Skeletons", pluralCap)
+    s = strings.ReplaceAll(s, "skeletons", pluralLower)
+    s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
+    s = strings.ReplaceAll(s, "skeleton", modelName)
+    // Adjust type import path proto file name
+    s = strings.ReplaceAll(s, "skeleton_pb", modelName+"_pb")
+
+    // Helper: Title-case a label from snake_case
+    toTitle := func(name string) string {
+        parts := strings.Split(name, "_")
+        for i := range parts {
+            if parts[i] == "" {
+                continue
+            }
+            parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
+        }
+        return strings.Join(parts, " ")
+    }
+
+    // Build header assertions for each column + Created/Updated
+    var h strings.Builder
+    for _, c := range columns {
+        title := toTitle(c.Name)
+        varName := c.Name + "Header"
+        h.WriteString("        const " + varName + " = page.getByRole(\"columnheader\", { name: \"" + title + "\" });\n")
+        h.WriteString("        await expect.element(" + varName + ").toBeInTheDocument();\n\n")
+    }
+    h.WriteString("        const createdHeader = page.getByRole(\"columnheader\", { name: \"Created\" });\n")
+    h.WriteString("        await expect.element(createdHeader).toBeInTheDocument();\n\n")
+    h.WriteString("        const updatedHeader = page.getByRole(\"columnheader\", { name: \"Updated\" });\n")
+    h.WriteString("        await expect.element(updatedHeader).toBeInTheDocument();\n")
+    headers := strings.TrimRight(h.String(), "\n")
+
+    // Determine first occurrences of each type for row assertions and tests
+    firstStr := ""
+    firstNum := ""
+    firstTime := ""
+    firstBool := ""
+    for _, c := range columns {
+        switch c.Type {
+        case "string":
+            if firstStr == "" { firstStr = c.Name }
+        case "number":
+            if firstNum == "" { firstNum = c.Name }
+        case "time":
+            if firstTime == "" { firstTime = c.Name }
+        case "bool":
+            if firstBool == "" { firstBool = c.Name }
+        }
+    }
+
+    // Build mock object fields for createMock<Model>
+    var mf strings.Builder
+    mf.WriteString("function createMock" + capitalizedModelName + "(overrides: Partial<" + capitalizedModelName + "> = {}): " + capitalizedModelName + " {\n")
+    mf.WriteString("    return {\n")
+    mf.WriteString("        '$typeName': 'proto.v1." + capitalizedModelName + "' as const,\n")
+    mf.WriteString("        id: \"123\",\n")
+    for _, c := range columns {
+        switch c.Type {
+        case "string":
+            mf.WriteString("        " + c.Name + ": \"Test " + capitalizedModelName + "\",\n")
+        case "number":
+            mf.WriteString("        " + c.Name + ": \"25\",\n")
+        case "time":
+            mf.WriteString("        " + c.Name + ": \"2023-01-15T00:00:00Z\",\n")
+        case "bool":
+            mf.WriteString("        " + c.Name + ": true,\n")
+        }
+    }
+    mf.WriteString("        created: \"2022-01-01T00:00:00Z\",\n")
+    mf.WriteString("        updated: \"2022-01-01T00:00:00Z\",\n")
+    mf.WriteString("        ...overrides\n")
+    mf.WriteString("    };\n")
+    mf.WriteString("}\n")
+    mockFunc := mf.String()
+
+    // Build row selection for data-available test
+    var rowSelect strings.Builder
+    if firstStr != "" {
+        rowSelect.WriteString("        const row = page.getByRole(\"row\", { name: /test " + modelName + "/i });\n")
+        rowSelect.WriteString("        await expect.element(row).toBeInTheDocument();")
+    } else {
+        rowSelect.WriteString("        const row = page.getByRole(\"row\", { name: /Edit/i });\n")
+        rowSelect.WriteString("        await expect.element(row).toBeInTheDocument();")
+    }
+    rowSelectBlock := rowSelect.String()
+
+    // Build row assertions for cells (use row-scoped if we selected by name, else page-scoped)
+    var ra strings.Builder
+    if firstStr != "" {
+        ra.WriteString("        await expect.element(row.getByText(\"Test " + capitalizedModelName + "\")).toBeInTheDocument();\n")
+    }
+    if firstNum != "" {
+        if firstStr != "" {
+            ra.WriteString("        await expect.element(row.getByText(\"25\")).toBeInTheDocument();\n")
+        } else {
+            ra.WriteString("        await expect.element(page.getByText(\"25\")).toBeInTheDocument();\n")
+        }
+    }
+    if firstTime != "" {
+        if firstStr != "" {
+            ra.WriteString("        await expect.element(row.getByText(\"1/15/2023\")).toBeInTheDocument();\n")
+        } else {
+            ra.WriteString("        await expect.element(page.getByText(\"1/15/2023\")).toBeInTheDocument();\n")
+        }
+    }
+    if firstBool != "" {
+        if firstStr != "" {
+            ra.WriteString("        await expect.element(row.getByRole('cell', { name: 'Yes' })).toBeInTheDocument();\n")
+        } else {
+            ra.WriteString("        await expect.element(page.getByRole('cell', { name: 'Yes' })).toBeInTheDocument();\n")
+        }
+    }
+    rowAsserts := strings.TrimRight(ra.String(), "\n")
+
+    // Build delete test row selection (prefer string field, fallback to 'Edit')
+    var delSel strings.Builder
+    if firstStr != "" {
+        delSel.WriteString("        const skeletonRow = page.getByRole(\"row\", { name: /test " + modelName + "/i });\n")
+        delSel.WriteString("        await expect.element(skeletonRow).toBeInTheDocument();")
+    } else {
+        delSel.WriteString("        const skeletonRow = page.getByRole(\"row\", { name: /Edit/i });\n")
+        delSel.WriteString("        await expect.element(skeletonRow).toBeInTheDocument();")
+    }
+    deleteRowSelect := delSel.String()
+
+    // Replace regions delimited by markers
+    replaceRegion := func(content, startMarker, endMarker, replacement string) (string, error) {
+        start := strings.Index(content, startMarker)
+        end := strings.Index(content, endMarker)
+        if start == -1 || end == -1 || end < start {
+            return content, fmt.Errorf("markers %q .. %q not found", startMarker, endMarker)
+        }
+        start += len(startMarker)
+        return content[:start] + "\n" + replacement + "\n" + content[end:], nil
+    }
+
+    var rErr error
+    s, rErr = replaceRegion(s, "// GF_MOCK_FIELDS_START", "// GF_MOCK_FIELDS_END", mockFunc)
+    if rErr != nil { return fmt.Errorf("replacing mock fields: %w", rErr) }
+    s, rErr = replaceRegion(s, "// GF_HEADERS_ASSERT_START", "// GF_HEADERS_ASSERT_END", headers)
+    if rErr != nil { return fmt.Errorf("replacing header asserts: %w", rErr) }
+    s, rErr = replaceRegion(s, "// GF_ROW_SELECT_START", "// GF_ROW_SELECT_END", rowSelectBlock)
+    if rErr != nil { return fmt.Errorf("replacing row select: %w", rErr) }
+    s, rErr = replaceRegion(s, "// GF_ROW_ASSERT_START", "// GF_ROW_ASSERT_END", rowAsserts)
+    if rErr != nil { return fmt.Errorf("replacing row asserts: %w", rErr) }
+    s, rErr = replaceRegion(s, "// GF_ROW_SELECT_DELETE_START", "// GF_ROW_SELECT_DELETE_END", deleteRowSelect)
+    if rErr != nil { return fmt.Errorf("replacing delete row select: %w", rErr) }
+
+    // Remove the non-bool test if model has no boolean columns
+    if firstBool == "" {
+        start := strings.Index(s, "// GF_BOOL_TEST_START")
+        end := strings.Index(s, "// GF_BOOL_TEST_END")
+        if start != -1 && end != -1 && end > start {
+            // Remove from start to end line inclusive
+            s = s[:start] + s[end+len("// GF_BOOL_TEST_END"):]
+        }
+    } else {
+        // Keep; nothing to do
+    }
+
+    // Finally, strip marker lines from output
+    markers := []string{
+        "// GF_MOCK_FIELDS_START", "// GF_MOCK_FIELDS_END",
+        "// GF_HEADERS_ASSERT_START", "// GF_HEADERS_ASSERT_END",
+        "// GF_ROW_SELECT_START", "// GF_ROW_SELECT_END",
+        "// GF_ROW_ASSERT_START", "// GF_ROW_ASSERT_END",
+        "// GF_ROW_SELECT_DELETE_START", "// GF_ROW_SELECT_DELETE_END",
+        "// GF_BOOL_TEST_START", "// GF_BOOL_TEST_END",
+    }
+    var outLines []string
+    for line := range strings.SplitSeq(s, "\n") {
+        skip := false
+        for _, m := range markers {
+            if strings.Contains(line, m) {
+                skip = true
+                break
+            }
+        }
+        if !skip {
+            outLines = append(outLines, line)
+        }
+    }
+    s = strings.Join(outLines, "\n")
+
+    // Write out the generated file
+    if err := os.WriteFile(destPath, []byte(s), 0o644); err != nil {
+        return fmt.Errorf("writing client list page spec %s: %w", destPath, err)
+    }
+
+    return nil
 }
