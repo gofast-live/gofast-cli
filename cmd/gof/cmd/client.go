@@ -156,7 +156,7 @@ var clientCmd = &cobra.Command{
 			}
 
 			if err := svelte.GenerateSvelteScaffolding(m.Name, svelteColumns); err != nil {
-				cmd.Printf("Error generating Svelte scaffolding for model %s: %v\n", m.Name, err)
+				cmd.Printf("Error generating '%s' client pages: %v\n", m.Name, err)
 			} else {
 				cmd.Printf("Successfully generated client pages for model '%s'\n", m.Name)
 			}
@@ -179,7 +179,7 @@ var clientCmd = &cobra.Command{
                 } else if werr := os.WriteFile(config.ConfigFileName, data, 0644); werr != nil {
                     cmd.Printf("Error writing %s: %v\n", config.ConfigFileName, werr)
                 } else {
-                    cmd.Printf("Added svelte service on port 3000 to %s\n", config.ConfigFileName)
+                    cmd.Printf("Added '%s' service to %s\n", "svelte", config.ConfigFileName)
                 }
             }
         }
