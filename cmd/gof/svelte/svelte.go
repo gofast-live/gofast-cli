@@ -103,14 +103,15 @@ func generateClientConnect(modelName string) error {
 	serviceToken := capitalized + "Service"
 	clientExport := "export const " + modelName + "_client = createClient(" + serviceToken + ", transport);"
 
-	// Ensure the service is imported from main_pb
-	if !strings.Contains(s, serviceToken) {
-		marker := "from '$lib/gen/proto/v1/main_pb'"
-		idx := strings.Index(s, marker)
-		if idx == -1 {
-			return fmt.Errorf("main_pb import not found in connect.ts")
-		}
-		// Find the opening brace for the import list
+    // Ensure the service is imported from main_pb
+    if !strings.Contains(s, serviceToken) {
+        // Assume double quotes in imports
+        marker := "from \"$lib/gen/proto/v1/main_pb\""
+        idx := strings.Index(s, marker)
+        if idx == -1 {
+            return fmt.Errorf("main_pb import not found in connect.ts")
+        }
+        // Find the opening brace for the import list
 		pre := s[:idx]
 		braceOpen := strings.LastIndex(pre, "{")
 		braceClose := strings.LastIndex(pre, "}")
