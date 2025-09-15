@@ -3,6 +3,7 @@ package svelte
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -42,7 +43,15 @@ func GenerateSvelteScaffolding(modelName string, columns []Column) error {
     if err := generateClientDetailPageSpec(modelName, columns); err != nil {
         return fmt.Errorf("generating client detail page spec: %w", err)
     }
-    return nil
+
+	// run npm i && npm run format in the service-client directory
+	cmd := "cd ./app/service-client && npm i && npm run format"
+	execCmd := exec.Command("bash", "-c", cmd)
+	out, err := execCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("running npm commands: %w\nOutput: %s", err, string(out))
+	}
+	return nil
 }
 
 // addModelToNavigation adds a new navigation item for the generated model
@@ -1088,6 +1097,49 @@ func generateClientDetailPageSpec(modelName string, columns []Column) error {
             return out.String()
         }
         s = removeAllRegions(s, "// GF_DETAIL_DATE_TEST_START", "// GF_DETAIL_DATE_TEST_END")
+        // Also remove the entire Utilities describe(...) block to avoid empty tests
+        removeDescribeByName := func(content, name string) string {
+            // Assume double quotes style: describe("Name", ...)
+            key := "describe(\"" + name + "\""
+            start := strings.Index(content, key)
+            if start == -1 {
+                return content
+            }
+            // find first '{' after start
+            braceOpen := strings.Index(content[start:], "{")
+            if braceOpen == -1 {
+                return content
+            }
+            braceOpen += start
+            depth := 0
+            end := -1
+            for i := braceOpen; i < len(content); i++ {
+                switch content[i] {
+                case '{':
+                    depth++
+                case '}':
+                    depth--
+                    if depth == 0 {
+                        end = i
+                        i = len(content)
+                    }
+                }
+            }
+            if end == -1 {
+                return content
+            }
+            // Include the closing ");" after the '}' if present
+            k := end + 1
+            if k+1 < len(content) && content[k] == ')' && content[k+1] == ';' {
+                k += 2
+            }
+            // Also consume trailing whitespace/newlines
+            for k < len(content) && (content[k] == '\n' || content[k] == '\r' || content[k] == '\t' || content[k] == ' ') {
+                k++
+            }
+            return content[:start] + content[k:]
+        }
+        s = removeDescribeByName(s, "Utilities")
     } else {
         // Replace the first date assert block with the concrete date value,
         // then replace any remaining date blocks with empty assertions.
@@ -1120,6 +1172,47 @@ func generateClientDetailPageSpec(modelName string, columns []Column) error {
     editFallbackExpect := strings.TrimRight(efe.String(), "\n")
     s, rErr = replaceRegion(s, "// GF_DETAIL_EDIT_FALLBACK_EXPECT_START", "// GF_DETAIL_EDIT_FALLBACK_EXPECT_END", editFallbackExpect)
     if rErr != nil { return fmt.Errorf("replacing edit fallback expect: %w", rErr) }
+
+    // Patch the "edit not found" empty form assertion label (skeleton hardcodes Name)
+    // Choose assertion based on first available column type
+    var editNotFoundAssert string
+    if firstStr != "" {
+        editNotFoundAssert = "await expect.element(page_context.getByLabelText(\"" + toTitle(firstStr) + "\")).toHaveValue(\"\");"
+    } else if firstNum != "" {
+        editNotFoundAssert = "await expect.element(page_context.getByLabelText(\"" + toTitle(firstNum) + "\")).toHaveValue(null);"
+    } else if firstTime != "" {
+        editNotFoundAssert = "await expect.element(page_context.getByLabelText(\"" + toTitle(firstTime) + "\")).toHaveValue(\"\");"
+    } else if firstBool != "" {
+        editNotFoundAssert = "await expect.element(page_context.getByLabelText(\"" + toTitle(firstBool) + "\")).not.toBeChecked();"
+    }
+    if editNotFoundAssert != "" {
+        // Replace the 3-line not-found expectation block to match the chosen field
+        // Assume double quotes style
+        orig := "            await expect\n                .element(page_context.getByLabelText(\"Name\"))\n                .toHaveValue(\"\")\n"
+        // Build replacement with matching assertion based on type
+        var rep strings.Builder
+        rep.WriteString("            await expect\n")
+        // Determine label used for the assertion
+        label := ""
+        if firstStr != "" {
+            label = toTitle(firstStr)
+        } else if firstNum != "" {
+            label = toTitle(firstNum)
+        } else if firstTime != "" {
+            label = toTitle(firstTime)
+        } else if firstBool != "" {
+            label = toTitle(firstBool)
+        }
+        rep.WriteString("                .element(page_context.getByLabelText(\"" + label + "\"))\n")
+        if firstBool != "" && label == toTitle(firstBool) {
+            rep.WriteString("                .not.toBeChecked()\n")
+        } else if firstNum != "" && label == toTitle(firstNum) {
+            rep.WriteString("                .toHaveValue(null)\n")
+        } else {
+            rep.WriteString("                .toHaveValue(\"\")\n")
+        }
+        s = strings.Replace(s, orig, rep.String(), 1)
+    }
 
     // Finally, strip marker lines from output
     markers := []string{
