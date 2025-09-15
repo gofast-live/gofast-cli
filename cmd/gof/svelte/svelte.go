@@ -730,24 +730,44 @@ func generateClientDetailPageSpec(modelName string, columns []Column) error {
 	}
 
 	// Brittle replacements for hardcoded values from skeleton template
-	var firstStringColName, firstTimeColName string
+	var firstStringColName string
 	for _, c := range columns {
 		if c.Type == "string" && firstStringColName == "" {
 			firstStringColName = c.Name
-		}
-		if c.Type == "time" && firstTimeColName == "" {
-			firstTimeColName = c.Name
 		}
 	}
 
 	if firstStringColName != "" {
 		s = strings.ReplaceAll(s, ".getByLabelText(\"Name\")", ".getByLabelText(\""+toTitle(firstStringColName)+"\")")
 	}
-	if firstTimeColName != "" {
+
+	// Conditionally handle date-related tests
+	var firstTimeColName string
+	hasTimeColumn := false
+	for _, c := range columns {
+		if c.Type == "time" {
+			firstTimeColName = c.Name
+			hasTimeColumn = true
+			break
+		}
+	}
+
+	if hasTimeColumn {
 		s = strings.ReplaceAll(s, ".getByLabelText(\"Death\")", ".getByLabelText(\""+toTitle(firstTimeColName)+"\")")
 		s = strings.ReplaceAll(s, "death: \"2024-07-15T10:00:00Z\"", firstTimeColName+": \"2024-07-15T10:00:00Z\"")
 		s = strings.ReplaceAll(s, "death: \"\"", firstTimeColName+": \"\"")
 		s = strings.ReplaceAll(s, "death: \"invalid-date\"", firstTimeColName+": \"invalid-date\"")
+		s = strings.ReplaceAll(s, "// GF_UTILITIES_TESTS_START", "")
+		s = strings.ReplaceAll(s, "// GF_UTILITIES_TESTS_END", "")
+	} else {
+		// Remove the entire "Utilities" describe block if no time columns are present
+		startMarker := "// GF_UTILITIES_TESTS_START"
+		endMarker := "// GF_UTILITIES_TESTS_END"
+		start := strings.Index(s, startMarker)
+		end := strings.Index(s, endMarker)
+		if start != -1 && end != -1 {
+			s = s[:start] + s[end+len(endMarker):]
+		}
 	}
 
 	// Build mock data creation function
@@ -928,20 +948,14 @@ func generateClientDetailPageSpec(modelName string, columns []Column) error {
 
 	// Build date test assertions (using first time field if any)
 	var dateTestB strings.Builder
-	for i, c := range columns {
+	for _, c := range columns {
 		if c.Type == "time" {
 			title := toTitle(c.Name)
 			dateTestB.WriteString("                await expect\n")
 			dateTestB.WriteString("                    .element(page_context.getByLabelText(\"" + title + "\"))\n")
-			dateTestB.WriteString(fmt.Sprintf("                    .toHaveValue(\"2024-07-%02d\");\n", 15+i))
+			dateTestB.WriteString("                    .toHaveValue(\"2024-07-15\");\n")
 			break
 		}
-	}
-	if dateTestB.Len() == 0 {
-		// Fallback if no time fields
-		dateTestB.WriteString("                await expect\n")
-		dateTestB.WriteString("                    .element(page_context.getByText(/date/i))\n")
-		dateTestB.WriteString("                    .toBeInTheDocument();\n")
 	}
 	dateTest := strings.TrimRight(dateTestB.String(), "\n")
 
