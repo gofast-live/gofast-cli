@@ -1,18 +1,18 @@
 package cmd
 
 import (
-    "encoding/json"
-    "fmt"
-    "io"
-    "os"
-    "os/exec"
-    "path/filepath"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
 
-    "github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
-    "github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
-    "github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
-    "github.com/gofast-live/gofast-cli/v2/cmd/gof/svelte"
-    "github.com/spf13/cobra"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/svelte"
+	"github.com/spf13/cobra"
 )
 
 func init() {
@@ -50,6 +50,28 @@ var clientCmd = &cobra.Command{
 		if serviceType == "vue" || serviceType == "next" {
 			cmd.Println("Vue and Next clients are not implemented yet. Please use 'svelte' for now.")
 			return
+		}
+
+		// Ensure gofast.json includes the svelte service on port 3000
+		if serviceType == "svelte" {
+			hasSvelte := false
+			for _, svc := range con.Services {
+				if svc.Name == "svelte" {
+					hasSvelte = true
+					break
+				}
+			}
+			if !hasSvelte {
+				con.Services = append(con.Services, config.Service{Name: "svelte", Port: "3000"})
+				data, jerr := json.MarshalIndent(con, "", "  ")
+				if jerr != nil {
+					cmd.Printf("Error serializing config with svelte service: %v\n", jerr)
+				} else if werr := os.WriteFile(config.ConfigFileName, data, 0644); werr != nil {
+					cmd.Printf("Error writing %s: %v\n", config.ConfigFileName, werr)
+				} else {
+					cmd.Printf("Added '%s' service to %s\n", "svelte", config.ConfigFileName)
+				}
+			}
 		}
 
 		// Prepare a temp workspace and download the template repo into it
@@ -140,7 +162,7 @@ var clientCmd = &cobra.Command{
 			return
 		}
 
-        cmd.Printf("Client '%s' installed. Generating client pages for existing models...\n", serviceType)
+		cmd.Printf("Client '%s' installed. Generating client pages for existing models...\n", serviceType)
 
 		for _, m := range con.Models {
 			if m.Name == "skeleton" {
@@ -162,36 +184,14 @@ var clientCmd = &cobra.Command{
 			}
 		}
 
-        // Ensure gofast.json includes the svelte service on port 3000
-        if serviceType == "svelte" {
-            hasSvelte := false
-            for _, svc := range con.Services {
-                if svc.Name == "svelte" {
-                    hasSvelte = true
-                    break
-                }
-            }
-            if !hasSvelte {
-                con.Services = append(con.Services, config.Service{Name: "svelte", Port: "3000"})
-                data, jerr := json.MarshalIndent(con, "", "  ")
-                if jerr != nil {
-                    cmd.Printf("Error serializing config with svelte service: %v\n", jerr)
-                } else if werr := os.WriteFile(config.ConfigFileName, data, 0644); werr != nil {
-                    cmd.Printf("Error writing %s: %v\n", config.ConfigFileName, werr)
-                } else {
-                    cmd.Printf("Added '%s' service to %s\n", "svelte", config.ConfigFileName)
-                }
-            }
-        }
-
-        bufCmd := exec.Command("sh", "scripts/run_buf.sh")
+		bufCmd := exec.Command("sh", "scripts/run_buf.sh")
 		bufOut, err := bufCmd.CombinedOutput()
 		if err != nil {
 			cmd.Printf("Error running buf generation: %v\nOutput: %s\n", err, string(bufOut))
 			return
 		}
 
-		cmd.Printf("Client setup complete at %s\n", dstClientPath)
+		cmd.Printf("Client '%s' setup complete at '%s'\n", serviceType, dstClientPath)
 	},
 }
 

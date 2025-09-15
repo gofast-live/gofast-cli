@@ -72,6 +72,7 @@ Example:
 			"bool":   true,
 		}
 
+		var counter int
 		for _, colStr := range columnStrings {
 			parts := strings.Split(colStr, ":")
 			if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
@@ -97,6 +98,13 @@ Example:
 				Name: parts[0],
 				Type: colType,
 			})
+			counter++
+		}
+
+		// min 2 columns
+		if counter < 2 {
+			cmd.Printf("Error: At least 2 columns are required, got %d.\n", counter)
+			return
 		}
 
 		configColumns := make([]config.Column, len(columns))

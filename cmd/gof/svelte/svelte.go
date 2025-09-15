@@ -729,16 +729,31 @@ func generateClientDetailPageSpec(modelName string, columns []Column) error {
 		return strings.Join(parts, " ")
 	}
 
-	// Brittle replacements for hardcoded values from skeleton template
-	var firstStringColName string
+	// Build empty form assertions for the "not found" test case
+	var notFoundAssertB strings.Builder
+	notFoundIndent := "            "
 	for _, c := range columns {
-		if c.Type == "string" && firstStringColName == "" {
-			firstStringColName = c.Name
+		title := toTitle(c.Name)
+		switch c.Type {
+		case "string", "time":
+			notFoundAssertB.WriteString(notFoundIndent + "await expect(page_context.getByLabelText(\"" + title + "\")).toHaveValue(\"\");\n")
+		case "number":
+			notFoundAssertB.WriteString(notFoundIndent + "await expect(page_context.getByLabelText(\"" + title + "\")).toHaveValue(null);\n")
+		case "bool":
+			notFoundAssertB.WriteString(notFoundIndent + "await expect(page_context.getByLabelText(\"" + title + "\")).not.toBeChecked();\n")
 		}
 	}
+	notFoundAssert := strings.TrimRight(notFoundAssertB.String(), "\n")
 
-	if firstStringColName != "" {
-		s = strings.ReplaceAll(s, ".getByLabelText(\"Name\")", ".getByLabelText(\""+toTitle(firstStringColName)+"\")")
+	// Replace the hardcoded assertion in the "not found" test with our dynamic block
+	oldAssertionBlock := `            await expect
+                .element(page_context.getByLabelText("Name"))
+                .toHaveValue("");`
+	s = strings.Replace(s, oldAssertionBlock, notFoundAssert, 1)
+
+	// Fallback for the brittle replacement if the above doesn't match
+	if len(columns) > 0 {
+		s = strings.ReplaceAll(s, ".getByLabelText(\"Name\")", ".getByLabelText(\""+toTitle(columns[0].Name)+"\")")
 	}
 
 	// Conditionally handle date-related tests
@@ -757,8 +772,6 @@ func generateClientDetailPageSpec(modelName string, columns []Column) error {
 		s = strings.ReplaceAll(s, "death: \"2024-07-15T10:00:00Z\"", firstTimeColName+": \"2024-07-15T10:00:00Z\"")
 		s = strings.ReplaceAll(s, "death: \"\"", firstTimeColName+": \"\"")
 		s = strings.ReplaceAll(s, "death: \"invalid-date\"", firstTimeColName+": \"invalid-date\"")
-		s = strings.ReplaceAll(s, "// GF_UTILITIES_TESTS_START", "")
-		s = strings.ReplaceAll(s, "// GF_UTILITIES_TESTS_END", "")
 	} else {
 		// Remove the entire "Utilities" describe block if no time columns are present
 		startMarker := "// GF_UTILITIES_TESTS_START"
@@ -894,7 +907,11 @@ func generateClientDetailPageSpec(modelName string, columns []Column) error {
 			title := toTitle(c.Name)
 			initAssertB.WriteString(initIndent + "await expect\n")
 			initAssertB.WriteString(initIndent + "    .element(page_context.getByLabelText(\"" + title + "\"))\n")
-			initAssertB.WriteString(initIndent + "    .toHaveValue(\"\");\n")
+			if c.Type == "number" {
+				initAssertB.WriteString(initIndent + "    .toHaveValue(null);\n")
+			} else {
+				initAssertB.WriteString(initIndent + "    .toHaveValue(\"\");\n")
+			}
 			break
 		}
 	}
@@ -947,17 +964,28 @@ func generateClientDetailPageSpec(modelName string, columns []Column) error {
 	editAssert := strings.TrimRight(editAssertB.String(), "\n")
 
 	// Build date test assertions (using first time field if any)
-	var dateTestB strings.Builder
-	for _, c := range columns {
-		if c.Type == "time" {
-			title := toTitle(c.Name)
-			dateTestB.WriteString("                await expect\n")
-			dateTestB.WriteString("                    .element(page_context.getByLabelText(\"" + title + "\"))\n")
-			dateTestB.WriteString("                    .toHaveValue(\"2024-07-15\");\n")
-			break
-		}
+	var dateTestValidB, dateTestEmptyB, dateTestInvalidB strings.Builder
+	if hasTimeColumn {
+		title := toTitle(firstTimeColName)
+		// Valid
+	
+dateTestValidB.WriteString("                await expect\n")
+		dateTestValidB.WriteString("                    .element(page_context.getByLabelText(\"" + title + "\"))\n")
+		dateTestValidB.WriteString("                    .toHaveValue(\"2024-07-15\");\n")
+		// Empty
+	
+dateTestEmptyB.WriteString("                await expect\n")
+		dateTestEmptyB.WriteString("                    .element(page_context.getByLabelText(\"" + title + "\"))\n")
+		dateTestEmptyB.WriteString("                    .toHaveValue(\"\");\n")
+		// Invalid
+	
+dateTestInvalidB.WriteString("                await expect\n")
+		dateTestInvalidB.WriteString("                    .element(page_context.getByLabelText(\"" + title + "\"))\n")
+		dateTestInvalidB.WriteString("                    .toHaveValue(\"\");\n")
 	}
-	dateTest := strings.TrimRight(dateTestB.String(), "\n")
+	dateTestValid := strings.TrimRight(dateTestValidB.String(), "\n")
+	dateTestEmpty := strings.TrimRight(dateTestEmptyB.String(), "\n")
+	dateTestInvalid := strings.TrimRight(dateTestInvalidB.String(), "\n")
 
 	// Build form data fill for create error test
 	var createFillSimpleB strings.Builder
@@ -1016,9 +1044,9 @@ func generateClientDetailPageSpec(modelName string, columns []Column) error {
 	fieldsString := strings.Join(fields, ",\n")
 
 	editFormdataExpected := fmt.Sprintf(`            expect(mockEdit%s).toHaveBeenCalledWith({ 
-                %s: {
-%s
-                },
+                %s: { 
+%s 
+                }, 
             });`, capitalizedModelName, modelName, fieldsString)
 
 	// Build fallback rename operations
@@ -1102,10 +1130,22 @@ func generateClientDetailPageSpec(modelName string, columns []Column) error {
 	if rErr != nil {
 		return fmt.Errorf("replacing edit assert: %w", rErr)
 	}
-	s, rErr = replaceRegion(s, "// GF_DETAIL_DATE_TEST_START", "// GF_DETAIL_DATE_TEST_END", dateTest)
-	if rErr != nil {
-		return fmt.Errorf("replacing date test: %w", rErr)
+
+	if hasTimeColumn {
+		s, rErr = replaceRegion(s, "// GF_DETAIL_DATE_TEST_VALID_START", "// GF_DETAIL_DATE_TEST_VALID_END", dateTestValid)
+		if rErr != nil {
+			return fmt.Errorf("replacing date test valid markers: %w", rErr)
+		}
+		s, rErr = replaceRegion(s, "// GF_DETAIL_DATE_TEST_EMPTY_START", "// GF_DETAIL_DATE_TEST_EMPTY_END", dateTestEmpty)
+		if rErr != nil {
+			return fmt.Errorf("replacing date test empty markers: %w", rErr)
+		}
+		s, rErr = replaceRegion(s, "// GF_DETAIL_DATE_TEST_INVALID_START", "// GF_DETAIL_DATE_TEST_INVALID_END", dateTestInvalid)
+		if rErr != nil {
+			return fmt.Errorf("replacing date test invalid markers: %w", rErr)
+		}
 	}
+
 	s, rErr = replaceRegion(s, "// GF_DETAIL_EDIT_FORMDATA_FILL_START", "// GF_DETAIL_EDIT_FORMDATA_FILL_END", editFormdataFill)
 	if rErr != nil {
 		return fmt.Errorf("replacing edit formdata fill: %w", rErr)
@@ -1145,7 +1185,10 @@ func generateClientDetailPageSpec(modelName string, columns []Column) error {
 		"// GF_DETAIL_INIT_ASSERT_START", "// GF_DETAIL_INIT_ASSERT_END",
 		"// GF_DETAIL_EMPTY_ASSERT_START", "// GF_DETAIL_EMPTY_ASSERT_END",
 		"// GF_DETAIL_EDIT_ASSERT_START", "// GF_DETAIL_EDIT_ASSERT_END",
-		"// GF_DETAIL_DATE_TEST_START", "// GF_DETAIL_DATE_TEST_END",
+		"// GF_UTILITIES_TESTS_START", "// GF_UTILITIES_TESTS_END",
+		"// GF_DETAIL_DATE_TEST_VALID_START", "// GF_DETAIL_DATE_TEST_VALID_END",
+		"// GF_DETAIL_DATE_TEST_EMPTY_START", "// GF_DETAIL_DATE_TEST_EMPTY_END",
+		"// GF_DETAIL_DATE_TEST_INVALID_START", "// GF_DETAIL_DATE_TEST_INVALID_END",
 		"// GF_DETAIL_EDIT_FORMDATA_FILL_START", "// GF_DETAIL_EDIT_FORMDATA_FILL_END",
 		"// GF_DETAIL_EDIT_FORMDATA_EXPECT_START", "// GF_DETAIL_EDIT_FORMDATA_EXPECT_END",
 		"// GF_DETAIL_FALLBACK_RENAME_START", "// GF_DETAIL_FALLBACK_RENAME_END",
