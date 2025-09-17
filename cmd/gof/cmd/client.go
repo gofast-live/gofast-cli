@@ -162,7 +162,7 @@ var clientCmd = &cobra.Command{
 			return
 		}
 
-		cmd.Printf("Client '%s' installed. Generating client pages for existing models...\n", serviceType)
+		cmd.Printf("Generating client pages for existing models...\n")
 
 		for _, m := range con.Models {
 			if m.Name == "skeleton" {
@@ -191,7 +191,7 @@ var clientCmd = &cobra.Command{
 			return
 		}
 
-		cmd.Printf("Client '%s' setup complete at '%s'\n", serviceType, dstClientPath)
+		cmd.Printf("Setup complete at '%s'\n", dstClientPath)
 	},
 }
 

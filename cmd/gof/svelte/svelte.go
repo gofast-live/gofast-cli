@@ -43,6 +43,9 @@ func GenerateSvelteScaffolding(modelName string, columns []Column) error {
 	if err := generateClientDetailPageSpec(modelName, columns); err != nil {
 		return fmt.Errorf("generating client detail page spec: %w", err)
 	}
+	if err := generateClientE2ETest(modelName, columns); err != nil {
+		return fmt.Errorf("generating e2e test: %w", err)
+	}
 
 	// run npm i && npm run format in the service-client directory
 	cmd := "cd ./app/service-client && npm i && npm run format"
