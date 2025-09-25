@@ -114,19 +114,19 @@ var initCmd = &cobra.Command{
 		// run scripts to set up the project
 		cmd.Printf("Running initialization scripts for project '%s'...\n", projectName)
 		scripts := []string{
-			"scripts/generate_keys.sh",
-			"scripts/run_sqlc.sh",
-			"scripts/run_buf.sh",
+			"scripts/run_keys.sh",
+			"scripts/run_queries.sh",
+			"scripts/run_grpc.sh",
 			"docker compose up postgres -d",
-			"scripts/run_atlas.sh --auto-approve",
+			"scripts/run_migrations.sh --auto-approve",
 			"docker compose stop",
 		}
 		messages := []string{
 			"Generating Public/Private keys...",
-			"Generating SQLC files...",
-			"Generating gRPC files...",
+			"Generating SQL queries...",
+			"Generating gRPC code...",
 			"Starting PostgreSQL container...",
-			"Running Atlas migrations...",
+			"Applying database migrations...",
 			"Stopping PostgreSQL container...",
 		}
 		for i, script := range scripts {

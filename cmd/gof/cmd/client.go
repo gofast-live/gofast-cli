@@ -184,7 +184,8 @@ var clientCmd = &cobra.Command{
 			}
 		}
 
-		bufCmd := exec.Command("sh", "scripts/run_buf.sh")
+		cmd.Printf("Generating gRPC code...\n")
+		bufCmd := exec.Command("sh", "scripts/run_grpc.sh")
 		bufOut, err := bufCmd.CombinedOutput()
 		if err != nil {
 			cmd.Printf("Error running buf generation: %v\nOutput: %s\n", err, string(bufOut))

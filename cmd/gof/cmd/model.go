@@ -187,10 +187,10 @@ Example:
 			}
 		}
 
-		cmdExec := exec.Command("sh", "scripts/run_sqlc.sh")
+		cmdExec := exec.Command("sh", "scripts/run_queries.sh")
 		output, err := cmdExec.CombinedOutput()
 		if err != nil {
-			cmd.Printf("Error running SQLC script: %v\nOutput: %s\n", err, output)
+			cmd.Printf("Error running scripts/run_queries.sh: %v\nOutput: %s\n", err, output)
 			return
 		}
 
@@ -210,7 +210,7 @@ Example:
 			cmd.Printf("Client pages generated in: %s\n", config.SuccessStyle.Render("./app/client/src/pages/"+pluralizeClient.Plural(modelName)))
 		}
 
-		cmd.Printf("\nDon't forget to run %s to apply migrations.\n", config.SuccessStyle.Render("scripts/run_atlas.sh"))
+		cmd.Printf("\nDon't forget to run %s to apply migrations.\n", config.SuccessStyle.Render("scripts/run_migrations.sh"))
 
 		cmd.Printf("\nIf you already created a user, remember to update permissions for the new model.\n")
 		cmd.Printf("\nYou can also run %s to update all users with admin permissions.\n\n", config.SuccessStyle.Render("scripts/update_permissions.sh"))
@@ -389,7 +389,7 @@ func generateProto(modelName string, columns []Column) error {
 	}
 
 	// Generate protobuf stubs via Buf
-	bufCmd := exec.Command("sh", "scripts/run_buf.sh")
+	bufCmd := exec.Command("sh", "scripts/run_grpc.sh")
 	bufOut, err := bufCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error running Buf script: %v\nOutput: %s", err, bufOut)
