@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
@@ -113,6 +114,17 @@ var clientCmd = &cobra.Command{
 		// Copy fresh versions from the template repo into the project
 		if err := copyFile(srcCompose, projCompose); err != nil {
 			cmd.Printf("Error restoring %s: %v\n", projCompose, err)
+			return
+		}
+		dcContent, err := os.ReadFile(projCompose)
+		if err != nil {
+			cmd.Printf("Error reading %s: %v\n", projCompose, err)
+			return
+		}
+		newDcContent := strings.ReplaceAll(string(dcContent), "gofast", con.ProjectName)
+		err = os.WriteFile(projCompose, []byte(newDcContent), 0644)
+		if err != nil {
+			cmd.Printf("Error writing to %s: %v\n", projCompose, err)
 			return
 		}
 		if err := copyFile(srcBuf, projBuf); err != nil {

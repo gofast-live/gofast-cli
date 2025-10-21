@@ -1,16 +1,16 @@
 package cmd
 
 import (
-    "fmt"
-    "os"
-    "os/exec"
-    "path/filepath"
-    "strings"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 
-    "github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
-    "github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
-    "github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
-    "github.com/spf13/cobra"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
+	"github.com/spf13/cobra"
 )
 
 func init() {
@@ -76,40 +76,31 @@ var initCmd = &cobra.Command{
 			cmd.Printf("Error downloading repository: %v\n", err)
 			return
 		}
-        // remove the default client folder from the template
-        if err := os.RemoveAll(filepath.Join(projectName, "app", "service-client")); err != nil {
-            cmd.Printf("Warning: could not remove initial client folder: %v\n", err)
-        }
+		if err := os.RemoveAll(filepath.Join(projectName, ".git")); err != nil {
+			cmd.Printf("Warning: could not remove template git metadata: %v\n", err)
+		}
+		// remove template-only folders and files
+		if err := os.RemoveAll(filepath.Join(projectName, "app", "service-client")); err != nil {
+			cmd.Printf("Warning: could not remove initial client folder: %v\n", err)
+		}
+		if err := os.RemoveAll(filepath.Join(projectName, "otel")); err != nil {
+			cmd.Printf("Warning: could not remove otel folder: %v\n", err)
+		}
+		if err := os.RemoveAll(filepath.Join(projectName, "infra")); err != nil {
+			cmd.Printf("Warning: could not remove infra folder: %v\n", err)
+		}
+		if err := os.Remove(filepath.Join(projectName, "docker-compose.otel.yml")); err != nil && !os.IsNotExist(err) {
+			cmd.Printf("Warning: could not remove otel docker compose file: %v\n", err)
+		}
+		if err := os.Remove(filepath.Join(projectName, "docker-compose.client.yml")); err != nil && !os.IsNotExist(err) {
+			cmd.Printf("Warning: could not remove client docker compose file: %v\n", err)
+		}
 
-        // Swap init configs: remove base files and rename *.init.* into place
-        // Must happen before running any proto/buf/docker commands
-        dcPath := filepath.Join(projectName, "docker-compose.yml")
-        dcInitPath := filepath.Join(projectName, "docker-compose.init.yml")
-        bufPath := filepath.Join(projectName, "buf.gen.yaml")
-        bufInitPath := filepath.Join(projectName, "buf.gen.init.yaml")
-
-        if err := os.Remove(dcPath); err != nil && !os.IsNotExist(err) {
-            cmd.Printf("Error removing %s: %v\n", dcPath, err)
-            return
-        }
-        if err := os.Remove(bufPath); err != nil && !os.IsNotExist(err) {
-            cmd.Printf("Error removing %s: %v\n", bufPath, err)
-            return
-        }
-        if err := os.Rename(dcInitPath, dcPath); err != nil {
-            cmd.Printf("Error renaming %s to %s: %v\n", dcInitPath, dcPath, err)
-            return
-        }
-        if err := os.Rename(bufInitPath, bufPath); err != nil {
-            cmd.Printf("Error renaming %s to %s: %v\n", bufInitPath, bufPath, err)
-            return
-        }
-
-        // create gofast.json config using the config package
-        if err := config.Initialize(projectName); err != nil {
-            cmd.Printf("Error creating gofast.json file: %v\n", err)
-            return
-        }
+		// create gofast.json config using the config package
+		if err := config.Initialize(projectName); err != nil {
+			cmd.Printf("Error creating gofast.json file: %v\n", err)
+			return
+		}
 
 		// run scripts to set up the project
 		cmd.Printf("Running initialization scripts for project '%s'...\n", projectName)
@@ -118,7 +109,7 @@ var initCmd = &cobra.Command{
 			"scripts/run_queries.sh",
 			"scripts/run_grpc.sh",
 			"docker compose up postgres -d",
-			"scripts/run_migrations.sh --auto-approve",
+			"scripts/run_migrations.sh",
 			"docker compose stop",
 		}
 		messages := []string{

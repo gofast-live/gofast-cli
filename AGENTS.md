@@ -1,9 +1,4 @@
-# Gemini Coding Conventions
-
-## Ignored Folders
-- The following folders should be ignored for context:
-  - `tmp`
-  - `node_modules`
+# Coding Conventions
 
 ## Error Handling
 
@@ -49,12 +44,3 @@ const myFunction = () => {
   // ...
 };
 ```
-
-## Blocked Scripts
-
-The following scripts should not be executed directly:
-- `sqlc`
-- `scripts/sqlc.sh`
-- `./scripts/sqlc.sh`
-- `atlas`
-- `./scripts/atlas.sh`
