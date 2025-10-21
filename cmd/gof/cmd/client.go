@@ -69,9 +69,7 @@ var clientCmd = &cobra.Command{
 					cmd.Printf("Error serializing config with svelte service: %v\n", jerr)
 				} else if werr := os.WriteFile(config.ConfigFileName, data, 0644); werr != nil {
 					cmd.Printf("Error writing %s: %v\n", config.ConfigFileName, werr)
-				} else {
-					cmd.Printf("Added '%s' service to %s\n", "svelte", config.ConfigFileName)
-				}
+				} 
 			}
 		}
 
@@ -175,8 +173,10 @@ var clientCmd = &cobra.Command{
 			return
 		}
 		if _, err := os.Stat(dstClientPath); err == nil {
-			cmd.Printf("Destination '%s' already exists. Remove it first.\n", dstClientPath)
-			return
+			if err := os.RemoveAll(dstClientPath); err != nil {
+				cmd.Printf("Destination '%s' already exists and could not be removed: %v\n", dstClientPath, err)
+				return
+			}
 		}
 		// Ensure destination parent exists
 		if err := os.MkdirAll(filepath.Dir(dstClientPath), 0o755); err != nil {
