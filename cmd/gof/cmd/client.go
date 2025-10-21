@@ -102,34 +102,58 @@ var clientCmd = &cobra.Command{
 			return
 		}
 
-		// Restore docker-compose.yml and buf.gen.yaml from the template.
-		// Do not keep old files.
-		projCompose := filepath.Join(cwd, "docker-compose.yml")
-		projBuf := filepath.Join(cwd, "buf.gen.yaml")
-		srcCompose := filepath.Join(tmpDir, srcRepoName, "docker-compose.yml")
-		srcBuf := filepath.Join(tmpDir, srcRepoName, "buf.gen.yaml")
-		// Remove existing files if present, then copy fresh versions
-		_ = os.Remove(projCompose)
-		_ = os.Remove(projBuf)
-		// Copy fresh versions from the template repo into the project
-		if err := copyFile(srcCompose, projCompose); err != nil {
-			cmd.Printf("Error restoring %s: %v\n", projCompose, err)
+		// Ensure the client compose file is present and matches the project name.
+		projClientCompose := filepath.Join(cwd, "docker-compose.client.yml")
+		srcClientCompose := filepath.Join(tmpDir, srcRepoName, "docker-compose.client.yml")
+		if err := copyFile(srcClientCompose, projClientCompose); err != nil {
+			cmd.Printf("Error copying %s: %v\n", projClientCompose, err)
 			return
 		}
-		dcContent, err := os.ReadFile(projCompose)
+		clientComposeContent, err := os.ReadFile(projClientCompose)
 		if err != nil {
-			cmd.Printf("Error reading %s: %v\n", projCompose, err)
+			cmd.Printf("Error reading %s: %v\n", projClientCompose, err)
 			return
 		}
-		newDcContent := strings.ReplaceAll(string(dcContent), "gofast", con.ProjectName)
-		err = os.WriteFile(projCompose, []byte(newDcContent), 0644)
+		newClientComposeContent := strings.ReplaceAll(string(clientComposeContent), "gofast", con.ProjectName)
+		if err := os.WriteFile(projClientCompose, []byte(newClientComposeContent), 0644); err != nil {
+			cmd.Printf("Error writing to %s: %v\n", projClientCompose, err)
+			return
+		}
+
+		startScriptPath := filepath.Join(cwd, "start.sh")
+		startInfo, err := os.Stat(startScriptPath)
 		if err != nil {
-			cmd.Printf("Error writing to %s: %v\n", projCompose, err)
+			cmd.Printf("Error locating %s: %v\n", startScriptPath, err)
 			return
 		}
-		if err := copyFile(srcBuf, projBuf); err != nil {
-			cmd.Printf("Error restoring %s: %v\n", projBuf, err)
+		startContent, err := os.ReadFile(startScriptPath)
+		if err != nil {
+			cmd.Printf("Error reading %s: %v\n", startScriptPath, err)
 			return
+		}
+		if !strings.Contains(string(startContent), "-f docker-compose.client.yml") {
+			lines := strings.Split(string(startContent), "\n")
+			updated := false
+			for i, line := range lines {
+				if strings.Contains(line, "docker compose") && strings.Contains(line, " up") {
+					upIdx := strings.LastIndex(line, " up")
+					if upIdx == -1 {
+						lines[i] = line + " -f docker-compose.client.yml"
+					} else {
+						lines[i] = line[:upIdx] + " -f docker-compose.client.yml" + line[upIdx:]
+					}
+					updated = true
+					break
+				}
+			}
+			if updated {
+				if err := os.WriteFile(startScriptPath, []byte(strings.Join(lines, "\n")), startInfo.Mode()); err != nil {
+					cmd.Printf("Error updating %s: %v\n", startScriptPath, err)
+					return
+				}
+			} else {
+				cmd.Printf("Warning: could not locate docker compose command in %s for client compose update\n", startScriptPath)
+			}
 		}
 
 		// Determine source client folder based on requested type
