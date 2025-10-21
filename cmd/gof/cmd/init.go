@@ -95,6 +95,17 @@ var initCmd = &cobra.Command{
 		if err := os.Remove(filepath.Join(projectName, "docker-compose.client.yml")); err != nil && !os.IsNotExist(err) {
 			cmd.Printf("Warning: could not remove client docker compose file: %v\n", err)
 		}
+		dcPath := filepath.Join(projectName, "docker-compose.yml")
+		dcContent, err := os.ReadFile(dcPath)
+		if err != nil {
+			cmd.Printf("Error reading %s: %v\n", dcPath, err)
+			return
+		}
+		newDcContent := strings.ReplaceAll(string(dcContent), "gofast", projectName)
+		if err := os.WriteFile(dcPath, []byte(newDcContent), 0644); err != nil {
+			cmd.Printf("Error writing to %s: %v\n", dcPath, err)
+			return
+		}
 
 		// create gofast.json config using the config package
 		if err := config.Initialize(projectName); err != nil {
