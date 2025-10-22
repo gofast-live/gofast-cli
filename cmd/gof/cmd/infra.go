@@ -143,6 +143,12 @@ var infraCmd = &cobra.Command{
 			}
 		}
 
+		err = config.MarkInfraPopulated()
+		if err != nil {
+			cmd.Printf("Error updating gofast config: %v\n", err)
+			return
+		}
+
 		cmd.Printf("Infrastructure files added successfully. Follow the guide in the %s to set up deployment.\n",
 			config.SuccessStyle.Render("infra/README.md"),
 		)

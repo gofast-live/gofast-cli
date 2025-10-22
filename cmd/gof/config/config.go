@@ -36,9 +36,10 @@ type Model struct {
 }
 
 type Config struct {
-	ProjectName string    `json:"project_name"`
-	Services    []Service `json:"services"`
-	Models      []Model   `json:"models"`
+	ProjectName     string    `json:"project_name"`
+	Services        []Service `json:"services"`
+	Models          []Model   `json:"models"`
+	InfraPopulated  bool      `json:"infra_populated"`
 }
 
 type Service struct {
@@ -89,7 +90,8 @@ func AddModel(modelName string, columns []Column) error {
 
 func Initialize(projectName string) error {
 	cfg := Config{
-		ProjectName: projectName,
+		ProjectName:    projectName,
+		InfraPopulated: false,
 		Services: []Service{
 			{Name: "core", Port: "4000"},
 		},
@@ -125,4 +127,24 @@ func IsSvelte() bool {
 		}
 	}
 	return false
+}
+
+func MarkInfraPopulated() error {
+	cfg, err := ParseConfig()
+	if err != nil {
+		return err
+	}
+
+	if cfg.InfraPopulated {
+		return nil
+	}
+
+	cfg.InfraPopulated = true
+
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(ConfigFileName, data, 0644)
 }
