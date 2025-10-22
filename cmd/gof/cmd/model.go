@@ -1328,17 +1328,18 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 	}
 
 	// Build imports
-	imports := []string{
+	imports := make([]string, 0, 5)
+	if needStr {
+		imports = append(imports, "\"gofast/pkg/str\"")
+	}
+	imports = append(imports,
 		"\"gofast/pkg\"",
 		"\"gofast/service-core/storage/query\"",
-		"\n\tproto \"gofast/gen/proto/v1\"",
-		"\n\t\"github.com/google/uuid\"",
-	}
-	if needStr {
-		imports = append([]string{"\"gofast/pkg/str\""}, imports...)
-	}
+		"proto \"gofast/gen/proto/v1\"",
+		"\"github.com/google/uuid\"",
+	)
 	if needStrconv {
-		imports = append(imports, "\n\t\"strconv\"")
+		imports = append(imports, "\"strconv\"")
 	}
 
 	// Helpers
@@ -1353,12 +1354,14 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 	// Begin file content
 	var b strings.Builder
 	fmt.Fprintf(&b, "package %s\n\n", modelName)
-	b.WriteString("import (\n\t")
-	b.WriteString(strings.Join(imports, "\n\t"))
-	b.WriteString("\n)\n\n")
+	b.WriteString("import (\n")
+	for _, imp := range imports {
+		b.WriteString("\t" + imp + "\n")
+	}
+	b.WriteString(")\n\n")
 
 	// ValidateAndBuildInsertParams
-	fmt.Fprintf(&b, "func ValidateAndBuildInsertParams(userID uuid.UUID, %s *proto.%s) (*query.Insert%sParams, error) {\n", modelName, capitalizedModelName, capitalizedModelName)
+	fmt.Fprintf(&b, "func ValidateAndBuildInsertParams(userID uuid.UUID, %s *proto.%s) (*query.Insert%sParams, []pkg.ValidationError) {\n", modelName, capitalizedModelName, capitalizedModelName)
 	b.WriteString("\terrors := make([]pkg.ValidationError, 0)\n")
 
 	// Per-column validations (insert)
@@ -1385,7 +1388,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 		}
 	}
 
-	b.WriteString("\tif len(errors) > 0 {\n\t\treturn nil, pkg.ValidationErrors(errors)\n\t}\n\n")
+	b.WriteString("\tif len(errors) > 0 {\n\t\treturn nil, errors\n\t}\n\n")
 
 	// Build Insert params
 	fmt.Fprintf(&b, "\treturn &query.Insert%sParams{\n", capitalizedModelName)
@@ -1407,7 +1410,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 	b.WriteString("\t}, nil\n}\n\n")
 
 	// ValidateAndBuildUpdateParams
-	fmt.Fprintf(&b, "func ValidateAndBuildUpdateParams(userID uuid.UUID, %s *proto.%s) (*query.Update%sParams, error) {\n", modelName, capitalizedModelName, capitalizedModelName)
+	fmt.Fprintf(&b, "func ValidateAndBuildUpdateParams(userID uuid.UUID, %s *proto.%s) (*query.Update%sParams, []pkg.ValidationError) {\n", modelName, capitalizedModelName, capitalizedModelName)
 	b.WriteString("\terrors := make([]pkg.ValidationError, 0)\n")
 	fmt.Fprintf(&b, "\tid, err := uuid.Parse(%s.GetId())\n", modelName)
 	b.WriteString("\tif err != nil {\n")
@@ -1441,7 +1444,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 		}
 	}
 
-	b.WriteString("\tif len(errors) > 0 {\n\t\treturn nil, pkg.ValidationErrors(errors)\n\t}\n\n")
+	b.WriteString("\tif len(errors) > 0 {\n\t\treturn nil, errors\n\t}\n\n")
 
 	// Build Update params
 	fmt.Fprintf(&b, "\treturn &query.Update%sParams{\n", capitalizedModelName)
@@ -1583,11 +1586,11 @@ func generateValidationTestContent(modelName, capitalizedModelName string, colum
 		return args
 	}
 	// Insert testCases generation
-	insertHeader := "\ttestCases := []struct {\n\t\tname          string\n\t\t" + modelName + "      *proto." + capitalizedModelName + "\n\t\texpectError   bool\n\t\texpectedError pkg.ValidationErrors\n\t}{\n"
+	insertHeader := "\ttestCases := []struct {\n\t\tname           string\n\t\t" + modelName + "       *proto." + capitalizedModelName + "\n\t\texpectError    bool\n\t\texpectedErrors []pkg.ValidationError\n\t}{\n"
 
 	var insertCases strings.Builder
 	// Valid case (bools true)
-	fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"valid %s\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError:   false,\n\t\t\texpectedError: nil,\n\t\t},\n", modelName, modelName, capitalizedModelName, strings.Join(buildValidArgs(true), ", "))
+	fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"valid %s\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError:    false,\n\t\t\texpectedErrors: nil,\n\t\t},\n", modelName, modelName, capitalizedModelName, strings.Join(buildValidArgs(true), ", "))
 
 	// Per-column invalid cases for insert
 	for _, c := range columns {
@@ -1602,34 +1605,43 @@ func generateValidationTestContent(modelName, capitalizedModelName string, colum
 					args[i] = "\"ab\""
 				}
 			}
-			fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"%s too short\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError: true,\n\t\t\texpectedError: pkg.ValidationErrors{\n\t\t\t\t{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
+			fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"%s too short\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
 		case "number":
+			argsNotNumber := buildValidArgs(false)
 			for i := range columns {
 				if columns[i].Name == c.Name {
-					args[i] = "\"0\""
+					argsNotNumber[i] = "\"ten\""
 				}
 			}
-			fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"%s less than 1\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError: true,\n\t\t\texpectedError: pkg.ValidationErrors{\n\t\t\t\t{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
+			fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"%s is not a number\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"number\", Message: \"%s must be a number\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(argsNotNumber, ", "), c.Name, fieldCamel)
+
+			argsLess := buildValidArgs(false)
+			for i := range columns {
+				if columns[i].Name == c.Name {
+					argsLess[i] = "\"0\""
+				}
+			}
+			fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"%s less than 1\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(argsLess, ", "), c.Name, fieldCamel)
 		case "time":
 			for i := range columns {
 				if columns[i].Name == c.Name {
 					args[i] = "\"invalid-date\""
 				}
 			}
-			fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"invalid %s date\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError: true,\n\t\t\texpectedError: pkg.ValidationErrors{\n\t\t\t\t{Field: \"%s\", Tag: \"required\", Message: \"%s date is required and must be in YYYY-MM-DD or RFC3339 format\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
+			fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"invalid %s date\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"required\", Message: \"%s date is required and must be in YYYY-MM-DD or RFC3339 format\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
 		}
 	}
 	insertFooter := "\t}\n"
 
 	// Update testCases generation
-	updateHeader := "\ttestCases := []struct {\n\t\tname          string\n\t\t" + modelName + "      *proto." + capitalizedModelName + "\n\t\texpectError   bool\n\t\texpectedError pkg.ValidationErrors\n\t}{\n"
+	updateHeader := "\ttestCases := []struct {\n\t\tname           string\n\t\t" + modelName + "       *proto." + capitalizedModelName + "\n\t\texpectError    bool\n\t\texpectedErrors []pkg.ValidationError\n\t}{\n"
 	var updateCases strings.Builder
 	// Valid case
-	fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"valid %s\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError:   false,\n\t\t\texpectedError: nil,\n\t\t},\n", modelName, modelName, capitalizedModelName, strings.Join(buildValidArgs(true), ", "))
+	fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"valid %s\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError:    false,\n\t\t\texpectedErrors: nil,\n\t\t},\n", modelName, modelName, capitalizedModelName, strings.Join(buildValidArgs(true), ", "))
 	// invalid uuid case -> expect two errors
-	fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"invalid uuid\",\n\t\t\t%s: makeEdit%sProto(\"invalid-uuid\", %s),\n\t\t\texpectError: true,\n\t\t\texpectedError: pkg.ValidationErrors{\n\t\t\t\t{Field: \"id\", Tag: \"uuid\", Message: \"ID must be a valid UUID\"},\n\t\t\t\t{Field: \"id\", Tag: \"required\", Message: \"ID is required\"},\n\t\t\t},\n\t\t},\n", modelName, capitalizedModelName, strings.Join(buildValidArgs(false), ", "))
+	fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"invalid uuid\",\n\t\t\t%s: makeEdit%sProto(\"invalid-uuid\", %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"id\", Tag: \"uuid\", Message: \"ID must be a valid UUID\"},\n\t\t\t\t{Field: \"id\", Tag: \"required\", Message: \"ID is required\"},\n\t\t\t},\n\t\t},\n", modelName, capitalizedModelName, strings.Join(buildValidArgs(false), ", "))
 	// nil uuid case -> required only
-	fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"nil uuid\",\n\t\t\t%s: makeEdit%sProto(uuid.Nil.String(), %s),\n\t\t\texpectError: true,\n\t\t\texpectedError: pkg.ValidationErrors{\n\t\t\t\t{Field: \"id\", Tag: \"required\", Message: \"ID is required\"},\n\t\t\t},\n\t\t},\n", modelName, capitalizedModelName, strings.Join(buildValidArgs(false), ", "))
+	fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"nil uuid\",\n\t\t\t%s: makeEdit%sProto(uuid.Nil.String(), %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"id\", Tag: \"required\", Message: \"ID is required\"},\n\t\t\t},\n\t\t},\n", modelName, capitalizedModelName, strings.Join(buildValidArgs(false), ", "))
 	// Per-column invalid cases for update
 	for _, c := range columns {
 		fieldCamel := toFieldName(c.Name)
@@ -1641,21 +1653,30 @@ func generateValidationTestContent(modelName, capitalizedModelName string, colum
 					args[i] = "\"ab\""
 				}
 			}
-			fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"%s too short\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError: true,\n\t\t\texpectedError: pkg.ValidationErrors{\n\t\t\t\t{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
+			fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"%s too short\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
 		case "number":
+			argsNotNumber := buildValidArgs(false)
 			for i := range columns {
 				if columns[i].Name == c.Name {
-					args[i] = "\"0\""
+					argsNotNumber[i] = "\"ten\""
 				}
 			}
-			fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"%s less than 1\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError: true,\n\t\t\texpectedError: pkg.ValidationErrors{\n\t\t\t\t{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
+			fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"%s is not a number\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"number\", Message: \"%s must be a number\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(argsNotNumber, ", "), c.Name, fieldCamel)
+
+			argsLess := buildValidArgs(false)
+			for i := range columns {
+				if columns[i].Name == c.Name {
+					argsLess[i] = "\"0\""
+				}
+			}
+			fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"%s less than 1\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(argsLess, ", "), c.Name, fieldCamel)
 		case "time":
 			for i := range columns {
 				if columns[i].Name == c.Name {
 					args[i] = "\"invalid-date\""
 				}
 			}
-			fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"invalid %s date\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError: true,\n\t\t\texpectedError: pkg.ValidationErrors{\n\t\t\t\t{Field: \"%s\", Tag: \"required\", Message: \"%s date is required and must be in YYYY-MM-DD or RFC3339 format\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
+			fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"invalid %s date\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"required\", Message: \"%s date is required and must be in YYYY-MM-DD or RFC3339 format\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
 		}
 	}
 	updateFooter := "\t}\n"
