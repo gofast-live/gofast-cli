@@ -228,7 +228,7 @@ var clientCmd = &cobra.Command{
 			return
 		}
 
-		cmd.Printf("Setup complete at '%s'.\n",
+		cmd.Printf("Setup complete at %s.\n",
 			config.SuccessStyle.Render("'app/service-client'"),
 		)
 	},

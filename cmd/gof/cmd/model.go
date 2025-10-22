@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/gertd/go-pluralize"
@@ -126,7 +127,7 @@ Example:
 			return
 		}
 
-		err = generateSchema(modelName, columns)
+		migrationPath, err := generateSchema(modelName, columns)
 		if err != nil {
 			cmd.Printf("Error generating schema: %v.\n", err)
 			return
@@ -201,13 +202,13 @@ Example:
 			cmd.Printf("  - Name: %s, Type: %v\n", col.Name, typeMap[col.Type])
 		}
 
-		cmd.Printf("\nProtobuf definitions generated in: %s\n", config.SuccessStyle.Render("./proto/v1/"+modelName+".proto"))
-		cmd.Printf("Schema generated in: %s\n", config.SuccessStyle.Render("./app/service-core/storage/schema.sql"))
-		cmd.Printf("Queries generated in: %s\n", config.SuccessStyle.Render("./app/service-core/storage/query.sql"))
-		cmd.Printf("Service layer generated in: %s\n", config.SuccessStyle.Render("./app/service-core/domain/"+modelName))
-		cmd.Printf("Transport layer generated in: %s\n", config.SuccessStyle.Render("./app/service-core/transport/"+modelName))
+		cmd.Printf("\nProtobuf definitions generated in: %s\n", config.SuccessStyle.Render("proto/v1/"+modelName+".proto"))
+		cmd.Printf("Migration generated in: %s\n", config.SuccessStyle.Render(migrationPath))
+		cmd.Printf("Queries generated in: %s\n", config.SuccessStyle.Render("app/service-core/storage/query.sql"))
+		cmd.Printf("Service layer generated in: %s\n", config.SuccessStyle.Render("app/service-core/domain/"+modelName))
+		cmd.Printf("Transport layer generated in: %s\n", config.SuccessStyle.Render("app/service-core/transport/"+modelName))
 		if config.IsSvelte() {
-			cmd.Printf("Client pages generated in: %s\n", config.SuccessStyle.Render("./app/client/src/pages/"+pluralizeClient.Plural(modelName)))
+			cmd.Printf("Client pages generated in: %s\n", config.SuccessStyle.Render("app/client/src/pages/"+pluralizeClient.Plural(modelName)))
 		}
 
 		cmd.Printf("\nDon't forget to run %s to apply migrations.\n", config.SuccessStyle.Render("scripts/run_migrations.sh"))
@@ -397,30 +398,82 @@ func generateProto(modelName string, columns []Column) error {
 	return nil
 }
 
-func generateSchema(modelName string, columns []Column) error {
+func generateSchema(modelName string, columns []Column) (string, error) {
 	tableName := pluralizeClient.Plural(modelName)
-	var columnDefs []string
-	columnDefs = append(columnDefs, "    id uuid primary key default gen_random_uuid()")
-	columnDefs = append(columnDefs, "    created timestamptz not null default current_timestamp")
-	columnDefs = append(columnDefs, "    updated timestamptz not null default current_timestamp")
-	columnDefs = append(columnDefs, "    user_id uuid not null references users(id) on delete cascade")
+	migrationsDir := "./app/service-core/storage/migrations"
+
+	err := os.MkdirAll(migrationsDir, 0o755)
+	if err != nil {
+		return "", fmt.Errorf("creating migrations directory %s: %w", migrationsDir, err)
+	}
+
+	entries, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		return "", fmt.Errorf("reading migrations directory %s: %w", migrationsDir, err)
+	}
+
+	var maxNumber int
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+		underscoreIndex := strings.Index(name, "_")
+		if underscoreIndex == -1 {
+			continue
+		}
+
+		numberPart := name[:underscoreIndex]
+		parsedNumber, parseErr := strconv.Atoi(numberPart)
+		if parseErr != nil {
+			continue
+		}
+
+		if parsedNumber > maxNumber {
+			maxNumber = parsedNumber
+		}
+	}
+
+	nextNumber := maxNumber + 1
+	migrationFileName := fmt.Sprintf("%05d_create_%s.sql", nextNumber, tableName)
+	migrationPath := filepath.Join(migrationsDir, migrationFileName)
+
+	_, err = os.Stat(migrationPath)
+	if err == nil {
+		return "", fmt.Errorf("migration file already exists: %s", migrationPath)
+	}
+	if !os.IsNotExist(err) {
+		return "", fmt.Errorf("checking migration file %s: %w", migrationPath, err)
+	}
+
+	columnDefs := []string{
+		"    id uuid primary key default gen_random_uuid()",
+		"    created timestamptz not null default current_timestamp",
+		"    updated timestamptz not null default current_timestamp",
+		"    user_id uuid not null references users(id) on delete cascade",
+	}
 
 	for _, col := range columns {
 		columnDefs = append(columnDefs, fmt.Sprintf("    %s %s not null", col.Name, typeMap[col.Type]))
 	}
 
-	schemaContent := fmt.Sprintf(`
+	migrationContent := fmt.Sprintf(`-- +goose Up
 -- create "%s" table
 create table if not exists %s (
 %s
-);`,
-		tableName, tableName, strings.Join(columnDefs, ",\n"))
+);
 
-	err := appendToFile("./app/service-core/storage/schema.sql", schemaContent)
+-- +goose Down
+drop table if exists %s;
+`, tableName, tableName, strings.Join(columnDefs, ",\n"), tableName)
+
+	err = os.WriteFile(migrationPath, []byte(migrationContent), 0o644)
 	if err != nil {
-		return fmt.Errorf("appending to schema.sql: %w", err)
+		return "", fmt.Errorf("writing migration file %s: %w", migrationPath, err)
 	}
-	return nil
+
+	return migrationPath, nil
 }
 
 func generateQueries(modelName string, columns []Column) error {
