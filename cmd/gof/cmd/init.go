@@ -158,7 +158,7 @@ var initCmd = &cobra.Command{
 			"Project %s initialized successfully!\n\nCD into the %s directory and run %s to start the service.\n",
 			config.SuccessStyle.Render("'"+projectName+"'"),
 			config.SuccessStyle.Render("'"+projectName+"'"),
-			config.SuccessStyle.Render("'docker compose up --build'"),
+			config.SuccessStyle.Render("'sh start.sh'"),
 		)
 	},
 }

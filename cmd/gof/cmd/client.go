@@ -69,7 +69,7 @@ var clientCmd = &cobra.Command{
 					cmd.Printf("Error serializing config with svelte service: %v\n", jerr)
 				} else if werr := os.WriteFile(config.ConfigFileName, data, 0644); werr != nil {
 					cmd.Printf("Error writing %s: %v\n", config.ConfigFileName, werr)
-				} 
+				}
 			}
 		}
 
@@ -228,7 +228,9 @@ var clientCmd = &cobra.Command{
 			return
 		}
 
-		cmd.Printf("Setup complete at '%s'\n", dstClientPath)
+		cmd.Printf("Setup complete at '%s'.\n",
+			config.SuccessStyle.Render("'app/service-client'"),
+		)
 	},
 }
 

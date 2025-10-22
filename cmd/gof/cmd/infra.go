@@ -143,6 +143,12 @@ var infraCmd = &cobra.Command{
 			}
 		}
 
-		cmd.Println("Infrastructure files added successfully.")
+		cmd.Printf("Infrastructure files added successfully. Follow the guide in the %s to set up deployment.\n",
+			config.SuccessStyle.Render("infra/README.md"),
+		)
+		cmd.Println("")
+		cmd.Printf("Run %s to launch your app with a local monitoring stack.\n",
+			config.SuccessStyle.Render("'sh start.sh'"),
+		)
 	},
 }
