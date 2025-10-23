@@ -122,6 +122,7 @@ var initCmd = &cobra.Command{
 			"docker compose up postgres -d",
 			"scripts/run_migrations.sh",
 			"docker compose stop",
+			"cp .env.example .env",
 		}
 		messages := []string{
 			"Generating Public/Private keys...",
@@ -130,11 +131,15 @@ var initCmd = &cobra.Command{
 			"Starting PostgreSQL container...",
 			"Applying database migrations...",
 			"Stopping PostgreSQL container...",
+			"Creating .env file...",
 		}
 		for i, script := range scripts {
 			cmd.Printf("%s\n", messages[i])
 			var cmdExec *exec.Cmd
 			if strings.HasPrefix(script, "docker") {
+				parts := strings.Fields(script)
+				cmdExec = exec.Command(parts[0], parts[1:]...)
+			} else if strings.HasPrefix(script, "cp ") {
 				parts := strings.Fields(script)
 				cmdExec = exec.Command(parts[0], parts[1:]...)
 			} else {
