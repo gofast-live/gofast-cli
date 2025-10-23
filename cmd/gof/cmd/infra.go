@@ -143,15 +143,24 @@ var infraCmd = &cobra.Command{
 			}
 		}
 
+		err = os.Chdir(cwd)
+		if err != nil {
+			cmd.Printf("Error returning to project directory: %v\n", err)
+			return
+		}
+
 		err = config.MarkInfraPopulated()
 		if err != nil {
 			cmd.Printf("Error updating gofast config: %v\n", err)
 			return
 		}
 
-		cmd.Printf("Infrastructure files added successfully. Follow the guide in the %s to set up deployment.\n",
-			config.SuccessStyle.Render("infra/README.md"),
-		)
+		cmd.Println("Infrastructure files added successfully. Recommended next steps:")
+		cmd.Printf("  1. %s\n", config.SuccessStyle.Render("cd infra && cp .env.example .env"))
+		cmd.Printf("  2. Update infra/.env with your server details.\n")
+		cmd.Printf("  3. Review and run the setup scripts (setup_rke2.sh, setup_gh.sh, setup_gcp.sh, setup_cloudflare.sh).\n")
+		cmd.Println("")
+		cmd.Printf("     See %s for the full workflow.\n", config.SuccessStyle.Render("infra/README.md"))
 		cmd.Println("")
 		cmd.Printf("Run %s to launch your app with a local monitoring stack.\n",
 			config.SuccessStyle.Render("'sh start.sh'"),

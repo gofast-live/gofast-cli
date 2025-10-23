@@ -48,7 +48,7 @@ func GenerateSvelteScaffolding(modelName string, columns []Column) error {
 	}
 
 	// run npm i && npm run format in the service-client directory
-	cmd := "cd ./app/service-client && npm i && npm run format"
+	cmd := "cd ./app/service-client && npm ci && npm run format"
 	execCmd := exec.Command("bash", "-c", cmd)
 	out, err := execCmd.CombinedOutput()
 	if err != nil {
