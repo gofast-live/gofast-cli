@@ -31,6 +31,10 @@ var infraCmd = &cobra.Command{
 			cmd.Printf("%v\n", err)
 			return
 		}
+		if con.InfraPopulated {
+			cmd.Println("Infrastructure files have already been added to this project.")
+			return
+		}
 
 		tmpDir, err := os.MkdirTemp("", "gofast-infra-*")
 		if err != nil {

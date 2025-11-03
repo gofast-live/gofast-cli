@@ -70,6 +70,9 @@ var clientCmd = &cobra.Command{
 				} else if werr := os.WriteFile(config.ConfigFileName, data, 0644); werr != nil {
 					cmd.Printf("Error writing %s: %v\n", config.ConfigFileName, werr)
 				}
+			} else {
+				cmd.Println("Svelte service already exists.")
+				return
 			}
 		}
 
