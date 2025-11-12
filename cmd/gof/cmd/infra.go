@@ -159,6 +159,7 @@ var infraCmd = &cobra.Command{
 			return
 		}
 
+		cmd.Println("")
 		cmd.Println("Infrastructure files added successfully. Recommended next steps:")
 		cmd.Printf("  1. %s\n", config.SuccessStyle.Render("cd infra && cp .env.example .env"))
 		cmd.Printf("  2. Update infra/.env with your server details.\n")
@@ -169,5 +170,6 @@ var infraCmd = &cobra.Command{
 		cmd.Printf("Run %s to launch your app with a local monitoring stack.\n",
 			config.SuccessStyle.Render("'sh start.sh'"),
 		)
+		cmd.Println("")
 	},
 }

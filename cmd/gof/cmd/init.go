@@ -114,6 +114,7 @@ var initCmd = &cobra.Command{
 		}
 
 		// run scripts to set up the project
+		cmd.Println("")
 		cmd.Printf("Running initialization scripts for project '%s'...\n", projectName)
 		scripts := []string{
 			"scripts/run_keys.sh",
@@ -165,5 +166,6 @@ var initCmd = &cobra.Command{
 			config.SuccessStyle.Render("'"+projectName+"'"),
 			config.SuccessStyle.Render("'sh start.sh'"),
 		)
+		cmd.Println("")
 	},
 }

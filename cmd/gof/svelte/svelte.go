@@ -12,7 +12,7 @@ import (
 
 type Column struct {
 	Name string // column name in snake_case
-	Type string // "string", "number", "time", "bool"
+	Type string // "string", "number", "date", "bool"
 }
 
 var pluralizeClient = pluralize.NewClient()
@@ -218,7 +218,7 @@ func generateClientListPage(modelName string, columns []Column) error {
 	for _, c := range columns {
 		field := c.Name
 		switch c.Type {
-		case "time":
+		case "date":
 			b.WriteString("                        <td>{new Date(" + modelName + "." + field + ").toLocaleDateString()}</td>\n")
 		case "bool":
 			b.WriteString("                        <td>{" + modelName + "." + field + " ? \"Yes\" : \"No\"}</td>\n")
@@ -391,7 +391,7 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 			uiB.WriteString("            />\n")
 			uiB.WriteString("            <div class=\"validator-hint\">Enter a positive number</div>\n")
 			uiB.WriteString("        </div>\n\n")
-		case "time":
+		case "date":
 			uiB.WriteString("        <label class=\"label\" for=\"" + c.Name + "\">" + label + "</label>\n")
 			uiB.WriteString("        <div>\n")
 			uiB.WriteString("            <input\n")

@@ -201,6 +201,7 @@ var clientCmd = &cobra.Command{
 			return
 		}
 
+		cmd.Println("")
 		cmd.Printf("Generating client pages for existing models...\n")
 
 		for _, m := range con.Models {
@@ -219,7 +220,7 @@ var clientCmd = &cobra.Command{
 			if err := svelte.GenerateSvelteScaffolding(m.Name, svelteColumns); err != nil {
 				cmd.Printf("Error generating '%s' client pages: %v\n", m.Name, err)
 			} else {
-				cmd.Printf("Successfully generated client pages for model '%s'\n", m.Name)
+				cmd.Printf("Successfully generated client pages for model '%s'.\n", m.Name)
 			}
 		}
 
@@ -234,6 +235,7 @@ var clientCmd = &cobra.Command{
 		cmd.Printf("Setup complete at %s.\n",
 			config.SuccessStyle.Render("'app/service-client'"),
 		)
+		cmd.Println("")
 	},
 }
 

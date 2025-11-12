@@ -79,7 +79,7 @@ func generateClientE2ETest(modelName string, columns []Column) error {
 			meta.typeLiteral = "'number'"
 			meta.createLiteral = fmt.Sprintf("'%d'", 100+i)
 			meta.validation = "'Enter a positive number'"
-		case "time":
+		case "date":
 			meta.typeLiteral = "'date'"
 			meta.createLiteral = fmt.Sprintf("'2025-01-%02d'", i+1)
 			meta.validation = "'Select a valid date'"
@@ -186,7 +186,7 @@ func generateClientE2ETest(modelName string, columns []Column) error {
 
 	markers := []string{"// GF_MODEL_CONFIG_START", "// GF_MODEL_CONFIG_END"}
 	var outLines []string
-	for _, line := range strings.Split(s, "\n") {
+	for line := range strings.SplitSeq(s, "\n") {
 		skip := false
 		for _, marker := range markers {
 			if strings.Contains(line, marker) {
