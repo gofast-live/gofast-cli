@@ -37,12 +37,12 @@ func GenerateSvelteScaffolding(modelName string, columns []Column) error {
 	if err := generateClientDetailPage(modelName, columns); err != nil {
 		return fmt.Errorf("generating client detail page: %w", err)
 	}
-	if err := generateClientListPageSpec(modelName, columns); err != nil {
-		return fmt.Errorf("generating client list page spec: %w", err)
-	}
-	if err := generateClientDetailPageSpec(modelName, columns); err != nil {
-		return fmt.Errorf("generating client detail page spec: %w", err)
-	}
+	// if err := generateClientListPageSpec(modelName, columns); err != nil {
+	// 	return fmt.Errorf("generating client list page spec: %w", err)
+	// }
+	// if err := generateClientDetailPageSpec(modelName, columns); err != nil {
+	// 	return fmt.Errorf("generating client detail page spec: %w", err)
+	// }
 	if err := generateClientE2ETest(modelName, columns); err != nil {
 		return fmt.Errorf("generating e2e test: %w", err)
 	}

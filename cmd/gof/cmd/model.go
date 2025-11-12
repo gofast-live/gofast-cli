@@ -27,7 +27,7 @@ type Column struct {
 var typeMap = map[string]string{
 	"string": "text",
 	"number": "numeric",
-	"time":   "timestamptz",
+	"date":   "timestamptz",
 	"bool":   "boolean",
 }
 
@@ -41,11 +41,11 @@ Columns are defined as name:type.
 Valid column types are:
   - string  (PostgreSQL: text)
   - number  (PostgreSQL: numeric)
-  - time    (PostgreSQL: timestamptz)
+  - date    (PostgreSQL: timestamptz)
   - bool    (PostgreSQL: boolean)
 
 Example:
-  gof model post title:string content:string views:number published_at:time is_published:bool
+  gof model post title:string content:string views:number published_at:date is_published:bool
 `,
 	Args: cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -69,7 +69,7 @@ Example:
 		validTypes := map[string]bool{
 			"string": true,
 			"number": true,
-			"time":   true,
+			"date":   true,
 			"bool":   true,
 		}
 
@@ -84,7 +84,7 @@ Example:
 			colType := strings.ToLower(parts[1])
 			if !validTypes[colType] {
 				cmd.Printf("Error: Invalid type '%s' for column '%s'.\n", parts[1], parts[0])
-				cmd.Println("Valid types are: string, number, time, bool.")
+				cmd.Println("Valid types are: string, number, date, bool.")
 				return
 			}
 
@@ -195,7 +195,17 @@ Example:
 			return
 		}
 
+		gofmtCmd := exec.Command("go", "fmt", "./...")
+		gofmtCmd.Dir = "app"
+		gofmtOutput, err := gofmtCmd.CombinedOutput()
+		if err != nil {
+			cmd.Printf("Error running go fmt in ./app: %v\nOutput: %s\n", err, gofmtOutput)
+			return
+		}
+
+		cmd.Println("")
 		cmd.Print("Model created successfully!\n")
+		cmd.Println("")
 		cmd.Printf("Model Name: %s\n", config.SuccessStyle.Render(modelName))
 		cmd.Printf("Columns:\n")
 		for _, col := range columns {
@@ -213,7 +223,7 @@ Example:
 
 		cmd.Printf("\nDon't forget to run %s to apply migrations.\n", config.SuccessStyle.Render("scripts/run_migrations.sh"))
 
-		cmd.Printf("\nIf you already created a user, remember to update permissions for the new model.\n")
+		cmd.Printf("\nIf you already created a user, remember to update permissions for the new model (check %s).\n", config.SuccessStyle.Render("pkg/auth/auth.go"))
 		cmd.Printf("\nYou can also run %s to update all users with admin permissions.\n\n", config.SuccessStyle.Render("scripts/update_permissions.sh"))
 	},
 }
@@ -269,7 +279,7 @@ func generateProto(modelName string, columns []Column) error {
 	typeMapProto := map[string]string{
 		"string": "string",
 		"number": "string",
-		"time":   "string",
+		"date":   "string",
 		"bool":   "bool",
 	}
 
@@ -646,7 +656,7 @@ func generateTransportRouteContent(modelName, capitalizedModelName, pluralLower,
 		switch c.Type {
 		case "string":
 			b.WriteString("\t\t" + field + ": " + modelName + "." + field + ",\n")
-		case "time":
+		case "date":
 			b.WriteString("\t\t" + field + ": " + modelName + "." + field + ".Format(time.RFC3339),\n")
 		case "bool":
 			b.WriteString("\t\t" + field + ": " + modelName + "." + field + ",\n")
@@ -700,7 +710,7 @@ func generateTransportTestContent(modelName, capitalizedModelName string, column
 		switch colType {
 		case "string", "number":
 			return "\"\""
-		case "time":
+		case "date":
 			return "time.Time{}"
 		case "bool":
 			return "false"
@@ -720,7 +730,7 @@ func generateTransportTestContent(modelName, capitalizedModelName string, column
 				return "\"200\""
 			}
 			return "\"100\""
-		case "time":
+		case "date":
 			return "\"2023-10-01\""
 		case "bool":
 			return "true"
@@ -734,7 +744,7 @@ func generateTransportTestContent(modelName, capitalizedModelName string, column
 			return "\"\""
 		case "number":
 			return "\"\""
-		case "time":
+		case "date":
 			return "\"\""
 		case "bool":
 			return "false"
@@ -771,7 +781,7 @@ func generateTransportTestContent(modelName, capitalizedModelName string, column
 			case "number":
 				// sqlc maps numeric to string; use a quoted literal
 				parts = append(parts, fmt.Sprintf("%s: \"100\"", name))
-			case "time":
+			case "date":
 				parts = append(parts, fmt.Sprintf("%s: time.Now()", name))
 			case "bool":
 				parts = append(parts, fmt.Sprintf("%s: i%%2 == 1", name))
@@ -887,7 +897,7 @@ func generateTransportTestContent(modelName, capitalizedModelName string, column
 			if firstNum == "" {
 				firstNum = toFieldName(c.Name)
 			}
-		case "time":
+		case "date":
 			if firstTime == "" {
 				firstTime = toFieldName(c.Name)
 			}
@@ -915,7 +925,7 @@ func generateTransportTestContent(modelName, capitalizedModelName string, column
 		content = strings.Join(filtered, "\n")
 	}
 
-	// Remove or adapt numeric/time/bool asserts that come from skeleton template
+	// Remove or adapt numeric/date/bool asserts that come from skeleton template
 	if firstNum != "" {
 		content = strings.ReplaceAll(content, ".GetAge()", ".Get"+firstNum+"()")
 		content = strings.ReplaceAll(content, ".Age", "."+firstNum)
@@ -1012,7 +1022,7 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 		case "number":
 			// sqlc maps numeric to string by default
 			return fmt.Sprintf("\"%d\"", 100*index)
-		case "time":
+		case "date":
 			return "time.Now()"
 		case "bool":
 			if index%2 == 0 {
@@ -1027,7 +1037,7 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 		switch colType {
 		case "string", "number":
 			return "\"\""
-		case "time":
+		case "date":
 			return "time.Time{}"
 		case "bool":
 			return "false"
@@ -1048,7 +1058,7 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 				return "\"200\""
 			}
 			return "\"100\""
-		case "time":
+		case "date":
 			return "\"2023-10-01\""
 		case "bool":
 			return "true"
@@ -1062,7 +1072,7 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 			return "\"\""
 		case "number":
 			return "\"\""
-		case "time":
+		case "date":
 			return "\"\""
 		case "bool":
 			return "false"
@@ -1122,7 +1132,7 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 				parts = append(parts, fmt.Sprintf("%s: fmt.Sprintf(\"Test %s\", i)", name, "%d"))
 			case "number":
 				parts = append(parts, fmt.Sprintf("%s: \"100\"", name))
-			case "time":
+			case "date":
 				parts = append(parts, fmt.Sprintf("%s: time.Now()", name))
 			case "bool":
 				parts = append(parts, fmt.Sprintf("%s: i%%2 == 1", name))
@@ -1142,7 +1152,7 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 				parts = append(parts, fmt.Sprintf("%s: \"Test\"", name))
 			case "number":
 				parts = append(parts, fmt.Sprintf("%s: \"100\"", name))
-			case "time":
+			case "date":
 				v := toVarName(name)
 				predecl = append(predecl, fmt.Sprintf("%s, _ := time.Parse(\"2006-01-02\", \"2023-10-01\")", v))
 				parts = append(parts, fmt.Sprintf("%s: %s", name, v))
@@ -1164,7 +1174,7 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 				parts = append(parts, fmt.Sprintf("%s: \"Updated\"", name))
 			case "number":
 				parts = append(parts, fmt.Sprintf("%s: \"200\"", name))
-			case "time":
+			case "date":
 				v := toVarName(name)
 				predecl = append(predecl, fmt.Sprintf("%s, _ := time.Parse(\"2006-01-02\", \"2023-10-01\")", v))
 				parts = append(parts, fmt.Sprintf("%s: %s", name, v))
@@ -1322,7 +1332,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 		switch c.Type {
 		case "number":
 			needStrconv = true
-		case "time":
+		case "date":
 			needStr = true
 		}
 	}
@@ -1379,7 +1389,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 			b.WriteString("\t} else if " + v + " < 1 {\n")
 			fmt.Fprintf(&b, "\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"})\n", c.Name, toFieldName(c.Name))
 			b.WriteString("\t}\n")
-		case "time":
+		case "date":
 			v := toVarName(field)
 			fmt.Fprintf(&b, "\t%s, err := str.ParseDate(%s.Get%s())\n", v, modelName, field)
 			b.WriteString("\tif err != nil {\n")
@@ -1400,7 +1410,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, modelName, field)
 		case "number":
 			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, modelName, field)
-		case "time":
+		case "date":
 			v := toVarName(field)
 			fmt.Fprintf(&b, "\t\t%s: %s,\n", field, v)
 		case "bool":
@@ -1435,7 +1445,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 			b.WriteString("\t} else if " + v + " < 1 {\n")
 			fmt.Fprintf(&b, "\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"})\n", c.Name, toFieldName(c.Name))
 			b.WriteString("\t}\n")
-		case "time":
+		case "date":
 			v := toVarName(field)
 			fmt.Fprintf(&b, "\t%s, err := str.ParseDate(%s.Get%s())\n", v, modelName, field)
 			b.WriteString("\tif err != nil {\n")
@@ -1457,7 +1467,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, modelName, field)
 		case "number":
 			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, modelName, field)
-		case "time":
+		case "date":
 			v := toVarName(field)
 			fmt.Fprintf(&b, "\t\t%s: %s,\n", field, v)
 		case "bool":
@@ -1500,7 +1510,7 @@ func generateValidationTestContent(modelName, capitalizedModelName string, colum
 			varType = "string"
 		case "number":
 			varType = "string"
-		case "time":
+		case "date":
 			varType = "string"
 		case "bool":
 			varType = "bool"
@@ -1571,7 +1581,7 @@ func generateValidationTestContent(modelName, capitalizedModelName string, colum
 				args = append(args, "\"Valid\"")
 			case "number":
 				args = append(args, "\"10\"")
-			case "time":
+			case "date":
 				args = append(args, "\"2025-01-01\"")
 			case "bool":
 				if boolTrue {
@@ -1622,7 +1632,7 @@ func generateValidationTestContent(modelName, capitalizedModelName string, colum
 				}
 			}
 			fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"%s less than 1\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(argsLess, ", "), c.Name, fieldCamel)
-		case "time":
+		case "date":
 			for i := range columns {
 				if columns[i].Name == c.Name {
 					args[i] = "\"invalid-date\""
@@ -1670,7 +1680,7 @@ func generateValidationTestContent(modelName, capitalizedModelName string, colum
 				}
 			}
 			fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"%s less than 1\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"},\n\t\t\t},\n\t\t},\n", c.Name, modelName, capitalizedModelName, strings.Join(argsLess, ", "), c.Name, fieldCamel)
-		case "time":
+		case "date":
 			for i := range columns {
 				if columns[i].Name == c.Name {
 					args[i] = "\"invalid-date\""

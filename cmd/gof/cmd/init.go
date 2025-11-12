@@ -160,7 +160,7 @@ var initCmd = &cobra.Command{
 		}
 
 		cmd.Printf(
-			"Project %s initialized successfully!\n\nCD into the %s directory and run %s to start the service.\n",
+			"Project %s initialized successfully!\n\nCD into the %s directory and run %s.\n",
 			config.SuccessStyle.Render("'"+projectName+"'"),
 			config.SuccessStyle.Render("'"+projectName+"'"),
 			config.SuccessStyle.Render("'sh start.sh'"),
