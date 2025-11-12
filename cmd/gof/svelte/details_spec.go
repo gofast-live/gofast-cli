@@ -10,7 +10,7 @@ import (
 // generateClientDetailPageSpec scaffolds a client detail page test by copying
 // the skeleton detail spec and performing token and marker-based replacements
 // for singular/plural model variants and column-aware assertions.
-func generateClientDetailPageSpec(modelName string, columns []Column) error {
+func GenerateClientDetailPageSpec(modelName string, columns []Column) error {
 	sourcePath := "./app/service-client/src/routes/(app)/models/skeletons/[skeleton_id]/page.svelte.spec.ts"
 	pluralLower := pluralizeClient.Plural(modelName)
 	pluralCap := capitalize(pluralLower)

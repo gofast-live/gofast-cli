@@ -10,7 +10,7 @@ import (
 // generateClientListPageSpec scaffolds a client list page test by copying the
 // skeleton spec and performing token and marker-based replacements for
 // singular/plural model variants and column-aware assertions.
-func generateClientListPageSpec(modelName string, columns []Column) error {
+func GenerateClientListPageSpec(modelName string, columns []Column) error {
 	sourcePath := "./app/service-client/src/routes/(app)/models/skeletons/page.svelte.spec.ts"
 	pluralLower := pluralizeClient.Plural(modelName)
 	pluralCap := capitalize(pluralLower)
