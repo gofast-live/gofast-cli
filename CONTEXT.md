@@ -93,48 +93,79 @@ Adds infrastructure/deployment files:
 - Updates `start.sh` to include infrastructure services
 - Marks project as `infraPopulated: true` in config
 
-### `gof add stripe` (TODO)
-Adds Stripe payment integration to the project:
-- Copies `domain/payment/` service layer
-- Copies `transport/payment/` transport layer
-- Adds `subscriptions` migration (renumbered to next available)
-- Adds payment proto definitions to `main.proto`
-- Wires payment into `main.go` (imports, deps, routes, webhook)
+### `gof add stripe`
+Adds Stripe payment integration to the project.
 
-**Files involved:**
-- `app/service-core/domain/payment/service.go` - Stripe checkout, portal, webhook handling
-- `app/service-core/transport/payment/route.go` - ConnectRPC handlers + webhook endpoint
-- `storage/migrations/00003_create_subscriptions.sql` - Subscriptions table
+**See:** [Integration Marker System](#integration-marker-system) for how this works.
+
+## Integration Marker System
+
+The CLI uses a **marker-based integration system** for optional features like Stripe payments. This allows clean addition/removal of integrations without hardcoded string replacements.
+
+### How It Works
+
+1. **Reference repo (`gofast-app`) contains ALL integrations** with code wrapped in markers:
+   ```go
+   // GF_STRIPE_START
+   // ... stripe-specific code ...
+   // GF_STRIPE_END
+   ```
+
+2. **`gofast.json` tracks enabled integrations:**
+   ```json
+   {
+     "projectName": "myapp",
+     "integrations": ["stripe"],
+     ...
+   }
+   ```
+
+3. **On `gof init`:**
+   - Copy full template from `gofast-app`
+   - Read `integrations` from config (empty by default)
+   - Strip ALL marker blocks for integrations NOT in the list
+   - Result: clean project without optional features
+
+4. **On `gof add <integration>`:**
+   - Add integration name to `gofast.json`
+   - Copy relevant files from template (domain/, transport/, migrations)
+   - Copy files that have markers, strip only OTHER integrations' markers
+   - Result: integration code is present with its markers intact
+
+### Marker Naming Convention
+
+Each integration has its own marker prefix:
+- Stripe: `GF_STRIPE_START` / `GF_STRIPE_END`
+- Future: `GF_ANALYTICS_START`, `GF_POSTHOG_START`, etc.
+
+### Files with Integration Markers
+
+For Stripe integration, markers exist in:
+- `app/service-core/main.go` - imports, deps, route mounting
+- `app/service-core/domain/login/service.go` - `CheckUserAccess()` function
+- `app/service-core/domain/login/service_test.go` - subscription tests
+- `app/service-core/storage/query.sql` - subscription queries
+- `app/service-core/storage/testutil/user.go` - test user with subscription
 - `proto/v1/main.proto` - PaymentService definition
 
-**Wiring in main.go:**
+### Benefits
+
+- **Single source of truth:** All code lives in `gofast-app` with markers
+- **Config-driven:** `gofast.json` determines what's included
+- **Composable:** Multiple integrations can coexist (stripe + analytics)
+- **Maintainable:** No hardcoded string replacements, just marker stripping
+- **Future-proof:** Adding new integrations = adding new markers
+
+### Implementation
+
 ```go
-// Imports
-"gofast/service-core/domain/payment"
-paymentRoute "gofast/service-core/transport/payment"
-
-// Deps initialization
-paymentDeps := payment.Deps{Cfg: cfg, Store: store}
-
-// Route mounting
-paymentServer := paymentRoute.NewPaymentServer(paymentDeps)
-path, handler = v1connect.NewPaymentServiceHandler(paymentServer, server.Interceptors())
-server.Mount(path, handler)
-server.MountFunc("/payments-webhook", paymentServer.Webhook)
+// Strip integrations not in the enabled list
+func StripIntegrations(projectPath string, enabledIntegrations []string) error {
+    // Walk all files
+    // For each GF_*_START marker, extract integration name
+    // If integration not in enabledIntegrations, remove the block
+}
 ```
-
-**Note:** `gof init` should NOT include stripe by default - it needs to be added explicitly via `gof add stripe`.
-
-**Important dependency:** The login service (`domain/login/service.go`) checks subscription status via `CheckUserAccess()`:
-- Queries `subscriptions` table via `SelectActiveSubscription()`
-- Uses `StripePriceIDBasic` / `StripePriceIDPro` from config
-- Sets `BasicPlan` / `ProPlan` access bits
-
-**Solution:** Use a simplified `CheckUserAccess()` function:
-- **Without stripe:** Returns `false, user.Access, nil` (no subscription check)
-- **With stripe:** Full version that queries `SelectActiveSubscription()` and sets plan bits
-
-`gof init` strips the full version and replaces with simplified. `gof add stripe` replaces simplified with full version.
 
 ## How Code Generation Works
 
@@ -217,9 +248,12 @@ Generates comprehensive table-driven tests:
       ]
     }
   ],
+  "integrations": ["stripe"],
   "infraPopulated": false
 }
 ```
+
+**Note:** `integrations` is empty by default. Each `gof add <integration>` command adds to this list.
 
 ## Demo Project
 
