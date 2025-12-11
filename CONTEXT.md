@@ -45,7 +45,7 @@ Sets up a new Go project with:
 - OAuth authentication
 - Base project structure
 
-**Prerequisites:** buf, atlas, sqlc, docker, docker-compose
+**Prerequisites:** buf, goose, sqlc, docker, docker-compose
 
 **Creates:** `gofast.json` config file with project metadata
 
@@ -53,6 +53,16 @@ Sets up a new Go project with:
 Generates a complete CRUD model with all layers.
 
 **Syntax:** `gof model note title:string views:number published_at:date is_active:bool`
+
+**Model name rules:**
+- Must be lowercase letters and underscores only (e.g., `user_profile`, `event_log`)
+- Must be singular - plural names are rejected with a suggestion (e.g., `trucks` → use `truck`)
+- Underscores are converted to CamelCase for Go types (e.g., `event_log` → `EventLog`)
+
+**Column name rules:**
+- Must be lowercase letters, numbers, and underscores (e.g., `view_count`, `is_active2`)
+- Reserved names rejected: `id`, `user_id`, `created`, `updated` (auto-generated)
+- Go keywords rejected: `type`, `func`, `var`, `package`, `map`, `chan`, etc.
 
 **Column types:**
 | Type | SQL | Proto | Go | Validation |
@@ -186,14 +196,66 @@ TEST=true go run ./cmd/gof/... init demo
 
 The `TEST=true` env var makes the CLI copy from local `../gofast-app` instead of downloading from the network.
 
-## Current Focus: Go Test Generation
+### Adding a Model
 
-The current work focuses on generating Go tests for all layers:
-- Service layer tests
-- Transport layer tests
-- Validation tests
+From inside the demo directory:
+```bash
+cd demo
+TEST=true go run ../cmd/gof/... model note title:string content:string views:number published:date active:bool
+```
 
-Client-side test generation has been dropped (too complicated). If Go test generation proves too complex, it may also be reconsidered.
+### Testing Generated Code
+
+**Important:** Tests require PostgreSQL to be running via Docker Compose.
+
+```bash
+# Start PostgreSQL first
+cd demo && docker compose up postgres -d
+
+# Apply migrations for new models (init applies base migrations automatically)
+goose -dir app/service-core/storage/migrations postgres "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" up
+
+# Run tests
+cd demo/app/service-core && go test -race ./...
+
+# Stop PostgreSQL when done
+cd demo && docker compose stop
+```
+
+### Resetting the Database
+
+If you have stale schema from previous test runs, reset the database:
+
+```bash
+cd demo
+docker compose down -v   # Remove container AND volume (clears all data)
+docker compose up postgres -d
+sleep 2  # Wait for postgres to start
+goose -dir app/service-core/storage/migrations postgres "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" up
+```
+
+## Current Task: CLI Rewrite for New App Architecture
+
+The reference app (`gofast-app`) has undergone a **major rewrite** - simplified and moved to a more functional programming style. The CLI code generation needs to be updated to match.
+
+### What needs to happen:
+1. Update CLI code generation to match new app architecture
+2. Adjust skeleton templates and token replacements
+3. Update wiring/injection logic if changed
+4. Regenerate demo project to verify output
+
+### Key considerations:
+
+**Scalability of generation:**
+- `gof model` can have ANY combination of columns
+- Examples: 5 dates + 6 bools, all strings, mixed types, etc.
+- Generation logic must handle all combinations cleanly
+
+**Test generation complexity:**
+- Go tests are being generated (service, transport, validation)
+- If test generation becomes too complicated to maintain, **drop it**
+- Client-side tests already dropped for this reason
+- Keep it simple - if it's too hard to generate reliably, it's not worth it
 
 ## Key Files for Development
 

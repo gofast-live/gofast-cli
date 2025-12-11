@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/gertd/go-pluralize"
@@ -60,6 +61,23 @@ Example:
 		}
 
 		modelName := args[0]
+
+		// Validate model name: must be lowercase letters and underscores only
+		validModelName := regexp.MustCompile(`^[a-z][a-z_]*$`)
+		if !validModelName.MatchString(modelName) {
+			cmd.Println("Error: Invalid model name. Must start with a lowercase letter and contain only lowercase letters and underscores.")
+			cmd.Println("Example: gof model note title:string content:string")
+			return
+		}
+
+		// Reject plural model names to avoid generation issues
+		if pluralizeClient.IsPlural(modelName) {
+			singular := pluralizeClient.Singular(modelName)
+			cmd.Printf("Error: Model name '%s' appears to be plural. Use the singular form instead.\n", modelName)
+			cmd.Printf("Suggestion: gof model %s ...\n", singular)
+			return
+		}
+
 		columnStrings := args[1:]
 
 		var columns []Column
@@ -71,6 +89,23 @@ Example:
 			"bool":   true,
 		}
 
+		// Reserved column names that conflict with auto-generated fields
+		reservedColumns := map[string]bool{
+			"id": true, "user_id": true, "created": true, "updated": true,
+		}
+
+		// Go reserved keywords that would cause compilation errors
+		goKeywords := map[string]bool{
+			"break": true, "case": true, "chan": true, "const": true, "continue": true,
+			"default": true, "defer": true, "else": true, "fallthrough": true, "for": true,
+			"func": true, "go": true, "goto": true, "if": true, "import": true,
+			"interface": true, "map": true, "package": true, "range": true, "return": true,
+			"select": true, "struct": true, "switch": true, "type": true, "var": true,
+		}
+
+		// Column name format: same as model name (lowercase + underscores)
+		validColName := regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+
 		var counter int
 		for _, colStr := range columnStrings {
 			parts := strings.Split(colStr, ":")
@@ -79,22 +114,42 @@ Example:
 				return
 			}
 
+			colName := parts[0]
+
+			// Validate column name format
+			if !validColName.MatchString(colName) {
+				cmd.Printf("Error: Invalid column name '%s'. Must start with a lowercase letter and contain only lowercase letters, numbers, and underscores.\n", colName)
+				return
+			}
+
+			// Check for reserved column names
+			if reservedColumns[colName] {
+				cmd.Printf("Error: Column name '%s' is reserved (auto-generated). Choose a different name.\n", colName)
+				return
+			}
+
+			// Check for Go keywords
+			if goKeywords[colName] {
+				cmd.Printf("Error: Column name '%s' is a Go reserved keyword. Choose a different name.\n", colName)
+				return
+			}
+
 			colType := strings.ToLower(parts[1])
 			if !validTypes[colType] {
-				cmd.Printf("Error: Invalid type '%s' for column '%s'.\n", parts[1], parts[0])
+				cmd.Printf("Error: Invalid type '%s' for column '%s'.\n", parts[1], colName)
 				cmd.Println("Valid types are: string, number, date, bool.")
 				return
 			}
 
 			// Ensure column names are unique
-			if seenNames[parts[0]] {
-				cmd.Printf("Error: Duplicate column name '%s'. Column names must be unique.\n", parts[0])
+			if seenNames[colName] {
+				cmd.Printf("Error: Duplicate column name '%s'. Column names must be unique.\n", colName)
 				return
 			}
-			seenNames[parts[0]] = true
+			seenNames[colName] = true
 
 			columns = append(columns, Column{
-				Name: parts[0],
+				Name: colName,
 				Type: colType,
 			})
 			counter++
@@ -150,24 +205,17 @@ Example:
 			return
 		}
 
-		// Wire new model into core transport server (imports, handler fields, routes)
-		err = wireCoreTransportServer(modelName)
-		if err != nil {
-			cmd.Printf("Error wiring core transport server: %v.\n", err)
-			return
-		}
-
-		// Wire new model into main.go (imports, service init, handler args)
-		err = wireCoreMain(modelName)
-		if err != nil {
-			cmd.Printf("Error wiring core main.go: %v.\n", err)
-			return
-		}
-
 		// Generate ConnectRPC transport layer from skeleton template
 		err = generateTransportLayer(modelName, columns)
 		if err != nil {
 			cmd.Printf("Error generating transport layer: %v.\n", err)
+			return
+		}
+
+		// Wire new model into main.go (imports, deps init, route mounting)
+		err = wireCoreMain(modelName)
+		if err != nil {
+			cmd.Printf("Error wiring core main.go: %v.\n", err)
 			return
 		}
 
@@ -248,10 +296,7 @@ func appendToFile(filePath, content string) error {
 var pluralizeClient = pluralize.NewClient()
 
 func capitalize(s string) string {
-	if len(s) == 0 {
-		return ""
-	}
-	return strings.ToUpper(string(s[0])) + s[1:]
+	return toCamelCase(s)
 }
 
 func toCamelCase(s string) string {
@@ -264,6 +309,7 @@ func toCamelCase(s string) string {
 	return strings.Join(parts, "")
 }
 
+// generateTransportTestContent generates transport test file by copying skeleton and replacing markers
 func generateTransportTestContent(modelName, capitalizedModelName string, columns []Column, pluralLower, pluralCap string) (string, error) {
 	templatePath := "./app/service-core/transport/skeleton/route_test.go"
 	contentBytes, err := os.ReadFile(templatePath)
@@ -271,282 +317,23 @@ func generateTransportTestContent(modelName, capitalizedModelName string, column
 		return "", fmt.Errorf("reading template file %s: %w", templatePath, err)
 	}
 
-	// Helpers similar to service test generation
-	toFieldName := func(col string) string { return toCamelCase(col) }
-	zeroQueryVal := func(colType string) string {
-		switch colType {
-		case "string", "number":
-			return "\"\""
-		case "date":
-			return "time.Time{}"
-		case "bool":
-			return "false"
-		default:
-			return "\"\""
-		}
-	}
-	protoVal := func(colType string, isEdit bool) string {
-		switch colType {
-		case "string":
-			if isEdit {
-				return "\"Updated\""
-			}
-			return "\"Test\""
-		case "number":
-			if isEdit {
-				return "\"200\""
-			}
-			return "\"100\""
-		case "date":
-			return "\"2023-10-01\""
-		case "bool":
-			return "true"
-		default:
-			return "\"\""
-		}
-	}
-	zeroProtoVal := func(colType string) string {
-		switch colType {
-		case "string":
-			return "\"\""
-		case "number":
-			return "\"\""
-		case "date":
-			return "\"\""
-		case "bool":
-			return "false"
-		default:
-			return "\"\""
-		}
-	}
+	content := string(contentBytes)
 
-	buildQueryFieldsWithI := func(zero bool) string {
-		parts := []string{
-			"ID: uuid.New()",
-			"UserID: uuid.New()",
-			"Created: time.Now()",
-			"Updated: time.Now()",
-		}
-		if zero {
-			parts = []string{
-				"ID: uuid.Nil",
-				"UserID: uuid.Nil",
-				"Created: time.Time{}",
-				"Updated: time.Time{}",
-			}
-		}
-		for _, c := range columns {
-			name := toFieldName(c.Name)
-			if zero {
-				parts = append(parts, fmt.Sprintf("%s: %s", name, zeroQueryVal(c.Type)))
-				continue
-			}
-			switch c.Type {
-			case "string":
-				// Generate: <Field>: fmt.Sprintf("Test %d", i)
-				parts = append(parts, fmt.Sprintf("%s: fmt.Sprintf(\"Test %s\", i)", name, "%d"))
-			case "number":
-				// sqlc maps numeric to string; use a quoted literal
-				parts = append(parts, fmt.Sprintf("%s: \"100\"", name))
-			case "date":
-				parts = append(parts, fmt.Sprintf("%s: time.Now()", name))
-			case "bool":
-				parts = append(parts, fmt.Sprintf("%s: i%%2 == 1", name))
-			default:
-				parts = append(parts, fmt.Sprintf("%s: \"\"", name))
-			}
-		}
-		return strings.Join(parts, ",\n")
-	}
+	// Build replacement content for each marker type (reuse helpers from model_test_gen.go)
+	entityFields := buildEntityFields(columns)
+	createFields := buildCreateProtoFields(columns, capitalizedModelName)
+	editFields := buildEditProtoFields(columns)
 
-	buildProtoFields := func(zero bool, useEditID bool) string {
-		parts := []string{}
-		if useEditID {
-			parts = append(parts, "Id: id.String()")
-		} else {
-			parts = append(parts, "Id: \"\"")
-		}
-		parts = append(parts, "Created: \"\"")
-		parts = append(parts, "Updated: \"\"")
-		for _, c := range columns {
-			name := toFieldName(c.Name)
-			if zero {
-				parts = append(parts, fmt.Sprintf("%s: %s", name, zeroProtoVal(c.Type)))
-			} else {
-				parts = append(parts, fmt.Sprintf("%s: %s", name, protoVal(c.Type, useEditID)))
-			}
-		}
-		return strings.Join(parts, ",\n\t\t\t\t")
-	}
+	// Replace marker regions
+	content = replaceMarkerRegion(content, "GF_TP_TEST_ENTITY_FIELDS_START", "GF_TP_TEST_ENTITY_FIELDS_END", entityFields)
+	content = replaceMarkerRegion(content, "GF_TP_TEST_CREATE_FIELDS_START", "GF_TP_TEST_CREATE_FIELDS_END", createFields)
+	content = replaceMarkerRegion(content, "GF_TP_TEST_EDIT_FIELDS_START", "GF_TP_TEST_EDIT_FIELDS_END", editFields)
 
-	lines := strings.Split(string(contentBytes), "\n")
-	var out []string
-	for i := 0; i < len(lines); i++ {
-		line := lines[i]
-		trimmed := strings.TrimSpace(line)
-		switch trimmed {
-		case "// GF_FIXTURES_START":
-			out = append(out, line)
-			indent := strings.Repeat("\t", strings.Count(line, "\t"))
-
-			out = append(out, indent+fmt.Sprintf("func makeQuery%s(i int) query.%s {", capitalizedModelName, capitalizedModelName))
-			out = append(out, indent+"\treturn query."+capitalizedModelName+"{")
-			fields := buildQueryFieldsWithI(false)
-			fields = strings.ReplaceAll(fields, "\n", "\n"+indent+"\t\t")
-			out = append(out, indent+"\t\t"+fields+",")
-			out = append(out, indent+"\t}")
-			out = append(out, indent+"}")
-			out = append(out, "")
-
-			out = append(out, indent+fmt.Sprintf("func makeQuery%sPtr(i int) *query.%s {", capitalizedModelName, capitalizedModelName))
-			out = append(out, indent+"\tv := makeQuery"+capitalizedModelName+"(i)")
-			out = append(out, indent+"\treturn &v")
-			out = append(out, indent+"}")
-			out = append(out, "")
-
-			out = append(out, indent+fmt.Sprintf("func makeCreate%sReq() *proto.Create%sRequest {", capitalizedModelName, capitalizedModelName))
-			out = append(out, indent+"\treturn &proto.Create"+capitalizedModelName+"Request{")
-			out = append(out, indent+"\t\t"+capitalizedModelName+": &proto."+capitalizedModelName+"{")
-			out = append(out, indent+"\t\t\t"+buildProtoFields(false, false)+",")
-			out = append(out, indent+"\t\t},")
-			out = append(out, indent+"\t}")
-			out = append(out, indent+"}")
-			out = append(out, "")
-
-			out = append(out, indent+fmt.Sprintf("func makeEdit%sReq(id uuid.UUID) *proto.Edit%sRequest {", capitalizedModelName, capitalizedModelName))
-			out = append(out, indent+"\treturn &proto.Edit"+capitalizedModelName+"Request{")
-			out = append(out, indent+"\t\t"+capitalizedModelName+": &proto."+capitalizedModelName+"{")
-			out = append(out, indent+"\t\t\t"+buildProtoFields(false, true)+",")
-			out = append(out, indent+"\t\t},")
-			out = append(out, indent+"\t}")
-			out = append(out, indent+"}")
-			out = append(out, "")
-
-			// Minimal request helpers used by tests
-
-			// Nil-skeleton helpers
-			out = append(out, indent+fmt.Sprintf("func makeNilCreate%sReq() *proto.Create%sRequest {", capitalizedModelName, capitalizedModelName))
-			out = append(out, indent+"\treturn &proto.Create"+capitalizedModelName+"Request{ "+capitalizedModelName+": nil }")
-			out = append(out, indent+"}")
-			out = append(out, "")
-			out = append(out, indent+fmt.Sprintf("func makeNilEdit%sReq() *proto.Edit%sRequest {", capitalizedModelName, capitalizedModelName))
-			out = append(out, indent+"\treturn &proto.Edit"+capitalizedModelName+"Request{ "+capitalizedModelName+": nil }")
-			out = append(out, indent+"}")
-
-			// skip existing until END
-			for i+1 < len(lines) && strings.TrimSpace(lines[i+1]) != "// GF_FIXTURES_END" {
-				i++
-			}
-		default:
-			out = append(out, line)
-		}
-	}
-	content := strings.Join(out, "\n")
-	// Replace identifiers
+	// Token replacement
 	content = strings.ReplaceAll(content, "Skeletons", pluralCap)
 	content = strings.ReplaceAll(content, "skeletons", pluralLower)
 	content = strings.ReplaceAll(content, "skeleton", modelName)
 	content = strings.ReplaceAll(content, "Skeleton", capitalizedModelName)
-
-	// Adjust template-local variable names
-	content = strings.ReplaceAll(content, "protoSkel", "proto"+capitalizedModelName)
-
-	// Column-aware test adjustments
-	// Map first occurrence per type for assertions/modifications
-	var firstStr, firstNum, firstTime, firstBool string
-	for _, c := range columns {
-		switch c.Type {
-		case "string":
-			if firstStr == "" {
-				firstStr = toFieldName(c.Name)
-			}
-		case "number":
-			if firstNum == "" {
-				firstNum = toFieldName(c.Name)
-			}
-		case "date":
-			if firstTime == "" {
-				firstTime = toFieldName(c.Name)
-			}
-		case "bool":
-			if firstBool == "" {
-				firstBool = toFieldName(c.Name)
-			}
-		}
-	}
-
-	// Replace Name usages with the first string field
-	if firstStr != "" {
-		content = strings.ReplaceAll(content, ".GetName()", ".Get"+firstStr+"()")
-		content = strings.ReplaceAll(content, ".Name", "."+firstStr)
-	} else {
-		// Remove lines that assert on Name when no string fields exist
-		filtered := []string{}
-		for ln := range strings.SplitSeq(content, "\n") {
-			t := strings.TrimSpace(ln)
-			if strings.Contains(t, ".GetName()") || strings.Contains(t, ".Name") {
-				continue
-			}
-			filtered = append(filtered, ln)
-		}
-		content = strings.Join(filtered, "\n")
-	}
-
-	// Remove or adapt numeric/date/bool asserts that come from skeleton template
-	if firstNum != "" {
-		content = strings.ReplaceAll(content, ".GetAge()", ".Get"+firstNum+"()")
-		content = strings.ReplaceAll(content, ".Age", "."+firstNum)
-	} else {
-		filtered := []string{}
-		for ln := range strings.SplitSeq(content, "\n") {
-			t := strings.TrimSpace(ln)
-			if strings.Contains(t, ".GetAge()") || strings.Contains(t, ".Age") {
-				continue
-			}
-			filtered = append(filtered, ln)
-		}
-		content = strings.Join(filtered, "\n")
-	}
-
-	if firstTime != "" {
-		content = strings.ReplaceAll(content, ".GetDeath()", ".Get"+firstTime+"()")
-		content = strings.ReplaceAll(content, ".Death", "."+firstTime)
-	} else {
-		filtered := []string{}
-		for ln := range strings.SplitSeq(content, "\n") {
-			t := strings.TrimSpace(ln)
-			if strings.Contains(t, ".GetDeath()") || strings.Contains(t, ".Death") {
-				continue
-			}
-			filtered = append(filtered, ln)
-		}
-		content = strings.Join(filtered, "\n")
-		// Also drop the unused local variable `death := ...` from the template
-		filtered2 := []string{}
-		for ln := range strings.SplitSeq(content, "\n") {
-			t := strings.TrimSpace(ln)
-			if strings.HasPrefix(t, "death :=") || strings.HasPrefix(t, "death:=") {
-				continue
-			}
-			filtered2 = append(filtered2, ln)
-		}
-		content = strings.Join(filtered2, "\n")
-	}
-
-	if firstBool != "" {
-		content = strings.ReplaceAll(content, ".GetZombie()", ".Get"+firstBool+"()")
-		content = strings.ReplaceAll(content, ".Zombie", "."+firstBool)
-	} else {
-		filtered := []string{}
-		for ln := range strings.SplitSeq(content, "\n") {
-			t := strings.TrimSpace(ln)
-			if strings.Contains(t, ".GetZombie()") || strings.Contains(t, ".Zombie") {
-				continue
-			}
-			filtered = append(filtered, ln)
-		}
-		content = strings.Join(filtered, "\n")
-	}
 
 	return content, nil
 }
@@ -671,97 +458,7 @@ func generateAuthAccessFlags(modelName string) error {
 
 }
 
-// wireCoreTransportServer injects imports, handler fields, constructor params/assignments,
-// and route registrations for a new model into the core transport server using
-// explicit marker regions. It expects markers to already exist in
-// ./app/service-core/transport/server.go and will append entries if they are not present.
-func wireCoreTransportServer(modelName string) error {
-	path := "./app/service-core/transport/server.go"
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("reading transport server: %w", err)
-	}
-	s := string(b)
-
-	cap := capitalize(modelName)
-	svcAlias := modelName + "Svc"
-	routeAlias := modelName + "Route"
-
-	// Build snippets
-	svcImport := "\t" + svcAlias + " \"gofast/service-core/domain/" + modelName + "\""
-	routeImport := "\t" + routeAlias + " \"gofast/service-core/transport/" + modelName + "\""
-	handlerField := "\t" + modelName + "Service *" + svcAlias + ".Service"
-	param := "\t" + modelName + "Service *" + svcAlias + ".Service,"
-	assign := "\t\t" + modelName + "Service: " + modelName + "Service,"
-	route := strings.Join([]string{
-		"\t" + modelName + "Server := " + routeAlias + ".New" + cap + "Server(h." + modelName + "Service)",
-		"\tpath, handler = v1connect.New" + cap + "ServiceHandler(" + modelName + "Server, interceptors)",
-		"\tmux.Handle(path, withCORS(h.cfg, handler))",
-	}, "\n")
-
-	// Helper: append a line into a region delimited by start/end markers.
-	appendUniqueLine := func(content, startMarker, endMarker, line string) (string, error) {
-		sidx := strings.Index(content, startMarker)
-		eidx := strings.Index(content, endMarker)
-		if sidx == -1 || eidx == -1 || eidx <= sidx {
-			return content, fmt.Errorf("markers %q..%q not found", startMarker, endMarker)
-		}
-		// Find region bounds: after start line to start of end line
-		// Move to end of start line
-		startLineEndRel := strings.Index(content[sidx:], "\n")
-		if startLineEndRel == -1 {
-			return content, fmt.Errorf("cannot locate end of start marker line for %s", startMarker)
-		}
-		regionStart := sidx + startLineEndRel + 1
-		endLineStart := strings.LastIndex(content[:eidx], "\n") + 1
-		region := content[regionStart:endLineStart]
-		// Check if line (trimmed) already present (loose contains)
-		if strings.Contains(region, strings.TrimSpace(line)) {
-			return content, nil
-		}
-		if region != "" && !strings.HasSuffix(region, "\n") {
-			region += "\n"
-		}
-		if !strings.HasSuffix(line, "\n") {
-			line += "\n"
-		}
-		region += line
-		return content[:regionStart] + region + content[endLineStart:], nil
-	}
-
-	var aerr error
-	s, aerr = appendUniqueLine(s, "GF_TP_IMPORT_SERVICES_START", "GF_TP_IMPORT_SERVICES_END", svcImport)
-	if aerr != nil {
-		return fmt.Errorf("adding service import: %w", aerr)
-	}
-	s, aerr = appendUniqueLine(s, "GF_TP_IMPORT_ROUTES_START", "GF_TP_IMPORT_ROUTES_END", routeImport)
-	if aerr != nil {
-		return fmt.Errorf("adding route import: %w", aerr)
-	}
-	s, aerr = appendUniqueLine(s, "GF_TP_HANDLER_FIELDS_START", "GF_TP_HANDLER_FIELDS_END", handlerField)
-	if aerr != nil {
-		return fmt.Errorf("adding handler field: %w", aerr)
-	}
-	s, aerr = appendUniqueLine(s, "GF_TP_HANDLER_PARAMS_START", "GF_TP_HANDLER_PARAMS_END", param)
-	if aerr != nil {
-		return fmt.Errorf("adding handler param: %w", aerr)
-	}
-	s, aerr = appendUniqueLine(s, "GF_TP_HANDLER_ASSIGN_START", "GF_TP_HANDLER_ASSIGN_END", assign)
-	if aerr != nil {
-		return fmt.Errorf("adding handler assignment: %w", aerr)
-	}
-	s, aerr = appendUniqueLine(s, "GF_TP_ROUTES_START", "GF_TP_ROUTES_END", route)
-	if aerr != nil {
-		return fmt.Errorf("adding route registration: %w", aerr)
-	}
-
-	if err := os.WriteFile(path, []byte(s), 0o644); err != nil {
-		return fmt.Errorf("writing transport server: %w", err)
-	}
-	return nil
-}
-
-// wireCoreMain injects imports, service initialization, and handler arguments for
+// wireCoreMain injects imports, deps initialization, and route mounting for
 // a new model into ./app/service-core/main.go using marker regions.
 func wireCoreMain(modelName string) error {
 	path := "./app/service-core/main.go"
@@ -771,10 +468,23 @@ func wireCoreMain(modelName string) error {
 	}
 	s := string(b)
 
+	cap := capitalize(modelName)
 	svcAlias := modelName + "Svc"
-	importLine := "\t" + svcAlias + " \"gofast/service-core/domain/" + modelName + "\""
-	initLine := "\t" + modelName + "Service := " + svcAlias + ".NewService(cfg, store, authService)"
-	argLine := "\t" + modelName + "Service,"
+	routeAlias := modelName + "Route"
+
+	// Import lines
+	svcImportLine := "\t" + svcAlias + " \"gofast/service-core/domain/" + modelName + "\""
+	routeImportLine := "\t" + routeAlias + " \"gofast/service-core/transport/" + modelName + "\""
+
+	// Deps initialization
+	depsInitLine := "\t" + modelName + "Deps := " + svcAlias + ".Deps{Store: store}"
+
+	// Route mounting (3 lines)
+	routeMountLines := strings.Join([]string{
+		"\t" + modelName + "Server := " + routeAlias + ".New" + cap + "Server(" + modelName + "Deps)",
+		"\tpath, handler = v1connect.New" + cap + "ServiceHandler(" + modelName + "Server, server.Interceptors())",
+		"\tserver.Mount(path, handler)",
+	}, "\n")
 
 	// Append unique lines to regions
 	appendUniqueLine := func(content, startMarker, endMarker, line string) (string, error) {
@@ -791,7 +501,7 @@ func wireCoreMain(modelName string) error {
 		regionStart := sidx + startLineEndRel + 1
 		endLineStart := strings.LastIndex(content[:eidx], "\n") + 1
 		region := content[regionStart:endLineStart]
-		if strings.Contains(region, strings.TrimSpace(line)) {
+		if strings.Contains(region, strings.TrimSpace(strings.Split(line, "\n")[0])) {
 			return content, nil
 		}
 		if region != "" && !strings.HasSuffix(region, "\n") {
@@ -805,17 +515,21 @@ func wireCoreMain(modelName string) error {
 	}
 
 	var aerr error
-	s, aerr = appendUniqueLine(s, "GF_MAIN_IMPORT_SERVICES_START", "GF_MAIN_IMPORT_SERVICES_END", importLine)
+	s, aerr = appendUniqueLine(s, "GF_MAIN_IMPORT_SERVICES_START", "GF_MAIN_IMPORT_SERVICES_END", svcImportLine)
 	if aerr != nil {
-		return fmt.Errorf("adding main import: %w", aerr)
+		return fmt.Errorf("adding service import: %w", aerr)
 	}
-	s, aerr = appendUniqueLine(s, "GF_MAIN_INIT_SERVICES_START", "GF_MAIN_INIT_SERVICES_END", initLine)
+	s, aerr = appendUniqueLine(s, "GF_MAIN_IMPORT_ROUTES_START", "GF_MAIN_IMPORT_ROUTES_END", routeImportLine)
 	if aerr != nil {
-		return fmt.Errorf("adding main init service: %w", aerr)
+		return fmt.Errorf("adding route import: %w", aerr)
 	}
-	s, aerr = appendUniqueLine(s, "GF_MAIN_HANDLER_ARGS_START", "GF_MAIN_HANDLER_ARGS_END", argLine)
+	s, aerr = appendUniqueLine(s, "GF_MAIN_INIT_SERVICES_START", "GF_MAIN_INIT_SERVICES_END", depsInitLine)
 	if aerr != nil {
-		return fmt.Errorf("adding main handler arg: %w", aerr)
+		return fmt.Errorf("adding deps init: %w", aerr)
+	}
+	s, aerr = appendUniqueLine(s, "GF_MAIN_MOUNT_ROUTES_START", "GF_MAIN_MOUNT_ROUTES_END", routeMountLines)
+	if aerr != nil {
+		return fmt.Errorf("adding route mount: %w", aerr)
 	}
 
 	if err := os.WriteFile(path, []byte(s), 0o644); err != nil {

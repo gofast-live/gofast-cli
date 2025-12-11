@@ -16,7 +16,11 @@ func generateServiceContent(modelName string, capitalizedModelName string) (stri
 	content := string(contentBytes)
 
 	// Template already follows ConnectRPC and builds params via validation helpers.
-	// We only need to rename occurrences of the model token.
+	// Replace plural forms first, then singular (order matters to avoid partial replacements)
+	pluralLower := pluralizeClient.Plural(modelName)
+	pluralCap := capitalize(pluralLower)
+	content = strings.ReplaceAll(content, "Skeletons", pluralCap)
+	content = strings.ReplaceAll(content, "skeletons", pluralLower)
 	content = strings.ReplaceAll(content, "skeleton", modelName)
 	content = strings.ReplaceAll(content, "Skeleton", capitalizedModelName)
 
@@ -55,7 +59,11 @@ func generateServiceLayer(modelName string, columns []Column) error {
 			if err != nil {
 				return err
 			}
-			newContentStr = strings.ReplaceAll(string(content), "skeleton", modelName)
+			pluralLower := pluralizeClient.Plural(modelName)
+			pluralCap := capitalize(pluralLower)
+			newContentStr = strings.ReplaceAll(string(content), "Skeletons", pluralCap)
+			newContentStr = strings.ReplaceAll(newContentStr, "skeletons", pluralLower)
+			newContentStr = strings.ReplaceAll(newContentStr, "skeleton", modelName)
 			newContentStr = strings.ReplaceAll(newContentStr, "Skeleton", capitalizedModelName)
 		}
 

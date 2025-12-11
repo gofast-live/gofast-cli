@@ -25,8 +25,8 @@ var initCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		dependencies := map[string]string{
 			"buf":    "https://buf.build/docs/cli/installation/",
-			"atlas":  "https://atlasgo.io/getting-started",
 			"sqlc":   "https://docs.sqlc.dev/en/latest/overview/install.html",
+			"goose":  "https://github.com/pressly/goose#install",
 			"docker": "https://docs.docker.com/engine/install/",
 		}
 
@@ -123,7 +123,6 @@ var initCmd = &cobra.Command{
 			"docker compose up postgres -d",
 			"scripts/run_migrations.sh",
 			"docker compose stop",
-			"cp .env.example .env",
 		}
 		messages := []string{
 			"Generating Public/Private keys...",
@@ -132,15 +131,11 @@ var initCmd = &cobra.Command{
 			"Starting PostgreSQL container...",
 			"Applying database migrations...",
 			"Stopping PostgreSQL container...",
-			"Creating .env file...",
 		}
 		for i, script := range scripts {
 			cmd.Printf("%s\n", messages[i])
 			var cmdExec *exec.Cmd
 			if strings.HasPrefix(script, "docker") {
-				parts := strings.Fields(script)
-				cmdExec = exec.Command(parts[0], parts[1:]...)
-			} else if strings.HasPrefix(script, "cp ") {
 				parts := strings.Fields(script)
 				cmdExec = exec.Command(parts[0], parts[1:]...)
 			} else {
@@ -164,7 +159,7 @@ var initCmd = &cobra.Command{
 			"Project %s initialized successfully!\n\nCD into the %s directory and run %s.\n",
 			config.SuccessStyle.Render("'"+projectName+"'"),
 			config.SuccessStyle.Render("'"+projectName+"'"),
-			config.SuccessStyle.Render("'sh start.sh'"),
+			config.SuccessStyle.Render("'make start'"),
 		)
 		cmd.Println("")
 	},
