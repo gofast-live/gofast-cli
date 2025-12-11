@@ -14,7 +14,7 @@ import (
 
 func DownloadRepo(email string, apiKey string, projectName string) error {
 	if os.Getenv("TEST") == "true" {
-		cmd := exec.Command("cp", "-r", "/home/mat/projects/gofast-app", "./"+projectName)
+		cmd := exec.Command("cp", "-r", "/home/mat/projects/gofast-app", projectName)
 		err := cmd.Run()
 		if err != nil {
 			return fmt.Errorf("error copying test app: %w", err)

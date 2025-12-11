@@ -93,6 +93,49 @@ Adds infrastructure/deployment files:
 - Updates `start.sh` to include infrastructure services
 - Marks project as `infraPopulated: true` in config
 
+### `gof add stripe` (TODO)
+Adds Stripe payment integration to the project:
+- Copies `domain/payment/` service layer
+- Copies `transport/payment/` transport layer
+- Adds `subscriptions` migration (renumbered to next available)
+- Adds payment proto definitions to `main.proto`
+- Wires payment into `main.go` (imports, deps, routes, webhook)
+
+**Files involved:**
+- `app/service-core/domain/payment/service.go` - Stripe checkout, portal, webhook handling
+- `app/service-core/transport/payment/route.go` - ConnectRPC handlers + webhook endpoint
+- `storage/migrations/00003_create_subscriptions.sql` - Subscriptions table
+- `proto/v1/main.proto` - PaymentService definition
+
+**Wiring in main.go:**
+```go
+// Imports
+"gofast/service-core/domain/payment"
+paymentRoute "gofast/service-core/transport/payment"
+
+// Deps initialization
+paymentDeps := payment.Deps{Cfg: cfg, Store: store}
+
+// Route mounting
+paymentServer := paymentRoute.NewPaymentServer(paymentDeps)
+path, handler = v1connect.NewPaymentServiceHandler(paymentServer, server.Interceptors())
+server.Mount(path, handler)
+server.MountFunc("/payments-webhook", paymentServer.Webhook)
+```
+
+**Note:** `gof init` should NOT include stripe by default - it needs to be added explicitly via `gof add stripe`.
+
+**Important dependency:** The login service (`domain/login/service.go`) checks subscription status via `CheckUserAccess()`:
+- Queries `subscriptions` table via `SelectActiveSubscription()`
+- Uses `StripePriceIDBasic` / `StripePriceIDPro` from config
+- Sets `BasicPlan` / `ProPlan` access bits
+
+**Solution:** Use a simplified `CheckUserAccess()` function:
+- **Without stripe:** Returns `false, user.Access, nil` (no subscription check)
+- **With stripe:** Full version that queries `SelectActiveSubscription()` and sets plan bits
+
+`gof init` strips the full version and replaces with simplified. `gof add stripe` replaces simplified with full version.
+
 ## How Code Generation Works
 
 ### Skeleton-Based Generation

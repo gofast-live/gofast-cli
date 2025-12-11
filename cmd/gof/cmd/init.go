@@ -10,6 +10,7 @@ import (
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/stripe"
 	"github.com/spf13/cobra"
 )
 
@@ -94,6 +95,11 @@ var initCmd = &cobra.Command{
 		}
 		if err := os.Remove(filepath.Join(projectName, "docker-compose.client.yml")); err != nil && !os.IsNotExist(err) {
 			cmd.Printf("Warning: could not remove client docker compose file: %v\n", err)
+		}
+		// Strip stripe/payment - user can add it back with 'gof add stripe'
+		if err := stripe.Strip(projectName); err != nil {
+			cmd.Printf("Error stripping stripe: %v\n", err)
+			return
 		}
 		dcPath := filepath.Join(projectName, "docker-compose.yml")
 		dcContent, err := os.ReadFile(dcPath)
