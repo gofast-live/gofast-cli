@@ -346,6 +346,22 @@ The reference app (`gofast-app`) has undergone a **major rewrite** - simplified 
 | Svelte pages | `svelte/svelte.go` |
 | Config management | `config/config.go` |
 
+## Gotchas
+
+**Proto → TypeScript field naming:**
+- Proto uses snake_case: `published_at`
+- Generated TypeScript uses camelCase: `publishedAt`
+- Svelte generation uses `toCamelCase()` for proto field access
+
+**Use config checks, not file existence:**
+- Use `config.IsSvelte()` not `os.Stat("app/service-client")`
+- Use `config.HasIntegration("stripe")` to check integrations
+- Config is the source of truth for what's enabled
+
+**Migration numbering:**
+- Always calculate next number dynamically from existing migrations
+- Never copy migrations with hardcoded numbers
+
 ## Dependencies
 
 - **Cobra:** CLI framework

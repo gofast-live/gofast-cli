@@ -36,10 +36,11 @@ type Model struct {
 }
 
 type Config struct {
-	ProjectName     string    `json:"project_name"`
-	Services        []Service `json:"services"`
-	Models          []Model   `json:"models"`
-	InfraPopulated  bool      `json:"infra_populated"`
+	ProjectName    string    `json:"project_name"`
+	Services       []Service `json:"services"`
+	Models         []Model   `json:"models"`
+	Integrations   []string  `json:"integrations"`
+	InfraPopulated bool      `json:"infra_populated"`
 }
 
 type Service struct {
@@ -106,6 +107,7 @@ func Initialize(projectName string) error {
 				},
 			},
 		},
+		Integrations: []string{},
 	}
 
 	data, err := json.MarshalIndent(cfg, "", "  ")
@@ -140,6 +142,42 @@ func MarkInfraPopulated() error {
 	}
 
 	cfg.InfraPopulated = true
+
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(ConfigFileName, data, 0644)
+}
+
+func HasIntegration(name string) bool {
+	cfg, err := ParseConfig()
+	if err != nil {
+		return false
+	}
+	for _, i := range cfg.Integrations {
+		if i == name {
+			return true
+		}
+	}
+	return false
+}
+
+func AddIntegration(name string) error {
+	cfg, err := ParseConfig()
+	if err != nil {
+		return err
+	}
+
+	// Check if already added
+	for _, i := range cfg.Integrations {
+		if i == name {
+			return nil
+		}
+	}
+
+	cfg.Integrations = append(cfg.Integrations, name)
 
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {

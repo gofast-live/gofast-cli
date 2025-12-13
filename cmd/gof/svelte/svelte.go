@@ -24,6 +24,24 @@ func capitalize(s string) string {
 	return strings.ToUpper(string(s[0])) + s[1:]
 }
 
+// toCamelCase converts snake_case to camelCase (e.g., "published_at" -> "publishedAt")
+// This is needed because protobuf-generated TypeScript uses camelCase field names.
+func toCamelCase(s string) string {
+	parts := strings.Split(s, "_")
+	if len(parts) == 1 {
+		return s
+	}
+	var b strings.Builder
+	b.WriteString(parts[0])
+	for _, p := range parts[1:] {
+		if p == "" {
+			continue
+		}
+		b.WriteString(strings.ToUpper(p[:1]) + p[1:])
+	}
+	return b.String()
+}
+
 func GenerateSvelteScaffolding(modelName string, columns []Column) error {
 	if err := addModelToNavigation(modelName); err != nil {
 		return fmt.Errorf("adding model to navigation: %w", err)
@@ -214,9 +232,10 @@ func generateClientListPage(modelName string, columns []Column) error {
 	headers := h.String()
 
 	// Build cells: per model columns + Created/Updated
+	// Use camelCase for proto field access (protobuf-generated TS uses camelCase)
 	var b strings.Builder
 	for _, c := range columns {
-		field := c.Name
+		field := toCamelCase(c.Name)
 		switch c.Type {
 		case "date":
 			b.WriteString("                        <td>{new Date(" + modelName + "." + field + ").toLocaleDateString()}</td>\n")
@@ -316,41 +335,48 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 
 	// Build replacement snippets
 	// 1) Empty model defaults inside empty<Model>
+	// Use camelCase for proto field names
 	var emptyB strings.Builder
 	emptyIndent := "        "
 	emptyB.WriteString(emptyIndent + "created: \"\",\n")
 	emptyB.WriteString(emptyIndent + "updated: \"\",\n")
 	emptyB.WriteString(emptyIndent + "id: \"\",\n")
 	for _, c := range columns {
+		camelName := toCamelCase(c.Name)
 		switch c.Type {
 		case "bool":
-			emptyB.WriteString(emptyIndent + c.Name + ": false,\n")
+			emptyB.WriteString(emptyIndent + camelName + ": false,\n")
 		default:
-			emptyB.WriteString(emptyIndent + c.Name + ": \"\",\n")
+			emptyB.WriteString(emptyIndent + camelName + ": \"\",\n")
 		}
 	}
 	emptySnippet := strings.TrimRight(emptyB.String(), "\n")
 
 	// 2) FormData extraction
+	// Use camelCase for variable names (to match proto fields), but snake_case for form field names
 	var fdB strings.Builder
 	fdIndent := "        "
 	for _, c := range columns {
+		camelName := toCamelCase(c.Name)
 		if c.Type == "bool" {
-			fdB.WriteString(fdIndent + "const " + c.Name + " = formData.get(\"" + c.Name + "\") === \"on\";\n")
+			fdB.WriteString(fdIndent + "const " + camelName + " = formData.get(\"" + c.Name + "\") === \"on\";\n")
 		} else {
-			fdB.WriteString(fdIndent + "const " + c.Name + " = formData.get(\"" + c.Name + "\")?.toString() ?? \"\";\n")
+			fdB.WriteString(fdIndent + "const " + camelName + " = formData.get(\"" + c.Name + "\")?.toString() ?? \"\";\n")
 		}
 	}
 	formDataSnippet := strings.TrimRight(fdB.String(), "\n")
 
 	// 3) Request payload fields for create/edit
+	// Use camelCase for proto field names
 	var reqB strings.Builder
 	for _, c := range columns {
-		reqB.WriteString("                        " + c.Name + ",\n")
+		camelName := toCamelCase(c.Name)
+		reqB.WriteString("                        " + camelName + ",\n")
 	}
 	payloadFields := strings.TrimRight(reqB.String(), "\n")
 
 	// 4) Form input fields markup
+	// Use snake_case for HTML id/name attributes, camelCase for proto field access
 	toTitle := func(name string) string {
 		parts := strings.Split(name, "_")
 		for i := range parts {
@@ -364,6 +390,7 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 	var uiB strings.Builder
 	for _, c := range columns {
 		label := toTitle(c.Name)
+		camelName := toCamelCase(c.Name)
 		switch c.Type {
 		case "string":
 			uiB.WriteString("        <label class=\"label\" for=\"" + c.Name + "\">" + label + "</label>\n")
@@ -374,7 +401,7 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 			uiB.WriteString("                name=\"" + c.Name + "\"\n")
 			uiB.WriteString("                required\n")
 			uiB.WriteString("                class=\"input input-bordered validator w-full\"\n")
-			uiB.WriteString("                value={" + modelName + "." + c.Name + "}\n")
+			uiB.WriteString("                value={" + modelName + "." + camelName + "}\n")
 			uiB.WriteString("            />\n")
 			uiB.WriteString("            <div class=\"validator-hint\">Enter at least 3 characters</div>\n")
 			uiB.WriteString("        </div>\n\n")
@@ -387,7 +414,7 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 			uiB.WriteString("                name=\"" + c.Name + "\"\n")
 			uiB.WriteString("                required\n")
 			uiB.WriteString("                class=\"input input-bordered validator w-full\"\n")
-			uiB.WriteString("                value={" + modelName + "." + c.Name + "}\n")
+			uiB.WriteString("                value={" + modelName + "." + camelName + "}\n")
 			uiB.WriteString("            />\n")
 			uiB.WriteString("            <div class=\"validator-hint\">Enter a positive number</div>\n")
 			uiB.WriteString("        </div>\n\n")
@@ -400,7 +427,7 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 			uiB.WriteString("                required\n")
 			uiB.WriteString("                name=\"" + c.Name + "\"\n")
 			uiB.WriteString("                class=\"input input-bordered validator w-full\"\n")
-			uiB.WriteString("                value={formatDate(" + modelName + "." + c.Name + ")}\n")
+			uiB.WriteString("                value={formatDate(" + modelName + "." + camelName + ")}\n")
 			uiB.WriteString("            />\n")
 			uiB.WriteString("            <div class=\"validator-hint\">Select a valid date</div>\n")
 			uiB.WriteString("        </div>\n\n")
@@ -412,7 +439,7 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 			uiB.WriteString("                name=\"" + c.Name + "\"\n")
 			uiB.WriteString("                type=\"checkbox\"\n")
 			uiB.WriteString("                class=\"toggle\"\n")
-			uiB.WriteString("                checked={" + modelName + "." + c.Name + "}\n")
+			uiB.WriteString("                checked={" + modelName + "." + camelName + "}\n")
 			uiB.WriteString("            />\n")
 			uiB.WriteString("        </label>\n\n")
 		}

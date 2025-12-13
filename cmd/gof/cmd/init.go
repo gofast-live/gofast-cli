@@ -125,7 +125,7 @@ var initCmd = &cobra.Command{
 		scripts := []string{
 			"scripts/run_keys.sh",
 			"scripts/run_queries.sh",
-			"scripts/run_grpc.sh",
+			"scripts/run_proto.sh",
 			"docker compose up postgres -d",
 			"scripts/run_migrations.sh",
 			"docker compose stop",
@@ -133,7 +133,7 @@ var initCmd = &cobra.Command{
 		messages := []string{
 			"Generating Public/Private keys...",
 			"Generating SQL queries...",
-			"Generating gRPC code...",
+			"Generating proto code...",
 			"Starting PostgreSQL container...",
 			"Applying database migrations...",
 			"Stopping PostgreSQL container...",
@@ -159,6 +159,13 @@ var initCmd = &cobra.Command{
 				cmd.Printf("Error running script '%s': %v\nOutput: %s\n", script, err, output)
 				return
 			}
+		}
+
+		// Format Go code
+		gofmtCmd := exec.Command("go", "fmt", "./...")
+		gofmtCmd.Dir = filepath.Join(projectName, "app", "service-core")
+		if output, err := gofmtCmd.CombinedOutput(); err != nil {
+			cmd.Printf("Warning: go fmt failed: %v\nOutput: %s\n", err, output)
 		}
 
 		cmd.Printf(

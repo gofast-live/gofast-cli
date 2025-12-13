@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
 )
 
@@ -88,7 +89,7 @@ func StripIntegration(projectPath string, integration string) error {
 		}
 
 		ext := filepath.Ext(path)
-		if ext != ".go" && ext != ".proto" && ext != ".sql" {
+		if ext != ".go" && ext != ".sql" {
 			return nil
 		}
 
@@ -151,6 +152,102 @@ func removeMarkerBlocks(content, startMarker, endMarker string) string {
 	return content
 }
 
+// StripClient removes Stripe-related content from the Svelte client.
+// Called by 'gof client svelte' command after copying the client folder.
+func StripClient(clientPath string) error {
+	// 1. Remove payments route folder
+	paymentsPath := filepath.Join(clientPath, "src", "routes", "(app)", "payments")
+	if err := os.RemoveAll(paymentsPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("removing payments folder: %w", err)
+	}
+
+	// 2. Strip Payments nav entry and Coins import from layout
+	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
+	content, err := os.ReadFile(layoutPath)
+	if err != nil {
+		return fmt.Errorf("reading layout: %w", err)
+	}
+
+	s := string(content)
+
+	// Remove Coins from import
+	s = strings.Replace(s, ", Coins", "", 1)
+
+	// Remove Payments nav entry (handle both single and double quotes, with or without trailing comma)
+	s = regexp.MustCompile(`(?s)\s*\{\s*name:\s*['"]Payments['"],\s*href:\s*['"][^'"]+['"],\s*icon:\s*Coins,?\s*\},?`).ReplaceAllString(s, "")
+
+	// Remove Stripe success handling (the force refresh check)
+	s = regexp.MustCompile(`(?s)\s*const force = page\.url\.searchParams\.get\("success"\) === "true";\s*if \(force\) \{\s*// Wait for Stripe webhook to process\s*await new Promise\(\(r\) => setTimeout\(r, 2000\)\);\s*\}`).ReplaceAllString(s, "")
+
+	// Replace { force } with {} in refresh call
+	s = strings.Replace(s, "const response = await login_client.refresh({ force });", "const response = await login_client.refresh({});", 1)
+
+	if err := os.WriteFile(layoutPath, []byte(s), 0644); err != nil {
+		return fmt.Errorf("writing layout: %w", err)
+	}
+
+	return nil
+}
+
+// AddClient adds Stripe-related content to an existing Svelte client.
+// Called by 'gof add stripe' when client already exists.
+func AddClient(tmpProject, clientPath string) error {
+	// 1. Copy payments route folder
+	srcPayments := filepath.Join(tmpProject, "app", "service-client", "src", "routes", "(app)", "payments")
+	dstPayments := filepath.Join(clientPath, "src", "routes", "(app)", "payments")
+	if err := copyDir(srcPayments, dstPayments); err != nil {
+		return fmt.Errorf("copying payments folder: %w", err)
+	}
+
+	// 2. Add Payments nav entry and Coins import to layout
+	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
+	content, err := os.ReadFile(layoutPath)
+	if err != nil {
+		return fmt.Errorf("reading layout: %w", err)
+	}
+
+	s := string(content)
+
+	// Add Coins to import (after last icon import)
+	if !strings.Contains(s, "Coins") {
+		s = regexp.MustCompile(`(from "@lucide[^"]*";)`).ReplaceAllString(s, `from "@lucide/svelte";
+    import { Coins } from "@lucide/svelte";`)
+		// Cleaner approach: just add to existing import
+		s = strings.Replace(s, `} from "@lucide/svelte";
+    import { Coins } from "@lucide/svelte";`, `, Coins } from "@lucide/svelte";`, 1)
+	}
+
+	// Add Payments nav entry (before the closing bracket of nav array)
+	if !strings.Contains(s, `href: "/payments"`) {
+		s = regexp.MustCompile(`(\s*)(];)\s*\n(\s*function isActive)`).ReplaceAllString(s, `$1{
+$1    name: "Payments",
+$1    href: "/payments",
+$1    icon: Coins,
+$1},
+$1$2
+$3`)
+	}
+
+	// Add Stripe success handling
+	if !strings.Contains(s, `page.url.searchParams.get("success")`) {
+		s = strings.Replace(s,
+			`const response = await login_client.refresh({});`,
+			`const force = page.url.searchParams.get("success") === "true";
+            if (force) {
+                // Wait for Stripe webhook to process
+                await new Promise((r) => setTimeout(r, 2000));
+            }
+            const response = await login_client.refresh({ force });`,
+			1)
+	}
+
+	if err := os.WriteFile(layoutPath, []byte(s), 0644); err != nil {
+		return fmt.Errorf("writing layout: %w", err)
+	}
+
+	return nil
+}
+
 // Add adds Stripe payment integration to an existing project.
 // Called by 'gof add stripe' command.
 func Add(email, apiKey string) error {
@@ -190,6 +287,14 @@ func Add(email, apiKey string) error {
 		return fmt.Errorf("copying files with stripe markers: %w", err)
 	}
 
+	// 6. Add client-side Stripe content if Svelte client is configured
+	if config.IsSvelte() {
+		clientPath := filepath.Join("app", "service-client")
+		if err := AddClient(tmpProject, clientPath); err != nil {
+			return fmt.Errorf("adding stripe to client: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -198,17 +303,7 @@ func Add(email, apiKey string) error {
 func copyFilesWithMarkers(srcProject, dstProject, keepIntegration string) error {
 	// Walk service-core directory
 	srcServiceCore := filepath.Join(srcProject, "app", "service-core")
-	if err := copyMarkedFiles(srcServiceCore, filepath.Join(dstProject, "app", "service-core"), keepIntegration); err != nil {
-		return err
-	}
-
-	// Walk proto directory
-	srcProto := filepath.Join(srcProject, "proto")
-	if err := copyMarkedFiles(srcProto, filepath.Join(dstProject, "proto"), keepIntegration); err != nil {
-		return err
-	}
-
-	return nil
+	return copyMarkedFiles(srcServiceCore, filepath.Join(dstProject, "app", "service-core"), keepIntegration)
 }
 
 // copyMarkedFiles walks srcDir and copies files with markers to dstDir
@@ -221,8 +316,13 @@ func copyMarkedFiles(srcDir, dstDir, keepIntegration string) error {
 			return nil
 		}
 
+		// Skip migrations directory - migrations are handled separately with proper numbering
+		if strings.Contains(srcPath, "migrations") {
+			return nil
+		}
+
 		ext := filepath.Ext(srcPath)
-		if ext != ".go" && ext != ".proto" && ext != ".sql" {
+		if ext != ".go" && ext != ".sql" {
 			return nil
 		}
 
@@ -243,17 +343,89 @@ func copyMarkedFiles(srcDir, dstDir, keepIntegration string) error {
 		}
 		dstPath := filepath.Join(dstDir, relPath)
 
-		// Strip other integrations' markers (not the one we're adding)
-		s := string(content)
-		s = stripOtherIntegrations(s, keepIntegration)
-
 		// Ensure directory exists
 		if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
 			return err
 		}
 
+		// For query.sql, append only the marker block instead of overwriting
+		// This preserves any model queries that were added via 'gof model'
+		if filepath.Base(dstPath) == "query.sql" {
+			return appendMarkerBlock(srcPath, dstPath, keepIntegration)
+		}
+
+		// Strip other integrations' markers (not the one we're adding)
+		s := string(content)
+		s = stripOtherIntegrations(s, keepIntegration)
+
 		return os.WriteFile(dstPath, []byte(s), 0644)
 	})
+}
+
+// appendMarkerBlock extracts the marker block from src and appends it to dst
+func appendMarkerBlock(srcPath, dstPath, integration string) error {
+	srcContent, err := os.ReadFile(srcPath)
+	if err != nil {
+		return err
+	}
+
+	// Determine marker style based on file extension
+	var startMarker, endMarker string
+	if filepath.Ext(srcPath) == ".sql" {
+		startMarker = fmt.Sprintf("-- GF_%s_START", integration)
+		endMarker = fmt.Sprintf("-- GF_%s_END", integration)
+	} else {
+		startMarker = fmt.Sprintf("// GF_%s_START", integration)
+		endMarker = fmt.Sprintf("// GF_%s_END", integration)
+	}
+
+	s := string(srcContent)
+	startIdx := strings.Index(s, startMarker)
+	if startIdx == -1 {
+		return nil // No marker block to append
+	}
+
+	// Find start of line containing start marker
+	lineStart := strings.LastIndex(s[:startIdx], "\n")
+	if lineStart == -1 {
+		lineStart = 0
+	} else {
+		lineStart++ // Move past the newline
+	}
+
+	// Find end marker
+	endIdx := strings.Index(s[startIdx:], endMarker)
+	if endIdx == -1 {
+		return nil // Malformed markers
+	}
+	endIdx = startIdx + endIdx + len(endMarker)
+
+	// Include the newline after end marker if present
+	if endIdx < len(s) && s[endIdx] == '\n' {
+		endIdx++
+	}
+
+	markerBlock := s[lineStart:endIdx]
+
+	// Read existing destination file
+	dstContent, err := os.ReadFile(dstPath)
+	if err != nil {
+		return err
+	}
+
+	// Check if marker block already exists
+	if strings.Contains(string(dstContent), startMarker) {
+		return nil // Already has this integration
+	}
+
+	// Append the marker block
+	result := string(dstContent)
+	if !strings.HasSuffix(result, "\n") {
+		result += "\n"
+	}
+	result += markerBlock
+
+	return os.WriteFile(dstPath, []byte(result), 0644)
 }
 
 // stripOtherIntegrations removes marker blocks for all integrations except the specified one

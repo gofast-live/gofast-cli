@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/stripe"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/svelte"
 	"github.com/spf13/cobra"
 )
@@ -159,6 +159,14 @@ var clientCmd = &cobra.Command{
 			}
 		}
 
+		// Strip Stripe-related content from client if stripe integration is not enabled
+		if !config.HasIntegration("stripe") {
+			if err := stripe.StripClient(dstClientPath); err != nil {
+				cmd.Printf("Error stripping stripe from client: %v\n", err)
+				return
+			}
+		}
+
 		// Change back to the original directory before generating svelte files.
 		if err := os.Chdir(cwd); err != nil {
 			cmd.Printf("Error changing back to original directory: %v\n", err)
@@ -188,15 +196,13 @@ var clientCmd = &cobra.Command{
 			}
 		}
 
-		cmd.Printf("Generating gRPC code...\n")
-		bufCmd := exec.Command("sh", "scripts/run_grpc.sh")
-		bufOut, err := bufCmd.CombinedOutput()
-		if err != nil {
-			cmd.Printf("Error running buf generation: %v\nOutput: %s\n", err, string(bufOut))
-			return
-		}
 		cmd.Printf("Setup complete at %s.\n",
 			config.SuccessStyle.Render("'app/service-client'"),
+		)
+
+		cmd.Println("")
+		cmd.Printf("Regenerate proto code with %s.\n",
+			config.SuccessStyle.Render("'sh scripts/run_proto.sh'"),
 		)
 		cmd.Println("")
 		cmd.Printf("Run %s to launch your app with your new client service.\n",

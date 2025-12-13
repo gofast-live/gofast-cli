@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os/exec"
+
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/stripe"
@@ -31,7 +33,7 @@ This command adds:
 - Full subscription-based access control in login service
 
 After running this command:
-1. Run 'scripts/run_grpc.sh' to regenerate gRPC code
+1. Run 'scripts/run_proto.sh' to regenerate proto code
 2. Run 'scripts/run_queries.sh' to regenerate SQL queries
 3. Run 'scripts/run_migrations.sh' to create the subscriptions table
 4. Configure Stripe environment variables in your .env file
@@ -49,6 +51,7 @@ After running this command:
 			return
 		}
 
+		cmd.Println("")
 		cmd.Println("Adding Stripe payment integration...")
 
 		if err := stripe.Add(email, apiKey); err != nil {
@@ -56,11 +59,23 @@ After running this command:
 			return
 		}
 
+		// Format Go code
+		gofmtCmd := exec.Command("go", "fmt", "./...")
+		gofmtCmd.Dir = "app/service-core"
+		if output, err := gofmtCmd.CombinedOutput(); err != nil {
+			cmd.Printf("Warning: go fmt failed: %v\nOutput: %s\n", err, output)
+		}
+
+		if err := config.AddIntegration("stripe"); err != nil {
+			cmd.Printf("Error updating config: %v\n", err)
+			return
+		}
+
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Stripe integration added successfully!"))
 		cmd.Println("")
 		cmd.Println("Next steps:")
-		cmd.Println("  1. Run 'scripts/run_grpc.sh' to regenerate gRPC code")
+		cmd.Println("  1. Run 'scripts/run_proto.sh' to regenerate proto code")
 		cmd.Println("  2. Run 'scripts/run_queries.sh' to regenerate SQL queries")
 		cmd.Println("  3. Run 'scripts/run_migrations.sh' to apply migrations")
 		cmd.Println("  4. Add Stripe environment variables to your .env file:")
@@ -68,5 +83,6 @@ After running this command:
 		cmd.Println("     - STRIPE_WEBHOOK_SECRET")
 		cmd.Println("     - STRIPE_PRICE_ID_BASIC")
 		cmd.Println("     - STRIPE_PRICE_ID_PRO")
+		cmd.Println("")
 	},
 }

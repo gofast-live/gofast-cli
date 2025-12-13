@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 
@@ -234,21 +233,6 @@ Example:
 			}
 		}
 
-		cmdExec := exec.Command("sh", "scripts/run_queries.sh")
-		output, err := cmdExec.CombinedOutput()
-		if err != nil {
-			cmd.Printf("Error running scripts/run_queries.sh: %v\nOutput: %s\n", err, output)
-			return
-		}
-
-		gofmtCmd := exec.Command("go", "fmt", "./...")
-		gofmtCmd.Dir = "app"
-		gofmtOutput, err := gofmtCmd.CombinedOutput()
-		if err != nil {
-			cmd.Printf("Error running go fmt in ./app: %v\nOutput: %s\n", err, gofmtOutput)
-			return
-		}
-
 		cmd.Println("")
 		cmd.Print("Model created successfully!\n")
 		cmd.Println("")
@@ -264,13 +248,17 @@ Example:
 		cmd.Printf("Service layer generated in: %s\n", config.SuccessStyle.Render("app/service-core/domain/"+modelName))
 		cmd.Printf("Transport layer generated in: %s\n", config.SuccessStyle.Render("app/service-core/transport/"+modelName))
 		if config.IsSvelte() {
-			cmd.Printf("Client pages generated in: %s\n", config.SuccessStyle.Render("app/client/src/pages/"+pluralizeClient.Plural(modelName)))
+			cmd.Printf("Client pages generated in: %s\n", config.SuccessStyle.Render("app/service-client/src/routes/(app)/models/"+pluralizeClient.Plural(modelName)))
 		}
 
-		cmd.Printf("\nDon't forget to run %s to apply migrations.\n", config.SuccessStyle.Render("scripts/run_migrations.sh"))
+		cmd.Println("")
+		cmd.Println("Next steps:")
+		cmd.Printf("  1. Run %s to regenerate SQL queries\n", config.SuccessStyle.Render("scripts/run_queries.sh"))
+		cmd.Printf("  2. Run %s to regenerate proto code\n", config.SuccessStyle.Render("scripts/run_proto.sh"))
+		cmd.Printf("  3. Run %s to apply migrations\n", config.SuccessStyle.Render("scripts/run_migrations.sh"))
 
 		cmd.Printf("\nIf you already created a user, remember to update permissions for the new model (check %s).\n", config.SuccessStyle.Render("pkg/auth/auth.go"))
-		cmd.Printf("\nYou can also run %s to update all users with admin permissions.\n\n", config.SuccessStyle.Render("scripts/update_permissions.sh"))
+		cmd.Printf("You can also run %s to update all users with admin permissions.\n\n", config.SuccessStyle.Render("scripts/update_permissions.sh"))
 	},
 }
 
