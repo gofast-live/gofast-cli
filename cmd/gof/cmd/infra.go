@@ -17,7 +17,7 @@ func init() {
 
 var infraCmd = &cobra.Command{
 	Use:   "infra",
-	Short: "Add infrastructure files (otel compose and infra folder)",
+	Short: "Add infrastructure files (monitoring compose and infra folder)",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		email, apiKey, err := auth.CheckAuthentication()
@@ -63,28 +63,28 @@ var infraCmd = &cobra.Command{
 
 		srcRoot := filepath.Join(tmpDir, srcRepoName)
 
-		projOtelCompose := filepath.Join(cwd, "docker-compose.otel.yml")
-		srcOtelCompose := filepath.Join(srcRoot, "docker-compose.otel.yml")
-		if _, err := os.Stat(projOtelCompose); err == nil {
-			cmd.Printf("File '%s' already exists. Skipping copy.\n", projOtelCompose)
+		projMonitoringCompose := filepath.Join(cwd, "docker-compose.monitoring.yml")
+		srcMonitoringCompose := filepath.Join(srcRoot, "docker-compose.monitoring.yml")
+		if _, err := os.Stat(projMonitoringCompose); err == nil {
+			cmd.Printf("File '%s' already exists. Skipping copy.\n", projMonitoringCompose)
 		} else {
-			if err := copyFile(srcOtelCompose, projOtelCompose); err != nil {
-				cmd.Printf("Error copying %s: %v\n", projOtelCompose, err)
+			if err := copyFile(srcMonitoringCompose, projMonitoringCompose); err != nil {
+				cmd.Printf("Error copying %s: %v\n", projMonitoringCompose, err)
 				return
 			}
-			composeContent, err := os.ReadFile(projOtelCompose)
+			composeContent, err := os.ReadFile(projMonitoringCompose)
 			if err != nil {
-				cmd.Printf("Error reading %s: %v\n", projOtelCompose, err)
+				cmd.Printf("Error reading %s: %v\n", projMonitoringCompose, err)
 				return
 			}
 			newComposeContent := strings.ReplaceAll(string(composeContent), "gofast", con.ProjectName)
-			info, err := os.Stat(projOtelCompose)
+			info, err := os.Stat(projMonitoringCompose)
 			if err != nil {
-				cmd.Printf("Error getting file info for %s: %v\n", projOtelCompose, err)
+				cmd.Printf("Error getting file info for %s: %v\n", projMonitoringCompose, err)
 				return
 			}
-			if err := os.WriteFile(projOtelCompose, []byte(newComposeContent), info.Mode()); err != nil {
-				cmd.Printf("Error updating %s: %v\n", projOtelCompose, err)
+			if err := os.WriteFile(projMonitoringCompose, []byte(newComposeContent), info.Mode()); err != nil {
+				cmd.Printf("Error updating %s: %v\n", projMonitoringCompose, err)
 				return
 			}
 		}
@@ -98,53 +98,17 @@ var infraCmd = &cobra.Command{
 			return
 		}
 
-		srcOtelDir := filepath.Join(srcRoot, "otel")
-		dstOtelDir := filepath.Join(cwd, "otel")
-		if _, err := os.Stat(srcOtelDir); err == nil {
-			if _, err := os.Stat(dstOtelDir); err == nil {
-				cmd.Printf("Directory '%s' already exists. Skipping copy.\n", dstOtelDir)
-			} else if err := copyDir(srcOtelDir, dstOtelDir); err != nil {
-				cmd.Printf("Error copying otel directory: %v\n", err)
+		srcMonitoringDir := filepath.Join(srcRoot, "monitoring")
+		dstMonitoringDir := filepath.Join(cwd, "monitoring")
+		if _, err := os.Stat(srcMonitoringDir); err == nil {
+			if _, err := os.Stat(dstMonitoringDir); err == nil {
+				cmd.Printf("Directory '%s' already exists. Skipping copy.\n", dstMonitoringDir)
+			} else if err := copyDir(srcMonitoringDir, dstMonitoringDir); err != nil {
+				cmd.Printf("Error copying monitoring directory: %v\n", err)
 				return
 			}
 		} else {
-			cmd.Printf("Warning: otel directory not found in template, skipping copy.\n")
-		}
-
-		startScriptPath := filepath.Join(cwd, "start.sh")
-		startInfo, err := os.Stat(startScriptPath)
-		if err != nil {
-			cmd.Printf("Error locating %s: %v\n", startScriptPath, err)
-			return
-		}
-		startContent, err := os.ReadFile(startScriptPath)
-		if err != nil {
-			cmd.Printf("Error reading %s: %v\n", startScriptPath, err)
-			return
-		}
-		if !strings.Contains(string(startContent), "-f docker-compose.otel.yml") {
-			lines := strings.Split(string(startContent), "\n")
-			updated := false
-			for i, line := range lines {
-				if strings.Contains(line, "docker compose") && strings.Contains(line, " up") {
-					upIdx := strings.LastIndex(line, " up")
-					if upIdx == -1 {
-						lines[i] = line + " -f docker-compose.otel.yml"
-					} else {
-						lines[i] = line[:upIdx] + " -f docker-compose.otel.yml" + line[upIdx:]
-					}
-					updated = true
-					break
-				}
-			}
-			if updated {
-				if err := os.WriteFile(startScriptPath, []byte(strings.Join(lines, "\n")), startInfo.Mode()); err != nil {
-					cmd.Printf("Error updating %s: %v\n", startScriptPath, err)
-					return
-				}
-			} else {
-				cmd.Printf("Warning: could not locate docker compose command in %s for otel compose update\n", startScriptPath)
-			}
+			cmd.Printf("Warning: monitoring directory not found in template, skipping copy.\n")
 		}
 
 		err = os.Chdir(cwd)
@@ -168,7 +132,7 @@ var infraCmd = &cobra.Command{
 		cmd.Printf("     See %s for the full workflow.\n", config.SuccessStyle.Render("infra/README.md"))
 		cmd.Println("")
 		cmd.Printf("Run %s to launch your app with a local monitoring stack.\n",
-			config.SuccessStyle.Render("'sh start.sh'"),
+			config.SuccessStyle.Render("'make startm'"),
 		)
 		cmd.Println("")
 	},

@@ -84,14 +84,14 @@ var initCmd = &cobra.Command{
 		if err := os.RemoveAll(filepath.Join(projectName, "app", "service-client")); err != nil {
 			cmd.Printf("Warning: could not remove initial client folder: %v\n", err)
 		}
-		if err := os.RemoveAll(filepath.Join(projectName, "otel")); err != nil {
-			cmd.Printf("Warning: could not remove otel folder: %v\n", err)
+		if err := os.RemoveAll(filepath.Join(projectName, "monitoring")); err != nil {
+			cmd.Printf("Warning: could not remove monitoring folder: %v\n", err)
 		}
 		if err := os.RemoveAll(filepath.Join(projectName, "infra")); err != nil {
 			cmd.Printf("Warning: could not remove infra folder: %v\n", err)
 		}
-		if err := os.Remove(filepath.Join(projectName, "docker-compose.otel.yml")); err != nil && !os.IsNotExist(err) {
-			cmd.Printf("Warning: could not remove otel docker compose file: %v\n", err)
+		if err := os.Remove(filepath.Join(projectName, "docker-compose.monitoring.yml")); err != nil && !os.IsNotExist(err) {
+			cmd.Printf("Warning: could not remove monitoring docker compose file: %v\n", err)
 		}
 		if err := os.Remove(filepath.Join(projectName, "docker-compose.client.yml")); err != nil && !os.IsNotExist(err) {
 			cmd.Printf("Warning: could not remove client docker compose file: %v\n", err)

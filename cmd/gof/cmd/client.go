@@ -121,42 +121,6 @@ var clientCmd = &cobra.Command{
 			return
 		}
 
-		startScriptPath := filepath.Join(cwd, "start.sh")
-		startInfo, err := os.Stat(startScriptPath)
-		if err != nil {
-			cmd.Printf("Error locating %s: %v\n", startScriptPath, err)
-			return
-		}
-		startContent, err := os.ReadFile(startScriptPath)
-		if err != nil {
-			cmd.Printf("Error reading %s: %v\n", startScriptPath, err)
-			return
-		}
-		if !strings.Contains(string(startContent), "-f docker-compose.client.yml") {
-			lines := strings.Split(string(startContent), "\n")
-			updated := false
-			for i, line := range lines {
-				if strings.Contains(line, "docker compose") && strings.Contains(line, " up") {
-					upIdx := strings.LastIndex(line, " up")
-					if upIdx == -1 {
-						lines[i] = line + " -f docker-compose.client.yml"
-					} else {
-						lines[i] = line[:upIdx] + " -f docker-compose.client.yml" + line[upIdx:]
-					}
-					updated = true
-					break
-				}
-			}
-			if updated {
-				if err := os.WriteFile(startScriptPath, []byte(strings.Join(lines, "\n")), startInfo.Mode()); err != nil {
-					cmd.Printf("Error updating %s: %v\n", startScriptPath, err)
-					return
-				}
-			} else {
-				cmd.Printf("Warning: could not locate docker compose command in %s for client compose update\n", startScriptPath)
-			}
-		}
-
 		// Determine source client folder based on requested type
 		var srcClientPath string
 		switch serviceType {
@@ -231,9 +195,12 @@ var clientCmd = &cobra.Command{
 			cmd.Printf("Error running buf generation: %v\nOutput: %s\n", err, string(bufOut))
 			return
 		}
-
 		cmd.Printf("Setup complete at %s.\n",
 			config.SuccessStyle.Render("'app/service-client'"),
+		)
+		cmd.Println("")
+		cmd.Printf("Run %s to launch your app with your new client service.\n",
+			config.SuccessStyle.Render("'make startc'"),
 		)
 		cmd.Println("")
 	},
