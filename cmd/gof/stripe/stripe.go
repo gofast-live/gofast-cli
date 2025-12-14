@@ -258,10 +258,26 @@ func Add(email, apiKey string) error {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	tmpProject := filepath.Join(tmpDir, "template")
-	if err := repo.DownloadRepo(email, apiKey, tmpProject); err != nil {
+	// Save current directory and chdir to tmpDir for download
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting current dir: %w", err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		return fmt.Errorf("changing to temp dir: %w", err)
+	}
+
+	if err := repo.DownloadRepo(email, apiKey, "template"); err != nil {
+		_ = os.Chdir(cwd)
 		return fmt.Errorf("downloading template: %w", err)
 	}
+
+	// Return to original directory
+	if err := os.Chdir(cwd); err != nil {
+		return fmt.Errorf("returning to original dir: %w", err)
+	}
+
+	tmpProject := filepath.Join(tmpDir, "template")
 
 	// 2. Copy payment domain folder
 	srcDomain := filepath.Join(tmpProject, "app", "service-core", "domain", "payment")
