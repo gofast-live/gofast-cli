@@ -160,7 +160,15 @@ var clientCmd = &cobra.Command{
 		}
 
 		// Strip Stripe-related content from client if stripe integration is not enabled
-		if !config.HasIntegration("stripe") {
+		// Note: Use con.Integrations directly since we're in tmpDir and can't read gofast.json
+		hasStripe := false
+		for _, integration := range con.Integrations {
+			if integration == "stripe" {
+				hasStripe = true
+				break
+			}
+		}
+		if !hasStripe {
 			if err := stripe.StripClient(dstClientPath); err != nil {
 				cmd.Printf("Error stripping stripe from client: %v\n", err)
 				return
@@ -201,13 +209,9 @@ var clientCmd = &cobra.Command{
 		)
 
 		cmd.Println("")
-		cmd.Printf("Regenerate proto code with %s.\n",
-			config.SuccessStyle.Render("'sh scripts/run_proto.sh'"),
-		)
-		cmd.Println("")
-		cmd.Printf("Run %s to launch your app with your new client service.\n",
-			config.SuccessStyle.Render("'make startc'"),
-		)
+		cmd.Println("Next steps:")
+		cmd.Printf("  1. Run %s to regenerate proto code\n", config.SuccessStyle.Render("'scripts/run_proto.sh'"))
+		cmd.Printf("  2. Run %s to launch your app with your new client service\n", config.SuccessStyle.Render("'make startc'"))
 		cmd.Println("")
 	},
 }

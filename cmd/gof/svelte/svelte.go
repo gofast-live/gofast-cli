@@ -101,6 +101,20 @@ func addModelToNavigation(modelName string) error {
 
 	// Insert the new nav item before the closing bracket of the nav array.
 	navArrayEndMarker := `    ];`
+
+	// Ensure the previous entry has a trailing comma (handles case where last entry was added without one)
+	// Look for pattern: }followed by whitespace/newlines then ];
+	idx := strings.Index(content, navArrayEndMarker)
+	if idx > 0 {
+		// Find the last non-whitespace character before ];
+		beforeMarker := content[:idx]
+		trimmed := strings.TrimRight(beforeMarker, " \t\n")
+		if strings.HasSuffix(trimmed, "}") && !strings.HasSuffix(trimmed, "},") {
+			// Add comma after the closing brace
+			content = trimmed + "," + content[len(trimmed):idx] + content[idx:]
+		}
+	}
+
 	newContent := strings.Replace(content, navArrayEndMarker, navEntry+"\n"+navArrayEndMarker, 1)
 
 	if newContent == content {

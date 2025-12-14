@@ -124,16 +124,15 @@ var infraCmd = &cobra.Command{
 		}
 
 		cmd.Println("")
-		cmd.Println("Infrastructure files added successfully. Recommended next steps:")
-		cmd.Printf("  1. %s\n", config.SuccessStyle.Render("cd infra && cp .env.example .env"))
-		cmd.Printf("  2. Update infra/.env with your server details.\n")
-		cmd.Printf("  3. Review and run the setup scripts (setup_rke2.sh, setup_gh.sh, setup_gcp.sh, setup_cloudflare.sh).\n")
+		cmd.Println(config.SuccessStyle.Render("Infrastructure files added successfully!"))
 		cmd.Println("")
-		cmd.Printf("     See %s for the full workflow.\n", config.SuccessStyle.Render("infra/README.md"))
+		cmd.Println("Next steps:")
+		cmd.Printf("  1. Run %s\n", config.SuccessStyle.Render("'cd infra && cp .env.example .env'"))
+		cmd.Println("  2. Update infra/.env with your server details")
+		cmd.Println("  3. Review and run the setup scripts (setup_rke2.sh, setup_gh.sh, setup_gcp.sh, setup_cloudflare.sh)")
+		cmd.Printf("  4. Run %s to launch your app with a local monitoring stack\n", config.SuccessStyle.Render("'make startm'"))
 		cmd.Println("")
-		cmd.Printf("Run %s to launch your app with a local monitoring stack.\n",
-			config.SuccessStyle.Render("'make startm'"),
-		)
+		cmd.Printf("See %s for the full workflow.\n", config.SuccessStyle.Render("'infra/README.md'"))
 		cmd.Println("")
 	},
 }

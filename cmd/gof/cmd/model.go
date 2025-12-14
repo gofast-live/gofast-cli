@@ -253,12 +253,12 @@ Example:
 
 		cmd.Println("")
 		cmd.Println("Next steps:")
-		cmd.Printf("  1. Run %s to regenerate SQL queries\n", config.SuccessStyle.Render("scripts/run_queries.sh"))
-		cmd.Printf("  2. Run %s to regenerate proto code\n", config.SuccessStyle.Render("scripts/run_proto.sh"))
-		cmd.Printf("  3. Run %s to apply migrations\n", config.SuccessStyle.Render("scripts/run_migrations.sh"))
+		cmd.Printf("  1. Run %s to regenerate SQL queries\n", config.SuccessStyle.Render("'scripts/run_queries.sh'"))
+		cmd.Printf("  2. Run %s to regenerate proto code\n", config.SuccessStyle.Render("'scripts/run_proto.sh'"))
+		cmd.Printf("  3. Run %s to apply migrations\n", config.SuccessStyle.Render("'scripts/run_migrations.sh'"))
 
 		cmd.Printf("\nIf you already created a user, remember to update permissions for the new model (check %s).\n", config.SuccessStyle.Render("pkg/auth/auth.go"))
-		cmd.Printf("You can also run %s to update all users with admin permissions.\n\n", config.SuccessStyle.Render("scripts/update_permissions.sh"))
+		cmd.Printf("You can also run %s to update all users with admin permissions.\n\n", config.SuccessStyle.Render("'scripts/update_permissions.sh'"))
 	},
 }
 
