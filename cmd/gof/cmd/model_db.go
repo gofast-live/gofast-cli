@@ -143,10 +143,10 @@ func generateProto(modelName string, columns []Column) error {
 	}
 
 	// Generate protobuf stubs via Buf
-	bufCmd := exec.Command("sh", "scripts/run_proto.sh")
+	bufCmd := exec.Command("make", "gen")
 	bufOut, err := bufCmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("error running Buf script: %v\nOutput: %s", err, bufOut)
+		return fmt.Errorf("error running 'make gen': %v\nOutput: %s", err, bufOut)
 	}
 	return nil
 }

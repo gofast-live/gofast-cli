@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,8 +8,8 @@ import (
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/integrations"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
-	"github.com/gofast-live/gofast-cli/v2/cmd/gof/stripe"
 	"github.com/spf13/cobra"
 )
 
@@ -96,9 +95,17 @@ var initCmd = &cobra.Command{
 		if err := os.Remove(filepath.Join(projectName, "docker-compose.client.yml")); err != nil && !os.IsNotExist(err) {
 			cmd.Printf("Warning: could not remove client docker compose file: %v\n", err)
 		}
-		// Strip stripe/payment - user can add it back with 'gof add stripe'
-		if err := stripe.Strip(projectName); err != nil {
+		// Strip optional integrations - user can add them back with 'gof add <integration>'
+		if err := integrations.StripeStrip(projectName); err != nil {
 			cmd.Printf("Error stripping stripe: %v\n", err)
+			return
+		}
+		if err := integrations.R2Strip(projectName); err != nil {
+			cmd.Printf("Error stripping r2: %v\n", err)
+			return
+		}
+		if err := integrations.PostmarkStrip(projectName); err != nil {
+			cmd.Printf("Error stripping postmark: %v\n", err)
 			return
 		}
 		dcPath := filepath.Join(projectName, "docker-compose.yml")
@@ -123,11 +130,11 @@ var initCmd = &cobra.Command{
 		cmd.Println("")
 		cmd.Printf("Running initialization scripts for project '%s'...\n", projectName)
 		scripts := []string{
-			"scripts/run_keys.sh",
-			"scripts/run_queries.sh",
-			"scripts/run_proto.sh",
-			"docker compose up postgres -d",
-			"scripts/run_migrations.sh",
+			"make keys",
+			"make sql",
+			"make gen",
+			"docker compose up postgres -d --wait",
+			"make migrate",
 			"docker compose stop",
 		}
 		messages := []string{
@@ -140,23 +147,12 @@ var initCmd = &cobra.Command{
 		}
 		for i, script := range scripts {
 			cmd.Printf("%s\n", messages[i])
-			var cmdExec *exec.Cmd
-			if strings.HasPrefix(script, "docker") {
-				parts := strings.Fields(script)
-				cmdExec = exec.Command(parts[0], parts[1:]...)
-			} else {
-				parts := strings.Fields(script)
-				scriptPath := fmt.Sprintf("./%s", parts[0])
-				args := []string{scriptPath}
-				if len(parts) > 1 {
-					args = append(args, parts[1:]...)
-				}
-				cmdExec = exec.Command("sh", args...)
-			}
+			parts := strings.Fields(script)
+			cmdExec := exec.Command(parts[0], parts[1:]...)
 			cmdExec.Dir = projectName
 			output, err := cmdExec.CombinedOutput()
 			if err != nil {
-				cmd.Printf("Error running script '%s': %v\nOutput: %s\n", script, err, output)
+				cmd.Printf("Error running '%s': %v\nOutput: %s\n", script, err, output)
 				return
 			}
 		}

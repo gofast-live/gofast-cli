@@ -18,6 +18,7 @@ cmd/gof/
 ├── cmd/                 # Cobra commands
 │   ├── root.go          # Root command
 │   ├── init.go          # Project initialization
+│   ├── add.go           # Add integrations (stripe, files, email)
 │   ├── model.go         # Model generation orchestration
 │   ├── model_db.go      # Proto, schema, SQL query generation
 │   ├── model_service.go # Domain service layer generation
@@ -27,6 +28,11 @@ cmd/gof/
 │   ├── auth.go          # Auth command
 │   ├── infra.go         # Infrastructure files
 │   └── version.go       # Version display
+├── integrations/        # Optional integration handlers
+│   ├── integrations.go  # Shared helpers (strip, copy, migrate)
+│   ├── stripe.go        # Stripe payment integration
+│   ├── files.go         # Cloudflare R2 file storage
+│   └── email.go         # Postmark email integration
 ├── config/config.go     # gofast.json configuration management
 ├── repo/repo.go         # Template repository download
 ├── svelte/svelte.go     # Svelte client page generation
@@ -93,8 +99,23 @@ Adds infrastructure/deployment files:
 - Updates `start.sh` to include infrastructure services
 - Marks project as `infraPopulated: true` in config
 
-### `gof add stripe`
-Adds Stripe payment integration to the project.
+### `gof add <integration>`
+Adds optional integrations to the project. Available integrations:
+
+**`gof add stripe`** - Stripe payment integration:
+- Payment domain service (checkout, portal, webhook handling)
+- Subscriptions database migration
+- Full subscription-based access control
+
+**`gof add files`** - Cloudflare R2 file storage:
+- File domain service (upload, download, delete via S3 API)
+- Files database migration
+- File management UI (if client enabled)
+
+**`gof add email`** - Postmark email integration:
+- Email domain service (send emails with attachments)
+- Emails database migration
+- Email management UI (if client enabled)
 
 **See:** [Integration Marker System](#integration-marker-system) for how this works.
 
@@ -134,19 +155,22 @@ The CLI uses a **marker-based integration system** for optional features like St
 
 ### Marker Naming Convention
 
-Each integration has its own marker prefix:
+Each integration has its own marker prefix (singular form):
 - Stripe: `GF_STRIPE_START` / `GF_STRIPE_END`
-- Future: `GF_ANALYTICS_START`, `GF_POSTHOG_START`, etc.
+- Files: `GF_FILE_START` / `GF_FILE_END`
+- Email: `GF_EMAIL_START` / `GF_EMAIL_END`
 
 ### Files with Integration Markers
 
-For Stripe integration, markers exist in:
+Markers exist in these locations:
 - `app/service-core/main.go` - imports, deps, route mounting
+- `app/service-core/config/config.go` - integration-specific config fields
+- `app/service-core/storage/query.sql` - integration queries
+- `app/service-core/storage/migrations/` - integration tables
+- `proto/v1/main.proto` - service definitions
+
+For Stripe specifically:
 - `app/service-core/domain/login/service.go` - `CheckUserAccess()` function
-- `app/service-core/domain/login/service_test.go` - subscription tests
-- `app/service-core/storage/query.sql` - subscription queries
-- `app/service-core/storage/testutil/user.go` - test user with subscription
-- `proto/v1/main.proto` - PaymentService definition
 
 ### Benefits
 
@@ -311,17 +335,20 @@ sleep 2  # Wait for postgres to start
 goose -dir app/service-core/storage/migrations postgres "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" up
 ```
 
-## Current Task: CLI Rewrite for New App Architecture
+## Makefile Commands
 
-The reference app (`gofast-app`) has undergone a **major rewrite** - simplified and moved to a more functional programming style. The CLI code generation needs to be updated to match.
+Generated projects use Makefile commands instead of shell scripts:
 
-### What needs to happen:
-1. Update CLI code generation to match new app architecture
-2. Adjust skeleton templates and token replacements
-3. Update wiring/injection logic if changed
-4. Regenerate demo project to verify output
+| Command | Description |
+|---------|-------------|
+| `make start` | Start services with Docker Compose |
+| `make startc` | Start with client service |
+| `make keys` | Generate public/private keys |
+| `make sql` | Regenerate SQLC queries |
+| `make gen` | Regenerate proto/buf code |
+| `make migrate` | Apply database migrations |
 
-### Key considerations:
+## Design Considerations
 
 **Scalability of generation:**
 - `gof model` can have ANY combination of columns
@@ -345,6 +372,10 @@ The reference app (`gofast-app`) has undergone a **major rewrite** - simplified 
 | Database/Proto | `cmd/model_db.go` |
 | Svelte pages | `svelte/svelte.go` |
 | Config management | `config/config.go` |
+| Integration helpers | `integrations/integrations.go` |
+| Stripe integration | `integrations/stripe.go` |
+| Files integration | `integrations/files.go` |
+| Email integration | `integrations/email.go` |
 
 ## Gotchas
 

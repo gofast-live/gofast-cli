@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gertd/go-pluralize"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/e2e"
 )
 
 type Column struct {
@@ -55,13 +56,14 @@ func GenerateSvelteScaffolding(modelName string, columns []Column) error {
 	if err := generateClientDetailPage(modelName, columns); err != nil {
 		return fmt.Errorf("generating client detail page: %w", err)
 	}
-	// if err := generateClientListPageSpec(modelName, columns); err != nil {
-	// 	return fmt.Errorf("generating client list page spec: %w", err)
-	// }
-	// if err := generateClientDetailPageSpec(modelName, columns); err != nil {
-	// 	return fmt.Errorf("generating client detail page spec: %w", err)
-	// }
-	if err := generateClientE2ETest(modelName, columns); err != nil {
+	e2e_columns := make([]e2e.Column, len(columns))
+	for i, c := range columns {
+		e2e_columns[i] = e2e.Column{
+			Name: c.Name,
+			Type: c.Type,
+		}
+	}
+	if err := e2e.GenerateClientE2ETest(modelName, e2e_columns); err != nil {
 		return fmt.Errorf("generating e2e test: %w", err)
 	}
 

@@ -1,16 +1,32 @@
-package svelte
+package e2e
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/gertd/go-pluralize"
 )
+
+type Column struct {
+	Name string // column name in snake_case
+	Type string // "string", "number", "date", "bool"
+}
+
+var pluralizeClient = pluralize.NewClient()
+
+func capitalize(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	return strings.ToUpper(string(s[0])) + s[1:]
+}
 
 // generateClientE2ETest scaffolds a Playwright e2e test based on the skeleton
 // template, expanding the model configuration block with column-aware values
 // and default behaviours.
-func generateClientE2ETest(modelName string, columns []Column) error {
+func GenerateClientE2ETest(modelName string, columns []Column) error {
 	sourcePath := "./e2e/skeletons.test.ts"
 	pluralLower := pluralizeClient.Plural(modelName)
 	pluralCap := capitalize(pluralLower)

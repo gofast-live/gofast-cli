@@ -10,8 +10,8 @@ import (
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/integrations"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
-	"github.com/gofast-live/gofast-cli/v2/cmd/gof/stripe"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/svelte"
 	"github.com/spf13/cobra"
 )
@@ -159,18 +159,28 @@ var clientCmd = &cobra.Command{
 			}
 		}
 
-		// Strip Stripe-related content from client if stripe integration is not enabled
+		// Strip integration-related content from client if not enabled
 		// Note: Use con.Integrations directly since we're in tmpDir and can't read gofast.json
-		hasStripe := false
+		enabledIntegrations := make(map[string]bool)
 		for _, integration := range con.Integrations {
-			if integration == "stripe" {
-				hasStripe = true
-				break
+			enabledIntegrations[integration] = true
+		}
+
+		if !enabledIntegrations["stripe"] {
+			if err := integrations.StripeStripClient(dstClientPath); err != nil {
+				cmd.Printf("Error stripping stripe from client: %v\n", err)
+				return
 			}
 		}
-		if !hasStripe {
-			if err := stripe.StripClient(dstClientPath); err != nil {
-				cmd.Printf("Error stripping stripe from client: %v\n", err)
+		if !enabledIntegrations["r2"] {
+			if err := integrations.R2StripClient(dstClientPath); err != nil {
+				cmd.Printf("Error stripping r2 from client: %v\n", err)
+				return
+			}
+		}
+		if !enabledIntegrations["postmark"] {
+			if err := integrations.PostmarkStripClient(dstClientPath); err != nil {
+				cmd.Printf("Error stripping postmark from client: %v\n", err)
 				return
 			}
 		}
@@ -210,7 +220,7 @@ var clientCmd = &cobra.Command{
 
 		cmd.Println("")
 		cmd.Println("Next steps:")
-		cmd.Printf("  1. Run %s to regenerate proto code\n", config.SuccessStyle.Render("'scripts/run_proto.sh'"))
+		cmd.Printf("  1. Run %s to regenerate proto code\n", config.SuccessStyle.Render("'make gen'"))
 		cmd.Printf("  2. Run %s to launch your app with your new client service\n", config.SuccessStyle.Render("'make startc'"))
 		cmd.Println("")
 	},

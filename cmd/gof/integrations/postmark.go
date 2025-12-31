@@ -1,0 +1,180 @@
+package integrations
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
+)
+
+// PostmarkStrip removes all email/Postmark-related code from a freshly initialized project.
+// Called by init command after downloading the template.
+func PostmarkStrip(projectPath string) error {
+	// 1. Remove email domain folder
+	if err := os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "domain", "email")); err != nil {
+		return fmt.Errorf("removing email domain: %w", err)
+	}
+
+	// 2. Remove email transport folder
+	if err := os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "transport", "email")); err != nil {
+		return fmt.Errorf("removing email transport: %w", err)
+	}
+
+	// 3. Remove emails migration
+	if err := os.Remove(filepath.Join(projectPath, "app", "service-core", "storage", "migrations", "00005_create_emails.sql")); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("removing emails migration: %w", err)
+	}
+
+	// 4. Strip all GF_EMAIL marker blocks from all files
+	if err := StripIntegration(projectPath, "EMAIL"); err != nil {
+		return fmt.Errorf("stripping email markers: %w", err)
+	}
+
+	return nil
+}
+
+// PostmarkStripClient removes Postmark-related content from the Svelte client.
+// Called by 'gof client svelte' command after copying the client folder.
+func PostmarkStripClient(clientPath string) error {
+	// 1. Remove emails route folder
+	emailsPath := filepath.Join(clientPath, "src", "routes", "(app)", "emails")
+	if err := os.RemoveAll(emailsPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("removing emails folder: %w", err)
+	}
+
+	// 2. Strip Emails nav entry from layout
+	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
+	content, err := os.ReadFile(layoutPath)
+	if err != nil {
+		return fmt.Errorf("reading layout: %w", err)
+	}
+
+	s := string(content)
+
+	// Remove Mail icon from import
+	s = strings.Replace(s, ", Mail", "", 1)
+
+	// Remove Emails nav entry
+	s = regexp.MustCompile(`(?s)\s*\{\s*name:\s*['"]Emails['"],\s*href:\s*['"][^'"]+['"],\s*icon:\s*Mail,?\s*\},?`).ReplaceAllString(s, "")
+
+	if err := os.WriteFile(layoutPath, []byte(s), 0644); err != nil {
+		return fmt.Errorf("writing layout: %w", err)
+	}
+
+	return nil
+}
+
+// PostmarkAddClient adds Postmark-related content to an existing Svelte client.
+// Called by 'gof add postmark' when client already exists.
+func PostmarkAddClient(tmpProject, clientPath string) error {
+	// 1. Copy emails route folder
+	srcEmails := filepath.Join(tmpProject, "app", "service-client", "src", "routes", "(app)", "emails")
+	dstEmails := filepath.Join(clientPath, "src", "routes", "(app)", "emails")
+	if err := CopyDir(srcEmails, dstEmails); err != nil {
+		return fmt.Errorf("copying emails folder: %w", err)
+	}
+
+	// 2. Add Emails nav entry and icon import to layout
+	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
+	content, err := os.ReadFile(layoutPath)
+	if err != nil {
+		return fmt.Errorf("reading layout: %w", err)
+	}
+
+	s := string(content)
+
+	// Add Mail to import
+	if !strings.Contains(s, "Mail") {
+		s = regexp.MustCompile(`(from "@lucide[^"]*";)`).ReplaceAllString(s, `from "@lucide/svelte";
+    import { Mail } from "@lucide/svelte";`)
+		s = strings.Replace(s, `} from "@lucide/svelte";
+    import { Mail } from "@lucide/svelte";`, `, Mail } from "@lucide/svelte";`, 1)
+	}
+
+	// Add Emails nav entry
+	if !strings.Contains(s, `href: "/emails"`) {
+		s = regexp.MustCompile(`(\s*)(];)\s*\n(\s*function isActive)`).ReplaceAllString(s, `$1{
+$1    name: "Emails",
+$1    href: "/emails",
+$1    icon: Mail,
+$1},
+$1$2
+$3`)
+	}
+
+	if err := os.WriteFile(layoutPath, []byte(s), 0644); err != nil {
+		return fmt.Errorf("writing layout: %w", err)
+	}
+
+	return nil
+}
+
+// PostmarkAdd adds Postmark email integration to an existing project.
+// Called by 'gof add postmark' command.
+func PostmarkAdd(email, apiKey string) error {
+	// 1. Download template to temp location
+	tmpDir, err := os.MkdirTemp("", "gofast-email-*")
+	if err != nil {
+		return fmt.Errorf("creating temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Save current directory and chdir to tmpDir for download
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting current dir: %w", err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		return fmt.Errorf("changing to temp dir: %w", err)
+	}
+
+	if err := repo.DownloadRepo(email, apiKey, "template"); err != nil {
+		_ = os.Chdir(cwd)
+		return fmt.Errorf("downloading template: %w", err)
+	}
+
+	// Return to original directory
+	if err := os.Chdir(cwd); err != nil {
+		return fmt.Errorf("returning to original dir: %w", err)
+	}
+
+	tmpProject := filepath.Join(tmpDir, "template")
+
+	// 2. Copy email domain folder
+	srcDomain := filepath.Join(tmpProject, "app", "service-core", "domain", "email")
+	dstDomain := filepath.Join("app", "service-core", "domain", "email")
+	if err := CopyDir(srcDomain, dstDomain); err != nil {
+		return fmt.Errorf("copying email domain: %w", err)
+	}
+
+	// 3. Copy email transport folder
+	srcTransport := filepath.Join(tmpProject, "app", "service-core", "transport", "email")
+	dstTransport := filepath.Join("app", "service-core", "transport", "email")
+	if err := CopyDir(srcTransport, dstTransport); err != nil {
+		return fmt.Errorf("copying email transport: %w", err)
+	}
+
+	// 4. Copy and renumber emails migration
+	if err := AddMigration(tmpProject, "00005_create_emails.sql", "create_emails.sql"); err != nil {
+		return fmt.Errorf("adding emails migration: %w", err)
+	}
+
+	// 5. Copy files with GF_EMAIL markers from template
+	if err := CopyFilesWithMarkers(tmpProject, ".", "EMAIL"); err != nil {
+		return fmt.Errorf("copying files with EMAIL markers: %w", err)
+	}
+
+	// 6. Add client-side Email content if Svelte client is configured
+	if config.IsSvelte() {
+		clientPath := filepath.Join("app", "service-client")
+		if err := PostmarkAddClient(tmpProject, clientPath); err != nil {
+			return fmt.Errorf("adding email to client: %w", err)
+		}
+	}
+
+	return nil
+}
