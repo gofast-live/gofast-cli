@@ -10,6 +10,21 @@ The `gof` CLI is a code generation tool that builds Go applications like Lego br
 
 The CLI uses a **skeleton-based code generation** approach - it copies template files and performs smart token replacements and dynamic content generation.
 
+## Source of Truth: `../gofast-app`
+
+**IMPORTANT:** The `gofast-app` repository (located at `../gofast-app` relative to this CLI) is the **single source of truth** for all templates and integrations. When investigating issues or understanding how generated code should look:
+
+1. **Check `../gofast-app` first** - it contains the complete application with all integrations enabled
+2. **Template files live there** - domain services, transport handlers, configs, migrations, etc.
+3. **Integration markers** (`GF_STRIPE_START/END`, `GF_EMAIL_START/END`, `GF_FILE_START/END`) wrap optional code
+4. **Use `TEST=true`** when running CLI commands locally - this copies from `../gofast-app` instead of downloading
+
+```bash
+# Local development - uses ../gofast-app as source
+TEST=true go run ./cmd/gof/... init demo
+TEST=true go run ../cmd/gof/... add stripe   # from inside demo/
+```
+
 ## Project Structure
 
 ```
@@ -18,7 +33,7 @@ cmd/gof/
 ├── cmd/                 # Cobra commands
 │   ├── root.go          # Root command
 │   ├── init.go          # Project initialization
-│   ├── add.go           # Add integrations (stripe, files, email)
+│   ├── add.go           # Add integrations (stripe, r2, postmark)
 │   ├── model.go         # Model generation orchestration
 │   ├── model_db.go      # Proto, schema, SQL query generation
 │   ├── model_service.go # Domain service layer generation
@@ -31,8 +46,8 @@ cmd/gof/
 ├── integrations/        # Optional integration handlers
 │   ├── integrations.go  # Shared helpers (strip, copy, migrate)
 │   ├── stripe.go        # Stripe payment integration
-│   ├── files.go         # Cloudflare R2 file storage
-│   └── email.go         # Postmark email integration
+│   ├── r2.go            # Cloudflare R2 file storage
+│   └── postmark.go      # Postmark email integration
 ├── config/config.go     # gofast.json configuration management
 ├── repo/repo.go         # Template repository download
 ├── svelte/svelte.go     # Svelte client page generation
@@ -107,12 +122,12 @@ Adds optional integrations to the project. Available integrations:
 - Subscriptions database migration
 - Full subscription-based access control
 
-**`gof add files`** - Cloudflare R2 file storage:
+**`gof add r2`** - Cloudflare R2 file storage:
 - File domain service (upload, download, delete via S3 API)
 - Files database migration
 - File management UI (if client enabled)
 
-**`gof add email`** - Postmark email integration:
+**`gof add postmark`** - Postmark email integration:
 - Email domain service (send emails with attachments)
 - Emails database migration
 - Email management UI (if client enabled)
@@ -374,8 +389,8 @@ Generated projects use Makefile commands instead of shell scripts:
 | Config management | `config/config.go` |
 | Integration helpers | `integrations/integrations.go` |
 | Stripe integration | `integrations/stripe.go` |
-| Files integration | `integrations/files.go` |
-| Email integration | `integrations/email.go` |
+| R2 integration | `integrations/r2.go` |
+| Postmark integration | `integrations/postmark.go` |
 
 ## Gotchas
 

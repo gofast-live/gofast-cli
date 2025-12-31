@@ -195,6 +195,16 @@ func copyMarkedFiles(srcDir, dstDir, keepIntegration string) error {
 			return AppendMarkerBlock(srcPath, dstPath, keepIntegration)
 		}
 
+		// For main.go, merge marker blocks instead of overwriting
+		if filepath.Base(dstPath) == "main.go" {
+			return MergeMainGoMarkers(srcPath, dstPath, keepIntegration)
+		}
+
+		// For config.go, merge marker blocks instead of overwriting
+		if filepath.Base(dstPath) == "config.go" {
+			return MergeConfigMarkers(srcPath, dstPath, keepIntegration)
+		}
+
 		// Strip other integrations' markers (not the one we're adding)
 		s := string(content)
 		s = StripOtherIntegrations(s, keepIntegration)
@@ -267,6 +277,219 @@ func AppendMarkerBlock(srcPath, dstPath, integration string) error {
 	result += markerBlock
 
 	return os.WriteFile(dstPath, []byte(result), 0644)
+}
+
+// MergeMainGoMarkers extracts marker blocks from src main.go and injects them into dst main.go
+// Import blocks are injected before GF_MAIN_IMPORT_SERVICES_START
+// Init blocks are injected before GF_MAIN_INIT_SERVICES_START
+func MergeMainGoMarkers(srcPath, dstPath, integration string) error {
+	srcContent, err := os.ReadFile(srcPath)
+	if err != nil {
+		return err
+	}
+
+	dstContent, err := os.ReadFile(dstPath)
+	if err != nil {
+		return err
+	}
+
+	startMarker := fmt.Sprintf("// GF_%s_START", integration)
+	endMarker := fmt.Sprintf("// GF_%s_END", integration)
+
+	// Check if already has this integration
+	if strings.Contains(string(dstContent), startMarker) {
+		return nil // Already has this integration
+	}
+
+	src := string(srcContent)
+	dst := string(dstContent)
+
+	// Extract all marker blocks from source
+	var importBlocks, initBlocks []string
+	remaining := src
+	for {
+		startIdx := strings.Index(remaining, startMarker)
+		if startIdx == -1 {
+			break
+		}
+
+		// Find start of line
+		lineStart := strings.LastIndex(remaining[:startIdx], "\n")
+		if lineStart == -1 {
+			lineStart = 0
+		} else {
+			lineStart++
+		}
+
+		// Find end marker
+		endIdx := strings.Index(remaining[startIdx:], endMarker)
+		if endIdx == -1 {
+			break
+		}
+		endIdx = startIdx + endIdx + len(endMarker)
+
+		// Include newline after end marker
+		if endIdx < len(remaining) && remaining[endIdx] == '\n' {
+			endIdx++
+		}
+
+		block := remaining[lineStart:endIdx]
+
+		// Determine if this is an import block (contains import paths like "gofast/")
+		if strings.Contains(block, "\"gofast/") || strings.Contains(block, "Svc \"") || strings.Contains(block, "Route \"") {
+			importBlocks = append(importBlocks, block)
+		} else {
+			initBlocks = append(initBlocks, block)
+		}
+
+		remaining = remaining[endIdx:]
+	}
+
+	// Inject import blocks before GF_MAIN_IMPORT_SERVICES_START
+	if len(importBlocks) > 0 {
+		importMarker := "// GF_MAIN_IMPORT_SERVICES_START"
+		idx := strings.Index(dst, importMarker)
+		if idx != -1 {
+			// Find start of line
+			lineStart := strings.LastIndex(dst[:idx], "\n")
+			if lineStart == -1 {
+				lineStart = 0
+			} else {
+				lineStart++
+			}
+			insertContent := strings.Join(importBlocks, "")
+			dst = dst[:lineStart] + insertContent + dst[lineStart:]
+		}
+	}
+
+	// Inject init blocks before GF_MAIN_INIT_SERVICES_START
+	if len(initBlocks) > 0 {
+		initMarker := "// GF_MAIN_INIT_SERVICES_START"
+		idx := strings.Index(dst, initMarker)
+		if idx != -1 {
+			// Find start of line
+			lineStart := strings.LastIndex(dst[:idx], "\n")
+			if lineStart == -1 {
+				lineStart = 0
+			} else {
+				lineStart++
+			}
+			// Add newline before if needed
+			insertContent := strings.Join(initBlocks, "")
+			if !strings.HasPrefix(insertContent, "\n") {
+				insertContent = "\n" + insertContent
+			}
+			dst = dst[:lineStart] + insertContent + dst[lineStart:]
+		}
+	}
+
+	return os.WriteFile(dstPath, []byte(dst), 0644)
+}
+
+// MergeConfigMarkers extracts marker blocks from src config.go and injects them into dst config.go
+// Blocks are inserted after existing integration markers in the same section
+func MergeConfigMarkers(srcPath, dstPath, integration string) error {
+	srcContent, err := os.ReadFile(srcPath)
+	if err != nil {
+		return err
+	}
+
+	dstContent, err := os.ReadFile(dstPath)
+	if err != nil {
+		return err
+	}
+
+	startMarker := fmt.Sprintf("// GF_%s_START", integration)
+	endMarker := fmt.Sprintf("// GF_%s_END", integration)
+
+	// Check if already has this integration
+	if strings.Contains(string(dstContent), startMarker) {
+		return nil // Already has this integration
+	}
+
+	src := string(srcContent)
+	dst := string(dstContent)
+
+	// Extract all marker blocks from source
+	var blocks []string
+	remaining := src
+	for {
+		startIdx := strings.Index(remaining, startMarker)
+		if startIdx == -1 {
+			break
+		}
+
+		// Find start of line
+		lineStart := strings.LastIndex(remaining[:startIdx], "\n")
+		if lineStart == -1 {
+			lineStart = 0
+		} else {
+			lineStart++
+		}
+
+		// Find end marker
+		endIdx := strings.Index(remaining[startIdx:], endMarker)
+		if endIdx == -1 {
+			break
+		}
+		endIdx = startIdx + endIdx + len(endMarker)
+
+		// Include newline after end marker
+		if endIdx < len(remaining) && remaining[endIdx] == '\n' {
+			endIdx++
+		}
+
+		blocks = append(blocks, remaining[lineStart:endIdx])
+		remaining = remaining[endIdx:]
+	}
+
+	// For each block, find where to insert in destination
+	// Look for other integration END markers and insert after them
+	integrationEndPattern := regexp.MustCompile(`// GF_(STRIPE|FILE|EMAIL)_END\n?`)
+
+	for _, block := range blocks {
+		// Find all integration END markers in dst
+		matches := integrationEndPattern.FindAllStringIndex(dst, -1)
+		if len(matches) > 0 {
+			// Insert after the last match that appears before any non-integration code
+			// We'll insert after the first END marker we find
+			// Actually, we should find the right section based on content similarity
+
+			// Simple approach: find the last END marker and insert after it
+			// But we need to handle multiple sections (struct fields vs initialization)
+
+			// Check if this block contains ":" (initialization) or not (struct field)
+			isInit := strings.Contains(block, "MustSetEnv") || strings.Contains(block, ":")
+
+			// Find appropriate insertion point
+			inserted := false
+			for i := len(matches) - 1; i >= 0; i-- {
+				matchEnd := matches[i][1]
+				// Check context around this match
+				contextStart := matches[i][0] - 100
+				if contextStart < 0 {
+					contextStart = 0
+				}
+				context := dst[contextStart:matches[i][1]]
+				contextIsInit := strings.Contains(context, "MustSetEnv") || strings.Contains(context, ":")
+
+				if isInit == contextIsInit {
+					// Insert after this marker
+					dst = dst[:matchEnd] + block + dst[matchEnd:]
+					inserted = true
+					break
+				}
+			}
+
+			if !inserted && len(matches) > 0 {
+				// Fallback: insert after last match
+				matchEnd := matches[len(matches)-1][1]
+				dst = dst[:matchEnd] + block + dst[matchEnd:]
+			}
+		}
+	}
+
+	return os.WriteFile(dstPath, []byte(dst), 0644)
 }
 
 // StripOtherIntegrations removes marker blocks for all integrations except the specified one
