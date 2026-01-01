@@ -82,18 +82,17 @@ func StripeStripClient(clientPath string) error {
 
 	// 2. Strip Payments nav entry and Coins import from layout
 	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
+	if err := RemoveNavEntry(layoutPath, "/payments", "Coins"); err != nil {
+		return fmt.Errorf("removing payments nav entry: %w", err)
+	}
+
+	// 3. Remove Stripe success handling
 	content, err := os.ReadFile(layoutPath)
 	if err != nil {
 		return fmt.Errorf("reading layout: %w", err)
 	}
 
 	s := string(content)
-
-	// Remove Coins from import
-	s = strings.Replace(s, ", Coins", "", 1)
-
-	// Remove Payments nav entry (handle both single and double quotes, with or without trailing comma)
-	s = regexp.MustCompile(`(?s)\s*\{\s*name:\s*['"]Payments['"],\s*href:\s*['"][^'"]+['"],\s*icon:\s*Coins,?\s*\},?`).ReplaceAllString(s, "")
 
 	// Remove Stripe success handling (the force refresh check)
 	s = regexp.MustCompile(`(?s)\s*const force = page\.url\.searchParams\.get\("success"\) === "true";\s*if \(force\) \{\s*// Wait for Stripe webhook to process\s*await new Promise\(\(r\) => setTimeout\(r, 2000\)\);\s*\}`).ReplaceAllString(s, "")
@@ -120,6 +119,11 @@ func StripeAddClient(tmpProject, clientPath string) error {
 
 	// 2. Add Payments nav entry and Coins import to layout
 	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
+	if err := AddNavEntry(layoutPath, "Payments", "/payments", "Coins"); err != nil {
+		return fmt.Errorf("adding payments nav entry: %w", err)
+	}
+
+	// 3. Add Stripe success handling
 	content, err := os.ReadFile(layoutPath)
 	if err != nil {
 		return fmt.Errorf("reading layout: %w", err)
@@ -127,27 +131,6 @@ func StripeAddClient(tmpProject, clientPath string) error {
 
 	s := string(content)
 
-	// Add Coins to import (after last icon import)
-	if !strings.Contains(s, "Coins") {
-		s = regexp.MustCompile(`(from "@lucide[^"]*";)`).ReplaceAllString(s, `from "@lucide/svelte";
-    import { Coins } from "@lucide/svelte";`)
-		// Cleaner approach: just add to existing import
-		s = strings.Replace(s, `} from "@lucide/svelte";
-    import { Coins } from "@lucide/svelte";`, `, Coins } from "@lucide/svelte";`, 1)
-	}
-
-	// Add Payments nav entry (before the closing bracket of nav array)
-	if !strings.Contains(s, `href: "/payments"`) {
-		s = regexp.MustCompile(`(\s*)(];)\s*\n(\s*function isActive)`).ReplaceAllString(s, `$1{
-$1    name: "Payments",
-$1    href: "/payments",
-$1    icon: Coins,
-$1},
-$1$2
-$3`)
-	}
-
-	// Add Stripe success handling
 	if !strings.Contains(s, `page.url.searchParams.get("success")`) {
 		s = strings.Replace(s,
 			`const response = await login_client.refresh({});`,

@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
@@ -48,21 +46,8 @@ func PostmarkStripClient(clientPath string) error {
 
 	// 2. Strip Emails nav entry from layout
 	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
-	content, err := os.ReadFile(layoutPath)
-	if err != nil {
-		return fmt.Errorf("reading layout: %w", err)
-	}
-
-	s := string(content)
-
-	// Remove Mail icon from import
-	s = strings.Replace(s, ", Mail", "", 1)
-
-	// Remove Emails nav entry
-	s = regexp.MustCompile(`(?s)\s*\{\s*name:\s*['"]Emails['"],\s*href:\s*['"][^'"]+['"],\s*icon:\s*Mail,?\s*\},?`).ReplaceAllString(s, "")
-
-	if err := os.WriteFile(layoutPath, []byte(s), 0644); err != nil {
-		return fmt.Errorf("writing layout: %w", err)
+	if err := RemoveNavEntry(layoutPath, "/emails", "Mail"); err != nil {
+		return fmt.Errorf("removing emails nav entry: %w", err)
 	}
 
 	return nil
@@ -80,34 +65,8 @@ func PostmarkAddClient(tmpProject, clientPath string) error {
 
 	// 2. Add Emails nav entry and icon import to layout
 	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
-	content, err := os.ReadFile(layoutPath)
-	if err != nil {
-		return fmt.Errorf("reading layout: %w", err)
-	}
-
-	s := string(content)
-
-	// Add Mail to import
-	if !strings.Contains(s, "Mail") {
-		s = regexp.MustCompile(`(from "@lucide[^"]*";)`).ReplaceAllString(s, `from "@lucide/svelte";
-    import { Mail } from "@lucide/svelte";`)
-		s = strings.Replace(s, `} from "@lucide/svelte";
-    import { Mail } from "@lucide/svelte";`, `, Mail } from "@lucide/svelte";`, 1)
-	}
-
-	// Add Emails nav entry
-	if !strings.Contains(s, `href: "/emails"`) {
-		s = regexp.MustCompile(`(\s*)(];)\s*\n(\s*function isActive)`).ReplaceAllString(s, `$1{
-$1    name: "Emails",
-$1    href: "/emails",
-$1    icon: Mail,
-$1},
-$1$2
-$3`)
-	}
-
-	if err := os.WriteFile(layoutPath, []byte(s), 0644); err != nil {
-		return fmt.Errorf("writing layout: %w", err)
+	if err := AddNavEntry(layoutPath, "Emails", "/emails", "Mail"); err != nil {
+		return fmt.Errorf("adding emails nav entry: %w", err)
 	}
 
 	return nil

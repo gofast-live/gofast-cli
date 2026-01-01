@@ -498,6 +498,15 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 		return fmt.Errorf("replacing UI fields: %w", rErr)
 	}
 
+	// Check if any columns are date type
+	hasDateColumn := false
+	for _, c := range columns {
+		if c.Type == "date" {
+			hasDateColumn = true
+			break
+		}
+	}
+
 	// Remove lines that contain marker comments to avoid extra spacing
 	markers := []string{
 		"// GF_DETAIL_EMPTY_START", "// GF_DETAIL_EMPTY_END",
@@ -507,12 +516,38 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 		"<!-- GF_DETAIL_FIELDS_START -->", "<!-- GF_DETAIL_FIELDS_END -->",
 	}
 	var outLines []string
+	inFormatDateFunc := false
+	braceDepth := 0
 	for line := range strings.SplitSeq(s, "\n") {
 		skip := false
 		for _, m := range markers {
 			if strings.Contains(line, m) {
 				skip = true
 				break
+			}
+		}
+		// Remove formatDate function if no date columns
+		if !hasDateColumn {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "function formatDate(") {
+				inFormatDateFunc = true
+				braceDepth = 0
+				skip = true
+			}
+			if inFormatDateFunc {
+				skip = true
+				// Track brace depth to find the function's closing brace
+				for _, ch := range line {
+					if ch == '{' {
+						braceDepth++
+					} else if ch == '}' {
+						braceDepth--
+						if braceDepth == 0 {
+							inFormatDateFunc = false
+							break
+						}
+					}
+				}
 			}
 		}
 		if !skip {
