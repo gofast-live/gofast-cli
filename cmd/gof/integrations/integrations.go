@@ -387,7 +387,7 @@ func MergeMainGoMarkers(srcPath, dstPath, integration string) error {
 }
 
 // MergeConfigMarkers extracts marker blocks from src config.go and injects them into dst config.go
-// Blocks are inserted after existing integration markers in the same section
+// Blocks are inserted at GF_CONFIG_STRUCT_INSERT and GF_CONFIG_INIT_INSERT markers
 func MergeConfigMarkers(srcPath, dstPath, integration string) error {
 	srcContent, err := os.ReadFile(srcPath)
 	if err != nil {
@@ -410,8 +410,8 @@ func MergeConfigMarkers(srcPath, dstPath, integration string) error {
 	src := string(srcContent)
 	dst := string(dstContent)
 
-	// Extract all marker blocks from source
-	var blocks []string
+	// Extract all marker blocks from source, categorized by type
+	var structBlocks, initBlocks []string
 	remaining := src
 	for {
 		startIdx := strings.Index(remaining, startMarker)
@@ -439,52 +439,42 @@ func MergeConfigMarkers(srcPath, dstPath, integration string) error {
 			endIdx++
 		}
 
-		blocks = append(blocks, remaining[lineStart:endIdx])
+		block := remaining[lineStart:endIdx]
+
+		// Categorize: blocks with MustSetEnv are initialization, others are struct fields
+		if strings.Contains(block, "MustSetEnv") {
+			initBlocks = append(initBlocks, block)
+		} else {
+			structBlocks = append(structBlocks, block)
+		}
+
 		remaining = remaining[endIdx:]
 	}
 
-	// For each block, find where to insert in destination
-	// Look for other integration END markers and insert after them
-	integrationEndPattern := regexp.MustCompile(`// GF_(STRIPE|FILE|EMAIL)_END\n?`)
-
-	for _, block := range blocks {
-		// Find all integration END markers in dst
-		matches := integrationEndPattern.FindAllStringIndex(dst, -1)
-		if len(matches) > 0 {
-			// Insert after the last match that appears before any non-integration code
-			// We'll insert after the first END marker we find
-			// Actually, we should find the right section based on content similarity
-
-			// Simple approach: find the last END marker and insert after it
-			// But we need to handle multiple sections (struct fields vs initialization)
-
-			// Check if this block contains ":" (initialization) or not (struct field)
-			isInit := strings.Contains(block, "MustSetEnv") || strings.Contains(block, ":")
-
-			// Find appropriate insertion point
-			inserted := false
-			for i := len(matches) - 1; i >= 0; i-- {
-				matchEnd := matches[i][1]
-				// Check context around this match
-				contextStart := matches[i][0] - 100
-				if contextStart < 0 {
-					contextStart = 0
-				}
-				context := dst[contextStart:matches[i][1]]
-				contextIsInit := strings.Contains(context, "MustSetEnv") || strings.Contains(context, ":")
-
-				if isInit == contextIsInit {
-					// Insert after this marker
-					dst = dst[:matchEnd] + block + dst[matchEnd:]
-					inserted = true
-					break
-				}
+	// Insert struct field blocks after GF_CONFIG_STRUCT_INSERT marker
+	structInsertMarker := "// GF_CONFIG_STRUCT_INSERT"
+	for _, block := range structBlocks {
+		idx := strings.Index(dst, structInsertMarker)
+		if idx != -1 {
+			// Find end of the marker line
+			lineEnd := strings.Index(dst[idx:], "\n")
+			if lineEnd != -1 {
+				insertPoint := idx + lineEnd + 1
+				dst = dst[:insertPoint] + "\n" + block + dst[insertPoint:]
 			}
+		}
+	}
 
-			if !inserted && len(matches) > 0 {
-				// Fallback: insert after last match
-				matchEnd := matches[len(matches)-1][1]
-				dst = dst[:matchEnd] + block + dst[matchEnd:]
+	// Insert initialization blocks after GF_CONFIG_INIT_INSERT marker
+	initInsertMarker := "// GF_CONFIG_INIT_INSERT"
+	for _, block := range initBlocks {
+		idx := strings.Index(dst, initInsertMarker)
+		if idx != -1 {
+			// Find end of the marker line
+			lineEnd := strings.Index(dst[idx:], "\n")
+			if lineEnd != -1 {
+				insertPoint := idx + lineEnd + 1
+				dst = dst[:insertPoint] + block + dst[insertPoint:]
 			}
 		}
 	}

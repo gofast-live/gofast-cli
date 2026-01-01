@@ -102,7 +102,11 @@ func addModelToNavigation(modelName string) error {
         },`, pluralCap, pluralLower)
 
 	// Insert the new nav item before the closing bracket of the nav array.
-	navArrayEndMarker := `    ];`
+	// Support both `];` and `] as const;` patterns
+	navArrayEndMarker := `    ] as const;`
+	if !strings.Contains(content, navArrayEndMarker) {
+		navArrayEndMarker = `    ];`
+	}
 
 	// Ensure the previous entry has a trailing comma (handles case where last entry was added without one)
 	// Look for pattern: }followed by whitespace/newlines then ];
