@@ -9,6 +9,7 @@ import (
 	"github.com/gertd/go-pluralize"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/e2e"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/svelte"
 	"github.com/spf13/cobra"
 )
@@ -198,6 +199,13 @@ Example:
 			return
 		}
 
+		// Update seed_dev_user.sh with new permission value
+		err = e2e.UpdateSeedDevUser()
+		if err != nil {
+			cmd.Printf("Error updating seed script: %v.\n", err)
+			return
+		}
+
 		err = generateServiceLayer(modelName, columns)
 		if err != nil {
 			cmd.Printf("Error generating service layer: %v.\n", err)
@@ -306,6 +314,20 @@ func generateTransportTestContent(modelName, capitalizedModelName string, column
 	}
 
 	content := string(contentBytes)
+
+	// Check if model has any date columns (which require time.Now())
+	hasDateColumn := false
+	for _, c := range columns {
+		if c.Type == "date" {
+			hasDateColumn = true
+			break
+		}
+	}
+
+	// Remove "time" import if no date columns
+	if !hasDateColumn {
+		content = strings.Replace(content, "\t\"time\"\n", "", 1)
+	}
 
 	// Build replacement content for each marker type (reuse helpers from model_test_gen.go)
 	entityFields := buildEntityFields(columns)

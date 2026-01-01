@@ -16,6 +16,20 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 
 	content := string(contentBytes)
 
+	// Check if model has any date columns (which require time.Now())
+	hasDateColumn := false
+	for _, c := range columns {
+		if c.Type == "date" {
+			hasDateColumn = true
+			break
+		}
+	}
+
+	// Remove "time" import if no date columns
+	if !hasDateColumn {
+		content = strings.Replace(content, "\t\"time\"\n", "", 1)
+	}
+
 	// Build replacement content for each marker type
 	entityFields := buildEntityFields(columns)
 	createFields := buildCreateProtoFields(columns, capitalizedModelName)
