@@ -55,11 +55,11 @@ func R2StripClient(clientPath string) error {
 
 	s := string(content)
 
-	// Remove Files icon from import (FolderOpen or similar)
-	s = strings.Replace(s, ", FolderOpen", "", 1)
+	// Remove Files icon from import
+	s = strings.Replace(s, ", FileUp", "", 1)
 
 	// Remove Files nav entry
-	s = regexp.MustCompile(`(?s)\s*\{\s*name:\s*['"]Files['"],\s*href:\s*['"][^'"]+['"],\s*icon:\s*FolderOpen,?\s*\},?`).ReplaceAllString(s, "")
+	s = regexp.MustCompile(`(?s)\s*\{\s*name:\s*['"]Files['"],\s*href:\s*['"][^'"]+['"],\s*icon:\s*FileUp,?\s*\},?`).ReplaceAllString(s, "")
 
 	if err := os.WriteFile(layoutPath, []byte(s), 0644); err != nil {
 		return fmt.Errorf("writing layout: %w", err)
@@ -87,23 +87,24 @@ func R2AddClient(tmpProject, clientPath string) error {
 
 	s := string(content)
 
-	// Add FolderOpen to import
-	if !strings.Contains(s, "FolderOpen") {
+	// Add FileUp to import
+	if !strings.Contains(s, "FileUp") {
 		s = regexp.MustCompile(`(from "@lucide[^"]*";)`).ReplaceAllString(s, `from "@lucide/svelte";
-    import { FolderOpen } from "@lucide/svelte";`)
+    import { FileUp } from "@lucide/svelte";`)
 		s = strings.Replace(s, `} from "@lucide/svelte";
-    import { FolderOpen } from "@lucide/svelte";`, `, FolderOpen } from "@lucide/svelte";`, 1)
+    import { FileUp } from "@lucide/svelte";`, `, FileUp } from "@lucide/svelte";`, 1)
 	}
 
-	// Add Files nav entry
+	// Add Files nav entry before Payments
 	if !strings.Contains(s, `href: "/files"`) {
-		s = regexp.MustCompile(`(\s*)(];)\s*\n(\s*function isActive)`).ReplaceAllString(s, `$1{
-$1    name: "Files",
-$1    href: "/files",
-$1    icon: FolderOpen,
-$1},
-$1$2
-$3`)
+		s = strings.Replace(s, `{
+            name: "Payments",`, `{
+            name: "Files",
+            href: "/files",
+            icon: FileUp
+        },
+        {
+            name: "Payments",`, 1)
 	}
 
 	if err := os.WriteFile(layoutPath, []byte(s), 0644); err != nil {
