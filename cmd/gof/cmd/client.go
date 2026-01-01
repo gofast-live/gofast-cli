@@ -185,6 +185,35 @@ var clientCmd = &cobra.Command{
 			}
 		}
 
+		// Copy e2e folder and strip integration-specific tests
+		srcE2E := filepath.Join(tmpDir, srcRepoName, "e2e")
+		dstE2E := filepath.Join(cwd, "e2e")
+		if _, err := os.Stat(srcE2E); err == nil {
+			if err := copyDir(srcE2E, dstE2E); err != nil {
+				cmd.Printf("Error copying e2e folder: %v\n", err)
+				return
+			}
+			// Strip integration-specific e2e tests
+			if !enabledIntegrations["stripe"] {
+				if err := integrations.StripeStripE2E(dstE2E); err != nil {
+					cmd.Printf("Error stripping stripe from e2e: %v\n", err)
+					return
+				}
+			}
+			if !enabledIntegrations["r2"] {
+				if err := integrations.R2StripE2E(dstE2E); err != nil {
+					cmd.Printf("Error stripping r2 from e2e: %v\n", err)
+					return
+				}
+			}
+			if !enabledIntegrations["postmark"] {
+				if err := integrations.PostmarkStripE2E(dstE2E); err != nil {
+					cmd.Printf("Error stripping postmark from e2e: %v\n", err)
+					return
+				}
+			}
+		}
+
 		// Change back to the original directory before generating svelte files.
 		if err := os.Chdir(cwd); err != nil {
 			cmd.Printf("Error changing back to original directory: %v\n", err)

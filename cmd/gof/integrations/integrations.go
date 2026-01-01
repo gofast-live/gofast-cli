@@ -114,6 +114,19 @@ func CopyDir(src, dst string) error {
 	})
 }
 
+// CopyFile copies a single file from src to dst
+func CopyFile(src, dst string) error {
+	content, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	// Ensure destination directory exists
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(dst, content, 0644)
+}
+
 // GetNextMigrationNumber returns the next available migration number
 func GetNextMigrationNumber() (int, error) {
 	migrationsDir := filepath.Join("app", "service-core", "storage", "migrations")

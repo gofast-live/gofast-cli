@@ -113,6 +113,26 @@ $3`)
 	return nil
 }
 
+// PostmarkStripE2E removes Postmark-related e2e tests.
+// Called by 'gof client svelte' when postmark is not enabled.
+func PostmarkStripE2E(e2ePath string) error {
+	if err := os.Remove(filepath.Join(e2ePath, "emails.test.ts")); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("removing emails.test.ts: %w", err)
+	}
+	return nil
+}
+
+// PostmarkAddE2E adds Postmark-related e2e tests.
+// Called by 'gof add postmark' when client exists.
+func PostmarkAddE2E(tmpProject, e2ePath string) error {
+	src := filepath.Join(tmpProject, "e2e", "emails.test.ts")
+	dst := filepath.Join(e2ePath, "emails.test.ts")
+	if err := CopyFile(src, dst); err != nil {
+		return fmt.Errorf("copying emails.test.ts: %w", err)
+	}
+	return nil
+}
+
 // PostmarkAdd adds Postmark email integration to an existing project.
 // Called by 'gof add postmark' command.
 func PostmarkAdd(email, apiKey string) error {
@@ -173,6 +193,13 @@ func PostmarkAdd(email, apiKey string) error {
 		clientPath := filepath.Join("app", "service-client")
 		if err := PostmarkAddClient(tmpProject, clientPath); err != nil {
 			return fmt.Errorf("adding email to client: %w", err)
+		}
+		// Add e2e tests if e2e folder exists
+		e2ePath := "e2e"
+		if _, err := os.Stat(e2ePath); err == nil {
+			if err := PostmarkAddE2E(tmpProject, e2ePath); err != nil {
+				return fmt.Errorf("adding postmark e2e tests: %w", err)
+			}
 		}
 	}
 

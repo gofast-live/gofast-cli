@@ -95,6 +95,9 @@ var initCmd = &cobra.Command{
 		if err := os.Remove(filepath.Join(projectName, "docker-compose.client.yml")); err != nil && !os.IsNotExist(err) {
 			cmd.Printf("Warning: could not remove client docker compose file: %v\n", err)
 		}
+		if err := os.RemoveAll(filepath.Join(projectName, "e2e")); err != nil {
+			cmd.Printf("Warning: could not remove e2e folder: %v\n", err)
+		}
 		// Strip optional integrations - user can add them back with 'gof add <integration>'
 		if err := integrations.StripeStrip(projectName); err != nil {
 			cmd.Printf("Error stripping stripe: %v\n", err)

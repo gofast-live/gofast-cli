@@ -167,6 +167,26 @@ $3`)
 	return nil
 }
 
+// StripeStripE2E removes Stripe-related e2e tests.
+// Called by 'gof client svelte' when stripe is not enabled.
+func StripeStripE2E(e2ePath string) error {
+	if err := os.Remove(filepath.Join(e2ePath, "payments.test.ts")); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("removing payments.test.ts: %w", err)
+	}
+	return nil
+}
+
+// StripeAddE2E adds Stripe-related e2e tests.
+// Called by 'gof add stripe' when client exists.
+func StripeAddE2E(tmpProject, e2ePath string) error {
+	src := filepath.Join(tmpProject, "e2e", "payments.test.ts")
+	dst := filepath.Join(e2ePath, "payments.test.ts")
+	if err := CopyFile(src, dst); err != nil {
+		return fmt.Errorf("copying payments.test.ts: %w", err)
+	}
+	return nil
+}
+
 // StripeAdd adds Stripe payment integration to an existing project.
 // Called by 'gof add stripe' command.
 func StripeAdd(email, apiKey string) error {
@@ -227,6 +247,13 @@ func StripeAdd(email, apiKey string) error {
 		clientPath := filepath.Join("app", "service-client")
 		if err := StripeAddClient(tmpProject, clientPath); err != nil {
 			return fmt.Errorf("adding stripe to client: %w", err)
+		}
+		// Add e2e tests if e2e folder exists
+		e2ePath := "e2e"
+		if _, err := os.Stat(e2ePath); err == nil {
+			if err := StripeAddE2E(tmpProject, e2ePath); err != nil {
+				return fmt.Errorf("adding stripe e2e tests: %w", err)
+			}
 		}
 	}
 

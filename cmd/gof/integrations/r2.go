@@ -114,6 +114,26 @@ func R2AddClient(tmpProject, clientPath string) error {
 	return nil
 }
 
+// R2StripE2E removes R2-related e2e tests.
+// Called by 'gof client svelte' when r2 is not enabled.
+func R2StripE2E(e2ePath string) error {
+	if err := os.Remove(filepath.Join(e2ePath, "files.test.ts")); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("removing files.test.ts: %w", err)
+	}
+	return nil
+}
+
+// R2AddE2E adds R2-related e2e tests.
+// Called by 'gof add r2' when client exists.
+func R2AddE2E(tmpProject, e2ePath string) error {
+	src := filepath.Join(tmpProject, "e2e", "files.test.ts")
+	dst := filepath.Join(e2ePath, "files.test.ts")
+	if err := CopyFile(src, dst); err != nil {
+		return fmt.Errorf("copying files.test.ts: %w", err)
+	}
+	return nil
+}
+
 // R2Add adds Cloudflare R2 file storage integration to an existing project.
 // Called by 'gof add r2' command.
 func R2Add(email, apiKey string) error {
@@ -174,6 +194,13 @@ func R2Add(email, apiKey string) error {
 		clientPath := filepath.Join("app", "service-client")
 		if err := R2AddClient(tmpProject, clientPath); err != nil {
 			return fmt.Errorf("adding files to client: %w", err)
+		}
+		// Add e2e tests if e2e folder exists
+		e2ePath := "e2e"
+		if _, err := os.Stat(e2ePath); err == nil {
+			if err := R2AddE2E(tmpProject, e2ePath); err != nil {
+				return fmt.Errorf("adding r2 e2e tests: %w", err)
+			}
 		}
 	}
 

@@ -413,3 +413,24 @@ Generated projects use Makefile commands instead of shell scripts:
 - **Cobra:** CLI framework
 - **Bubble Tea:** TUI for authentication
 - **go-pluralize:** Pluralization of model names
+
+## Current Task
+
+### TODO: Dynamic seed_dev_user.sh Permissions
+
+**Problem:** `scripts/seed_dev_user.sh` has hardcoded permission value `16380` which only covers base skeleton model + all integrations. When new models are added via `gof model`, the dev user doesn't have permissions for them, causing e2e tests to fail with `[permission_denied] insufficient permissions`.
+
+**Root cause:** The permission bitmask in `app/pkg/auth/auth.go` grows dynamically:
+- Each `gof model` adds 4 new flags (Get, Create, Edit, Remove)
+- Each integration adds its own flags
+- The `UserAccess` const combines all flags
+- But `seed_dev_user.sh` has a static value
+
+**Solution needed:**
+1. Make `seed_dev_user.sh` dynamic - calculate permission value from `auth.go`
+2. OR regenerate seed script when `gof model` or `gof add` runs
+3. The script should parse `UserAccess` const from `auth.go` and compute the bitmask
+
+**Files involved:**
+- `scripts/seed_dev_user.sh` - Has hardcoded `access = 16380`
+- `app/pkg/auth/auth.go` - Source of truth for permission flags
