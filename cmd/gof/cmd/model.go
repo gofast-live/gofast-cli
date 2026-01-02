@@ -250,11 +250,12 @@ Example:
 			cmd.Printf("  - Name: %s, Type: %v\n", col.Name, typeMap[col.Type])
 		}
 
+		goPackageName := toGoPackageName(modelName)
 		cmd.Printf("\nProtobuf definitions generated in: %s\n", config.SuccessStyle.Render("proto/v1/"+modelName+".proto"))
 		cmd.Printf("Migration generated in: %s\n", config.SuccessStyle.Render(migrationPath))
 		cmd.Printf("Queries generated in: %s\n", config.SuccessStyle.Render("app/service-core/storage/query.sql"))
-		cmd.Printf("Service layer generated in: %s\n", config.SuccessStyle.Render("app/service-core/domain/"+modelName))
-		cmd.Printf("Transport layer generated in: %s\n", config.SuccessStyle.Render("app/service-core/transport/"+modelName))
+		cmd.Printf("Service layer generated in: %s\n", config.SuccessStyle.Render("app/service-core/domain/"+goPackageName))
+		cmd.Printf("Transport layer generated in: %s\n", config.SuccessStyle.Render("app/service-core/transport/"+goPackageName))
 		if config.IsSvelte() {
 			cmd.Printf("Client pages generated in: %s\n", config.SuccessStyle.Render("app/service-client/src/routes/(app)/models/"+pluralizeClient.Plural(modelName)))
 		}
@@ -295,6 +296,8 @@ func capitalize(s string) string {
 	return toCamelCase(s)
 }
 
+// toCamelCase converts snake_case to PascalCase (e.g., "user_profile" -> "UserProfile")
+// Used for Go type names and proto type names.
 func toCamelCase(s string) string {
 	parts := strings.Split(s, "_")
 	for i, part := range parts {
@@ -303,6 +306,28 @@ func toCamelCase(s string) string {
 		}
 	}
 	return strings.Join(parts, "")
+}
+
+// toGoPackageName converts snake_case to a valid Go package name (lowercase, no underscores)
+// e.g., "user_profile" -> "userprofile"
+func toGoPackageName(s string) string {
+	return strings.ReplaceAll(s, "_", "")
+}
+
+// toGoVarName converts snake_case to camelCase for Go variable names
+// e.g., "user_profile" -> "userProfile"
+func toGoVarName(s string) string {
+	parts := strings.Split(s, "_")
+	if len(parts) == 1 {
+		return s
+	}
+	result := parts[0]
+	for _, part := range parts[1:] {
+		if len(part) > 0 {
+			result += strings.ToUpper(string(part[0])) + part[1:]
+		}
+	}
+	return result
 }
 
 // generateTransportTestContent generates transport test file by copying skeleton and replacing markers
@@ -339,11 +364,21 @@ func generateTransportTestContent(modelName, capitalizedModelName string, column
 	content = replaceMarkerRegion(content, "GF_TP_TEST_CREATE_FIELDS_START", "GF_TP_TEST_CREATE_FIELDS_END", createFields)
 	content = replaceMarkerRegion(content, "GF_TP_TEST_EDIT_FIELDS_START", "GF_TP_TEST_EDIT_FIELDS_END", editFields)
 
+	// Go naming conversions
+	goPackageName := toGoPackageName(modelName)
+	goVarName := toGoVarName(modelName)
+	pluralVarName := toGoVarName(pluralLower)
+
 	// Token replacement
 	content = strings.ReplaceAll(content, "Skeletons", pluralCap)
-	content = strings.ReplaceAll(content, "skeletons", pluralLower)
-	content = strings.ReplaceAll(content, "skeleton", modelName)
 	content = strings.ReplaceAll(content, "Skeleton", capitalizedModelName)
+	content = strings.Replace(content, "package skeleton", "package "+goPackageName, 1)
+	// Fix import paths to use goPackageName (lowercase directory) with proper aliases
+	content = strings.Replace(content, `skeletonSvc "gofast/service-core/domain/skeleton"`, goVarName+`Svc "gofast/service-core/domain/`+goPackageName+`"`, 1)
+	// Add alias to transport import since skeleton.Server becomes userProfile.Server after replacement
+	content = strings.Replace(content, `"gofast/service-core/transport/skeleton"`, goVarName+` "gofast/service-core/transport/`+goPackageName+`"`, 1)
+	content = strings.ReplaceAll(content, "skeletons", pluralVarName)
+	content = strings.ReplaceAll(content, "skeleton", goVarName)
 
 	return content, nil
 }
@@ -478,21 +513,24 @@ func wireCoreMain(modelName string) error {
 	}
 	s := string(b)
 
+	// Go naming conversions
+	goPackageName := toGoPackageName(modelName)
+	goVarName := toGoVarName(modelName)
 	cap := capitalize(modelName)
-	svcAlias := modelName + "Svc"
-	routeAlias := modelName + "Route"
+	svcAlias := goVarName + "Svc"
+	routeAlias := goVarName + "Route"
 
-	// Import lines
-	svcImportLine := "\t" + svcAlias + " \"gofast/service-core/domain/" + modelName + "\""
-	routeImportLine := "\t" + routeAlias + " \"gofast/service-core/transport/" + modelName + "\""
+	// Import lines (use goPackageName for paths, goVarName for aliases)
+	svcImportLine := "\t" + svcAlias + " \"gofast/service-core/domain/" + goPackageName + "\""
+	routeImportLine := "\t" + routeAlias + " \"gofast/service-core/transport/" + goPackageName + "\""
 
-	// Deps initialization
-	depsInitLine := "\t" + modelName + "Deps := " + svcAlias + ".Deps{Store: store}"
+	// Deps initialization (use goVarName for variable names)
+	depsInitLine := "\t" + goVarName + "Deps := " + svcAlias + ".Deps{Store: store}"
 
 	// Route mounting (3 lines)
 	routeMountLines := strings.Join([]string{
-		"\t" + modelName + "Server := " + routeAlias + ".New" + cap + "Server(" + modelName + "Deps)",
-		"\tpath, handler = v1connect.New" + cap + "ServiceHandler(" + modelName + "Server, server.Interceptors())",
+		"\t" + goVarName + "Server := " + routeAlias + ".New" + cap + "Server(" + goVarName + "Deps)",
+		"\tpath, handler = v1connect.New" + cap + "ServiceHandler(" + goVarName + "Server, server.Interceptors())",
 		"\tserver.Mount(path, handler)",
 	}, "\n")
 

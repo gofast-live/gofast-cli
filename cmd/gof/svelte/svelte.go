@@ -220,8 +220,8 @@ func generateClientConnect(modelName string) error {
 func generateClientListPage(modelName string, columns []Column) error {
 	sourcePath := "./app/service-client/src/routes/(app)/models/skeletons/+page.svelte"
 	pluralLower := pluralizeClient.Plural(modelName)
-	pluralCap := capitalize(pluralLower)
-	capitalizedModelName := capitalize(modelName)
+	pluralCap := toPascalCase(pluralLower)
+	capitalizedModelName := toPascalCase(modelName)
 
 	// Ensure destination directory exists
 	destDir := filepath.Join("app/service-client/src/routes/(app)/models", pluralLower)
@@ -241,6 +241,9 @@ func generateClientListPage(modelName string, columns []Column) error {
 	s = strings.ReplaceAll(s, "Skeletons", pluralCap)
 	s = strings.ReplaceAll(s, "skeletons", pluralLower)
 	s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
+	// Replace protobuf field access patterns with camelCase BEFORE the blanket replacement
+	camelName := toCamelCase(modelName)
+	s = strings.ReplaceAll(s, "res.skeleton", "res."+camelName)
 	s = strings.ReplaceAll(s, "skeleton", modelName)
 
 	// Helper: Title-case a label from snake_case
@@ -341,8 +344,8 @@ func generateClientListPage(modelName string, columns []Column) error {
 func generateClientDetailPage(modelName string, columns []Column) error {
 	sourcePath := "./app/service-client/src/routes/(app)/models/skeletons/[skeleton_id]/+page.svelte"
 	pluralLower := pluralizeClient.Plural(modelName)
-	pluralCap := capitalize(pluralLower)
-	capitalizedModelName := capitalize(modelName)
+	pluralCap := toPascalCase(pluralLower)
+	capitalizedModelName := toPascalCase(modelName)
 
 	// Ensure destination directory exists: /(app)/models/<plural>/[<model>_id]
 	destDir := filepath.Join(
@@ -366,6 +369,12 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 	s = strings.ReplaceAll(s, "Skeletons", pluralCap)
 	s = strings.ReplaceAll(s, "skeletons", pluralLower)
 	s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
+	// Replace protobuf field access patterns with camelCase BEFORE the blanket replacement
+	// Be specific to avoid matching partial strings like params.skeleton_id
+	camelName := toCamelCase(modelName)
+	s = strings.ReplaceAll(s, "!s.skeleton)", "!s."+camelName+")")  // null check: if (!s.skeleton)
+	s = strings.ReplaceAll(s, " s.skeleton;", " s."+camelName+";") // return s.skeleton;
+	s = strings.ReplaceAll(s, "skeleton: {", camelName+": {")
 	s = strings.ReplaceAll(s, "skeleton", modelName)
 
 	// Build replacement snippets

@@ -25,14 +25,28 @@ func capitalize(s string) string {
 	return strings.ToUpper(string(s[0])) + s[1:]
 }
 
+// toPascalCase converts snake_case to PascalCase
+// e.g., "user_profile" -> "UserProfile"
+func toPascalCase(s string) string {
+	parts := strings.Split(s, "_")
+	var b strings.Builder
+	for _, p := range parts {
+		if p == "" {
+			continue
+		}
+		b.WriteString(strings.ToUpper(p[:1]) + p[1:])
+	}
+	return b.String()
+}
+
 // generateClientE2ETest scaffolds a Playwright e2e test based on the skeleton
 // template, expanding the model configuration block with column-aware values
 // and default behaviours.
 func GenerateClientE2ETest(modelName string, columns []Column) error {
 	sourcePath := "./e2e/skeletons.test.ts"
 	pluralLower := pluralizeClient.Plural(modelName)
-	pluralCap := capitalize(pluralLower)
-	capitalizedModelName := capitalize(modelName)
+	pluralCap := toPascalCase(pluralLower)
+	capitalizedModelName := toPascalCase(modelName)
 
 	if err := os.MkdirAll("e2e", 0o755); err != nil {
 		return fmt.Errorf("creating e2e directory: %w", err)
