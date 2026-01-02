@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
@@ -86,24 +85,6 @@ func StripeStripClient(clientPath string) error {
 		return fmt.Errorf("removing payments nav entry: %w", err)
 	}
 
-	// 3. Remove Stripe success handling
-	content, err := os.ReadFile(layoutPath)
-	if err != nil {
-		return fmt.Errorf("reading layout: %w", err)
-	}
-
-	s := string(content)
-
-	// Remove Stripe success handling (the force refresh check)
-	s = regexp.MustCompile(`(?s)\s*const force = page\.url\.searchParams\.get\("success"\) === "true";\s*if \(force\) \{\s*// Wait for Stripe webhook to process\s*await new Promise\(\(r\) => setTimeout\(r, 2000\)\);\s*\}`).ReplaceAllString(s, "")
-
-	// Replace { force } with {} in refresh call
-	s = strings.Replace(s, "const response = await login_client.refresh({ force });", "const response = await login_client.refresh({});", 1)
-
-	if err := os.WriteFile(layoutPath, []byte(s), 0644); err != nil {
-		return fmt.Errorf("writing layout: %w", err)
-	}
-
 	return nil
 }
 
@@ -121,30 +102,6 @@ func StripeAddClient(tmpProject, clientPath string) error {
 	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
 	if err := AddNavEntry(layoutPath, "Payments", "/payments", "Coins"); err != nil {
 		return fmt.Errorf("adding payments nav entry: %w", err)
-	}
-
-	// 3. Add Stripe success handling
-	content, err := os.ReadFile(layoutPath)
-	if err != nil {
-		return fmt.Errorf("reading layout: %w", err)
-	}
-
-	s := string(content)
-
-	if !strings.Contains(s, `page.url.searchParams.get("success")`) {
-		s = strings.Replace(s,
-			`const response = await login_client.refresh({});`,
-			`const force = page.url.searchParams.get("success") === "true";
-            if (force) {
-                // Wait for Stripe webhook to process
-                await new Promise((r) => setTimeout(r, 2000));
-            }
-            const response = await login_client.refresh({ force });`,
-			1)
-	}
-
-	if err := os.WriteFile(layoutPath, []byte(s), 0644); err != nil {
-		return fmt.Errorf("writing layout: %w", err)
 	}
 
 	return nil
