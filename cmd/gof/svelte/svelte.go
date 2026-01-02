@@ -43,6 +43,20 @@ func toCamelCase(s string) string {
 	return b.String()
 }
 
+// toPascalCase converts snake_case to PascalCase (e.g., "user_profile" -> "UserProfile")
+// This is needed because protobuf-generated service names use PascalCase.
+func toPascalCase(s string) string {
+	parts := strings.Split(s, "_")
+	var b strings.Builder
+	for _, p := range parts {
+		if p == "" {
+			continue
+		}
+		b.WriteString(strings.ToUpper(p[:1]) + p[1:])
+	}
+	return b.String()
+}
+
 func GenerateSvelteScaffolding(modelName string, columns []Column) error {
 	if err := addModelToNavigation(modelName); err != nil {
 		return fmt.Errorf("adding model to navigation: %w", err)
@@ -140,8 +154,9 @@ func generateClientConnect(modelName string) error {
 	}
 	s := string(b)
 
-	capitalized := capitalize(modelName)
-	serviceToken := capitalized + "Service"
+	// Use PascalCase for service name (protobuf generates UserProfileService, not User_profileService)
+	pascalName := toPascalCase(modelName)
+	serviceToken := pascalName + "Service"
 	clientExport := "export const " + modelName + "_client = createClient(" + serviceToken + ", transport);"
 
 	// Ensure the service is imported from main_pb

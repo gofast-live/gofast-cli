@@ -30,6 +30,21 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 		content = strings.Replace(content, "\t\"time\"\n", "", 1)
 	}
 
+	// Check if model has any validatable columns (non-bool)
+	hasValidatableColumn := false
+	for _, c := range columns {
+		if c.Type != "bool" {
+			hasValidatableColumn = true
+			break
+		}
+	}
+
+	// If all columns are bool, remove the "Failure - Validation Error" test for Create
+	// (Edit test is fine because it validates the UUID)
+	if !hasValidatableColumn {
+		content = removeCreateValidationErrorTest(content)
+	}
+
 	// Build replacement content for each marker type
 	entityFields := buildEntityFields(columns)
 	createFields := buildCreateProtoFields(columns, capitalizedModelName)
@@ -437,4 +452,53 @@ func generateValidationTestContent(modelName, capitalizedModelName string, colum
 	}
 
 	return content, nil
+}
+
+// removeCreateValidationErrorTest removes the "Failure - Validation Error" t.Run block
+// from TestService_CreateSkeleton. Used when model has only bool columns (no validation).
+func removeCreateValidationErrorTest(content string) string {
+	// Find TestService_CreateSkeleton function
+	funcStart := strings.Index(content, "func TestService_CreateSkeleton(t *testing.T)")
+	if funcStart == -1 {
+		return content
+	}
+
+	// Find the validation error test block within this function
+	searchStart := funcStart
+	marker := `t.Run("Failure - Validation Error", func(t *testing.T) {`
+	blockStart := strings.Index(content[searchStart:], marker)
+	if blockStart == -1 {
+		return content
+	}
+	blockStart += searchStart
+
+	// Find the start of this line (including leading whitespace)
+	lineStart := strings.LastIndex(content[:blockStart], "\n") + 1
+
+	// Find the matching closing brace by counting braces
+	braceCount := 0
+	pos := blockStart
+	foundOpen := false
+	for pos < len(content) {
+		if content[pos] == '{' {
+			braceCount++
+			foundOpen = true
+		} else if content[pos] == '}' {
+			braceCount--
+			if foundOpen && braceCount == 0 {
+				break
+			}
+		}
+		pos++
+	}
+
+	// pos now points to the closing brace, find end of line
+	lineEnd := strings.Index(content[pos:], "\n")
+	if lineEnd == -1 {
+		lineEnd = len(content) - pos
+	}
+	blockEnd := pos + lineEnd + 1
+
+	// Remove the block
+	return content[:lineStart] + content[blockEnd:]
 }
