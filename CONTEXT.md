@@ -414,23 +414,119 @@ Generated projects use Makefile commands instead of shell scripts:
 - **Bubble Tea:** TUI for authentication
 - **go-pluralize:** Pluralization of model names
 
-## Current Task
+## TEST FUCKING EVERYTHING :D
 
-### TODO: Dynamic seed_dev_user.sh Permissions
+Comprehensive testing of the CLI. Always include client - `run_tests.sh` covers Go build/lint/test + client lint/build + e2e tests.
 
-**Problem:** `scripts/seed_dev_user.sh` has hardcoded permission value `16380` which only covers base skeleton model + all integrations. When new models are added via `gof model`, the dev user doesn't have permissions for them, causing e2e tests to fail with `[permission_denied] insufficient permissions`.
+### How to Test
 
-**Root cause:** The permission bitmask in `app/pkg/auth/auth.go` grows dynamically:
-- Each `gof model` adds 4 new flags (Get, Create, Edit, Remove)
-- Each integration adds its own flags
-- The `UserAccess` const combines all flags
-- But `seed_dev_user.sh` has a static value
+```bash
+# 1. Generate scenario
+rm -rf demo
+TEST=true go run ./cmd/gof/... init demo
+cd demo
+# ... add models/integrations/client ...
 
-**Solution needed:**
-1. Make `seed_dev_user.sh` dynamic - calculate permission value from `auth.go`
-2. OR regenerate seed script when `gof model` or `gof add` runs
-3. The script should parse `UserAccess` const from `auth.go` and compute the bitmask
+# 2. Run full test suite (requires secrets - ask user)
+./run_tests.sh
+```
 
-**Files involved:**
-- `scripts/seed_dev_user.sh` - Has hardcoded `access = 16380`
-- `app/pkg/auth/auth.go` - Source of truth for permission flags
+### Test Scenarios
+
+Each scenario should be tested fresh (rm -rf demo first). Always add client for full coverage.
+
+**Model type variations:**
+```bash
+# All strings
+TEST=true go run ../cmd/gof/... model article title:string body:string author:string
+
+# All numbers
+TEST=true go run ../cmd/gof/... model metric count:number value:number score:number
+
+# All dates
+TEST=true go run ../cmd/gof/... model event start:date end:date reminder:date
+
+# All bools
+TEST=true go run ../cmd/gof/... model settings dark_mode:bool notifications:bool auto_save:bool
+
+# Mixed (the classic)
+TEST=true go run ../cmd/gof/... model post title:string views:number published_at:date is_active:bool
+
+# Single column each type
+TEST=true go run ../cmd/gof/... model tag name:string
+TEST=true go run ../cmd/gof/... model counter value:number
+TEST=true go run ../cmd/gof/... model deadline due:date
+TEST=true go run ../cmd/gof/... model toggle enabled:bool
+
+# Snake_case names
+TEST=true go run ../cmd/gof/... model user_profile display_name:string bio:string
+TEST=true go run ../cmd/gof/... model event_log event_type:string occurred_at:date
+```
+
+**Integration combinations:**
+```bash
+# Individual
+TEST=true go run ../cmd/gof/... add stripe
+TEST=true go run ../cmd/gof/... add r2
+TEST=true go run ../cmd/gof/... add postmark
+
+# All together
+TEST=true go run ../cmd/gof/... add stripe
+TEST=true go run ../cmd/gof/... add r2
+TEST=true go run ../cmd/gof/... add postmark
+
+# Order variations (client before/after integrations)
+TEST=true go run ../cmd/gof/... client svelte
+TEST=true go run ../cmd/gof/... add postmark   # This was a bug!
+```
+
+**Client timing variations:**
+```bash
+# CLIENT AT START - client first, then models and integrations
+rm -rf demo
+TEST=true go run ./cmd/gof/... init demo
+cd demo
+TEST=true go run ../cmd/gof/... client svelte
+TEST=true go run ../cmd/gof/... add r2
+TEST=true go run ../cmd/gof/... add postmark
+TEST=true go run ../cmd/gof/... model note title:string content:string
+TEST=true go run ../cmd/gof/... model event start:date end:date
+TEST=true go run ../cmd/gof/... add stripe
+./run_tests.sh
+
+# CLIENT IN MIDDLE - some stuff, then client, then more stuff
+rm -rf demo
+TEST=true go run ./cmd/gof/... init demo
+cd demo
+TEST=true go run ../cmd/gof/... add r2
+TEST=true go run ../cmd/gof/... model note title:string content:string
+TEST=true go run ../cmd/gof/... client svelte
+TEST=true go run ../cmd/gof/... add postmark
+TEST=true go run ../cmd/gof/... add stripe
+TEST=true go run ../cmd/gof/... model task description:string due:date priority:number done:bool
+./run_tests.sh
+
+# CLIENT AT END - all models and integrations, then client last
+rm -rf demo
+TEST=true go run ./cmd/gof/... init demo
+cd demo
+TEST=true go run ../cmd/gof/... add r2
+TEST=true go run ../cmd/gof/... add postmark
+TEST=true go run ../cmd/gof/... add stripe
+TEST=true go run ../cmd/gof/... model article title:string body:string
+TEST=true go run ../cmd/gof/... model counter value:number
+TEST=true go run ../cmd/gof/... model deadline due:date
+TEST=true go run ../cmd/gof/... model toggle enabled:bool
+TEST=true go run ../cmd/gof/... client svelte
+./run_tests.sh
+```
+
+### Known Bug Patterns
+
+Things that have broken before:
+- [ ] formatDate function included when model has no date columns
+- [ ] Missing trailing comma in nav array when adding integrations
+- [ ] Icon imported but nav entry not added
+- [ ] Proto field names (snake_case vs camelCase in TypeScript)
+- [ ] Permission flags not updated for new models
+
