@@ -421,14 +421,39 @@ Comprehensive testing of the CLI. Always include client - `run_tests.sh` covers 
 ### How to Test
 
 ```bash
-# 1. Generate scenario
+# 1. Generate scenario (from gofast-cli root)
+cd /home/mat/projects/gofast-cli
 rm -rf demo
 TEST=true go run ./cmd/gof/... init demo
 cd demo
 # ... add models/integrations/client ...
 
-# 2. Run full test suite (requires secrets - ask user)
-./run_tests.sh
+# 2. Run full test suite (requires secrets - ask user for them)
+# Script is at scripts/run_tests.sh, run from demo directory
+CONTEXT=gofast-rc \
+GITHUB_CLIENT_ID=<ask_user> \
+GITHUB_CLIENT_SECRET=<ask_user> \
+GOOGLE_CLIENT_ID=<ask_user> \
+GOOGLE_CLIENT_SECRET=<ask_user> \
+TWILIO_ACCOUNT_SID=<ask_user> \
+TWILIO_AUTH_TOKEN=<ask_user> \
+TWILIO_SERVICE_SID=<ask_user> \
+PAYMENT_PROVIDER=stripe \
+STRIPE_API_KEY=<ask_user> \
+STRIPE_PRICE_ID_BASIC=<ask_user> \
+STRIPE_PRICE_ID_PRO=<ask_user> \
+STRIPE_WEBHOOK_SECRET=<ask_user> \
+BUCKET_NAME=gofast \
+R2_ACCESS_KEY=<ask_user> \
+R2_SECRET_KEY=<ask_user> \
+R2_ENDPOINT=<ask_user> \
+EMAIL_FROM=admin@gofast.live \
+POSTMARK_API_KEY=<ask_user> \
+bash scripts/run_tests.sh
+
+# 3. Check e2e results
+cat e2e/test-results/.last-run.json
+# Should show: {"status": "passed", "failedTests": []}
 ```
 
 ### Test Scenarios
