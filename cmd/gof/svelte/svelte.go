@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gertd/go-pluralize"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/e2e"
 )
 
 type Column struct {
@@ -42,6 +43,20 @@ func toCamelCase(s string) string {
 	return b.String()
 }
 
+// toPascalCase converts snake_case to PascalCase (e.g., "user_profile" -> "UserProfile")
+// This is needed because protobuf-generated service names use PascalCase.
+func toPascalCase(s string) string {
+	parts := strings.Split(s, "_")
+	var b strings.Builder
+	for _, p := range parts {
+		if p == "" {
+			continue
+		}
+		b.WriteString(strings.ToUpper(p[:1]) + p[1:])
+	}
+	return b.String()
+}
+
 func GenerateSvelteScaffolding(modelName string, columns []Column) error {
 	if err := addModelToNavigation(modelName); err != nil {
 		return fmt.Errorf("adding model to navigation: %w", err)
@@ -55,13 +70,14 @@ func GenerateSvelteScaffolding(modelName string, columns []Column) error {
 	if err := generateClientDetailPage(modelName, columns); err != nil {
 		return fmt.Errorf("generating client detail page: %w", err)
 	}
-	// if err := generateClientListPageSpec(modelName, columns); err != nil {
-	// 	return fmt.Errorf("generating client list page spec: %w", err)
-	// }
-	// if err := generateClientDetailPageSpec(modelName, columns); err != nil {
-	// 	return fmt.Errorf("generating client detail page spec: %w", err)
-	// }
-	if err := generateClientE2ETest(modelName, columns); err != nil {
+	e2e_columns := make([]e2e.Column, len(columns))
+	for i, c := range columns {
+		e2e_columns[i] = e2e.Column{
+			Name: c.Name,
+			Type: c.Type,
+		}
+	}
+	if err := e2e.GenerateClientE2ETest(modelName, e2e_columns); err != nil {
 		return fmt.Errorf("generating e2e test: %w", err)
 	}
 
@@ -100,7 +116,11 @@ func addModelToNavigation(modelName string) error {
         },`, pluralCap, pluralLower)
 
 	// Insert the new nav item before the closing bracket of the nav array.
-	navArrayEndMarker := `    ];`
+	// Support both `];` and `] as const;` patterns
+	navArrayEndMarker := `    ] as const;`
+	if !strings.Contains(content, navArrayEndMarker) {
+		navArrayEndMarker = `    ];`
+	}
 
 	// Ensure the previous entry has a trailing comma (handles case where last entry was added without one)
 	// Look for pattern: }followed by whitespace/newlines then ];
@@ -134,8 +154,9 @@ func generateClientConnect(modelName string) error {
 	}
 	s := string(b)
 
-	capitalized := capitalize(modelName)
-	serviceToken := capitalized + "Service"
+	// Use PascalCase for service name (protobuf generates UserProfileService, not User_profileService)
+	pascalName := toPascalCase(modelName)
+	serviceToken := pascalName + "Service"
 	clientExport := "export const " + modelName + "_client = createClient(" + serviceToken + ", transport);"
 
 	// Ensure the service is imported from main_pb
@@ -199,8 +220,8 @@ func generateClientConnect(modelName string) error {
 func generateClientListPage(modelName string, columns []Column) error {
 	sourcePath := "./app/service-client/src/routes/(app)/models/skeletons/+page.svelte"
 	pluralLower := pluralizeClient.Plural(modelName)
-	pluralCap := capitalize(pluralLower)
-	capitalizedModelName := capitalize(modelName)
+	pluralCap := toPascalCase(pluralLower)
+	capitalizedModelName := toPascalCase(modelName)
 
 	// Ensure destination directory exists
 	destDir := filepath.Join("app/service-client/src/routes/(app)/models", pluralLower)
@@ -220,6 +241,9 @@ func generateClientListPage(modelName string, columns []Column) error {
 	s = strings.ReplaceAll(s, "Skeletons", pluralCap)
 	s = strings.ReplaceAll(s, "skeletons", pluralLower)
 	s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
+	// Replace protobuf field access patterns with camelCase BEFORE the blanket replacement
+	camelName := toCamelCase(modelName)
+	s = strings.ReplaceAll(s, "res.skeleton", "res."+camelName)
 	s = strings.ReplaceAll(s, "skeleton", modelName)
 
 	// Helper: Title-case a label from snake_case
@@ -320,8 +344,8 @@ func generateClientListPage(modelName string, columns []Column) error {
 func generateClientDetailPage(modelName string, columns []Column) error {
 	sourcePath := "./app/service-client/src/routes/(app)/models/skeletons/[skeleton_id]/+page.svelte"
 	pluralLower := pluralizeClient.Plural(modelName)
-	pluralCap := capitalize(pluralLower)
-	capitalizedModelName := capitalize(modelName)
+	pluralCap := toPascalCase(pluralLower)
+	capitalizedModelName := toPascalCase(modelName)
 
 	// Ensure destination directory exists: /(app)/models/<plural>/[<model>_id]
 	destDir := filepath.Join(
@@ -345,6 +369,12 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 	s = strings.ReplaceAll(s, "Skeletons", pluralCap)
 	s = strings.ReplaceAll(s, "skeletons", pluralLower)
 	s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
+	// Replace protobuf field access patterns with camelCase BEFORE the blanket replacement
+	// Be specific to avoid matching partial strings like params.skeleton_id
+	camelName := toCamelCase(modelName)
+	s = strings.ReplaceAll(s, "!s.skeleton)", "!s."+camelName+")")  // null check: if (!s.skeleton)
+	s = strings.ReplaceAll(s, " s.skeleton;", " s."+camelName+";") // return s.skeleton;
+	s = strings.ReplaceAll(s, "skeleton: {", camelName+": {")
 	s = strings.ReplaceAll(s, "skeleton", modelName)
 
 	// Build replacement snippets
@@ -492,6 +522,15 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 		return fmt.Errorf("replacing UI fields: %w", rErr)
 	}
 
+	// Check if any columns are date type
+	hasDateColumn := false
+	for _, c := range columns {
+		if c.Type == "date" {
+			hasDateColumn = true
+			break
+		}
+	}
+
 	// Remove lines that contain marker comments to avoid extra spacing
 	markers := []string{
 		"// GF_DETAIL_EMPTY_START", "// GF_DETAIL_EMPTY_END",
@@ -501,12 +540,38 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 		"<!-- GF_DETAIL_FIELDS_START -->", "<!-- GF_DETAIL_FIELDS_END -->",
 	}
 	var outLines []string
+	inFormatDateFunc := false
+	braceDepth := 0
 	for line := range strings.SplitSeq(s, "\n") {
 		skip := false
 		for _, m := range markers {
 			if strings.Contains(line, m) {
 				skip = true
 				break
+			}
+		}
+		// Remove formatDate function if no date columns
+		if !hasDateColumn {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "function formatDate(") {
+				inFormatDateFunc = true
+				braceDepth = 0
+				skip = true
+			}
+			if inFormatDateFunc {
+				skip = true
+				// Track brace depth to find the function's closing brace
+				for _, ch := range line {
+					if ch == '{' {
+						braceDepth++
+					} else if ch == '}' {
+						braceDepth--
+						if braceDepth == 0 {
+							inFormatDateFunc = false
+							break
+						}
+					}
+				}
 			}
 		}
 		if !skip {

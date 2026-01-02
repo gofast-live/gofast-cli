@@ -15,21 +15,30 @@ func generateServiceContent(modelName string, capitalizedModelName string) (stri
 	}
 	content := string(contentBytes)
 
-	// Template already follows ConnectRPC and builds params via validation helpers.
-	// Replace plural forms first, then singular (order matters to avoid partial replacements)
+	// Go naming conversions
+	goPackageName := toGoPackageName(modelName)
+	goVarName := toGoVarName(modelName)
 	pluralLower := pluralizeClient.Plural(modelName)
 	pluralCap := capitalize(pluralLower)
+	pluralVarName := toGoVarName(pluralLower)
+
+	// Template already follows ConnectRPC and builds params via validation helpers.
+	// Replace in order: PascalCase types first, then lowercase (order matters to avoid partial replacements)
 	content = strings.ReplaceAll(content, "Skeletons", pluralCap)
-	content = strings.ReplaceAll(content, "skeletons", pluralLower)
-	content = strings.ReplaceAll(content, "skeleton", modelName)
 	content = strings.ReplaceAll(content, "Skeleton", capitalizedModelName)
+	// Replace package declaration specifically
+	content = strings.Replace(content, "package skeleton", "package "+goPackageName, 1)
+	// Replace variable names (skeletons -> pluralVarName, skeleton -> goVarName)
+	content = strings.ReplaceAll(content, "skeletons", pluralVarName)
+	content = strings.ReplaceAll(content, "skeleton", goVarName)
 
 	return content, nil
 }
 
 func generateServiceLayer(modelName string, columns []Column) error {
 	sourceDir := "./app/service-core/domain/skeleton"
-	destDir := "app/service-core/domain/" + modelName
+	goPackageName := toGoPackageName(modelName)
+	destDir := "app/service-core/domain/" + goPackageName
 	capitalizedModelName := capitalize(modelName)
 
 	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
@@ -38,7 +47,7 @@ func generateServiceLayer(modelName string, columns []Column) error {
 		}
 
 		destPath := strings.Replace(path, sourceDir, destDir, 1)
-		destPath = strings.ReplaceAll(destPath, "skeleton", modelName)
+		destPath = strings.ReplaceAll(destPath, "skeleton", goPackageName)
 
 		if info.IsDir() {
 			return os.MkdirAll(destPath, info.Mode())
@@ -61,10 +70,12 @@ func generateServiceLayer(modelName string, columns []Column) error {
 			}
 			pluralLower := pluralizeClient.Plural(modelName)
 			pluralCap := capitalize(pluralLower)
+			pluralVarName := toGoVarName(pluralLower)
 			newContentStr = strings.ReplaceAll(string(content), "Skeletons", pluralCap)
-			newContentStr = strings.ReplaceAll(newContentStr, "skeletons", pluralLower)
-			newContentStr = strings.ReplaceAll(newContentStr, "skeleton", modelName)
 			newContentStr = strings.ReplaceAll(newContentStr, "Skeleton", capitalizedModelName)
+			newContentStr = strings.Replace(newContentStr, "package skeleton", "package "+goPackageName, 1)
+			newContentStr = strings.ReplaceAll(newContentStr, "skeletons", pluralVarName)
+			newContentStr = strings.ReplaceAll(newContentStr, "skeleton", toGoVarName(modelName))
 		}
 
 		if genErr != nil {
@@ -79,7 +90,8 @@ func generateServiceLayer(modelName string, columns []Column) error {
 // skeleton and performing token replacements for singular/plural variants.
 func generateTransportLayer(modelName string, columns []Column) error {
 	sourceDir := "./app/service-core/transport/skeleton"
-	destDir := "app/service-core/transport/" + modelName
+	goPackageName := toGoPackageName(modelName)
+	destDir := "app/service-core/transport/" + goPackageName
 
 	capitalizedModelName := capitalize(modelName)
 	pluralLower := pluralizeClient.Plural(modelName)
@@ -91,7 +103,7 @@ func generateTransportLayer(modelName string, columns []Column) error {
 		}
 
 		destPath := strings.Replace(path, sourceDir, destDir, 1)
-		destPath = strings.ReplaceAll(destPath, "skeleton", modelName)
+		destPath = strings.ReplaceAll(destPath, "skeleton", goPackageName)
 
 		if info.IsDir() {
 			return os.MkdirAll(destPath, info.Mode())
@@ -110,10 +122,13 @@ func generateTransportLayer(modelName string, columns []Column) error {
 				return readErr
 			}
 			s := string(content)
+			goVarName := toGoVarName(modelName)
+			pluralVarName := toGoVarName(pluralLower)
 			s = strings.ReplaceAll(s, "Skeletons", pluralCap)
-			s = strings.ReplaceAll(s, "skeletons", pluralLower)
 			s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
-			s = strings.ReplaceAll(s, "skeleton", modelName)
+			s = strings.Replace(s, "package skeleton", "package "+goPackageName, 1)
+			s = strings.ReplaceAll(s, "skeletons", pluralVarName)
+			s = strings.ReplaceAll(s, "skeleton", goVarName)
 			newContentStr = s
 		}
 		if genErr != nil {
@@ -130,33 +145,42 @@ func generateTransportRouteContent(modelName, capitalizedModelName, pluralLower,
 		return "", fmt.Errorf("reading template file %s: %w", templatePath, err)
 	}
 	s := string(contentBytes)
+
+	// Go naming conversions
+	goPackageName := toGoPackageName(modelName)
+	goVarName := toGoVarName(modelName)
+	pluralVarName := toGoVarName(pluralLower)
+
 	s = strings.ReplaceAll(s, "Skeletons", pluralCap)
-	s = strings.ReplaceAll(s, "skeletons", pluralLower)
 	s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
-	s = strings.ReplaceAll(s, "skeleton", modelName)
+	s = strings.Replace(s, "package skeleton", "package "+goPackageName, 1)
+	// Replace import path with alias: goVarName "gofast/service-core/domain/goPackageName"
+	s = strings.Replace(s, `"gofast/service-core/domain/skeleton"`, goVarName+` "gofast/service-core/domain/`+goPackageName+`"`, 1)
+	s = strings.ReplaceAll(s, "skeletons", pluralVarName)
+	s = strings.ReplaceAll(s, "skeleton", goVarName)
 	// Rename leftover template-local variable names
-	s = strings.ReplaceAll(s, "skelProto", modelName+"Proto")
+	s = strings.ReplaceAll(s, "skelProto", goVarName+"Proto")
 
 	// Build dynamic queryToProto mapping based on columns
 	// Numeric columns are strings in proto; no strconv needed
 
 	// Construct struct fields
 	var b strings.Builder
-	b.WriteString("\t\tId:      " + modelName + ".ID.String(),\n")
-	b.WriteString("\t\tCreated: " + modelName + ".Created.Format(time.RFC3339),\n")
-	b.WriteString("\t\tUpdated: " + modelName + ".Updated.Format(time.RFC3339),\n")
+	b.WriteString("\t\tId:      " + goVarName + ".ID.String(),\n")
+	b.WriteString("\t\tCreated: " + goVarName + ".Created.Format(time.RFC3339),\n")
+	b.WriteString("\t\tUpdated: " + goVarName + ".Updated.Format(time.RFC3339),\n")
 	for _, c := range columns {
 		field := toCamelCase(c.Name)
 		switch c.Type {
 		case "string":
-			b.WriteString("\t\t" + field + ": " + modelName + "." + field + ",\n")
+			b.WriteString("\t\t" + field + ": " + goVarName + "." + field + ",\n")
 		case "date":
-			b.WriteString("\t\t" + field + ": " + modelName + "." + field + ".Format(time.RFC3339),\n")
+			b.WriteString("\t\t" + field + ": " + goVarName + "." + field + ".Format(time.RFC3339),\n")
 		case "bool":
-			b.WriteString("\t\t" + field + ": " + modelName + "." + field + ",\n")
+			b.WriteString("\t\t" + field + ": " + goVarName + "." + field + ",\n")
 		case "number":
 			// sqlc numeric is string; proto is also string
-			b.WriteString("\t\t" + field + ": " + modelName + "." + field + ",\n")
+			b.WriteString("\t\t" + field + ": " + goVarName + "." + field + ",\n")
 		}
 	}
 	fields := b.String()
@@ -186,7 +210,7 @@ func generateTransportRouteContent(modelName, capitalizedModelName, pluralLower,
 			}
 		}
 	}
-	newFn := "func queryToProto(" + modelName + " *query." + capitalizedModelName + ") *proto." + capitalizedModelName + " {\n\treturn &proto." + capitalizedModelName + "{\n" + fields + "\t}\n}\n"
+	newFn := "func queryToProto(" + goVarName + " *query." + capitalizedModelName + ") *proto." + capitalizedModelName + " {\n\treturn &proto." + capitalizedModelName + "{\n" + fields + "\t}\n}\n"
 	s = s[:fnStart] + newFn + s[end:]
 	return s, nil
 }
@@ -219,9 +243,13 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 		imports = append(imports, "\"strconv\"")
 	}
 
+	// Go naming conversions
+	goPackageName := toGoPackageName(modelName)
+	goVarName := toGoVarName(modelName)
+
 	// Helpers
 	toFieldName := func(name string) string { return toCamelCase(name) }
-	toVarName := func(camel string) string {
+	toLocalVarName := func(camel string) string {
 		if camel == "" {
 			return camel
 		}
@@ -230,7 +258,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 
 	// Begin file content
 	var b strings.Builder
-	fmt.Fprintf(&b, "package %s\n\n", modelName)
+	fmt.Fprintf(&b, "package %s\n\n", goPackageName)
 	b.WriteString("import (\n")
 	for _, imp := range imports {
 		b.WriteString("\t" + imp + "\n")
@@ -238,7 +266,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 	b.WriteString(")\n\n")
 
 	// ValidateAndBuildInsertParams
-	fmt.Fprintf(&b, "func ValidateAndBuildInsertParams(userID uuid.UUID, %s *proto.%s) (*query.Insert%sParams, []pkg.ValidationError) {\n", modelName, capitalizedModelName, capitalizedModelName)
+	fmt.Fprintf(&b, "func ValidateAndBuildInsertParams(userID uuid.UUID, %s *proto.%s) (*query.Insert%sParams, []pkg.ValidationError) {\n", goVarName, capitalizedModelName, capitalizedModelName)
 	b.WriteString("\terrors := make([]pkg.ValidationError, 0)\n")
 
 	// Per-column validations (insert)
@@ -246,19 +274,19 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 		field := toFieldName(c.Name)
 		switch c.Type {
 		case "string":
-			fmt.Fprintf(&b, "\tif %s.Get%s() == \"\" {\n\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"required\", Message: \"%s is required\"})\n\t}\n", modelName, field, c.Name, toFieldName(c.Name))
-			fmt.Fprintf(&b, "\tif %s.Get%s() != \"\" && len(%s.Get%s()) < 3 {\n\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"})\n\t}\n", modelName, field, modelName, field, c.Name, toFieldName(c.Name))
+			fmt.Fprintf(&b, "\tif %s.Get%s() == \"\" {\n\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"required\", Message: \"%s is required\"})\n\t}\n", goVarName, field, c.Name, toFieldName(c.Name))
+			fmt.Fprintf(&b, "\tif %s.Get%s() != \"\" && len(%s.Get%s()) < 3 {\n\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"})\n\t}\n", goVarName, field, goVarName, field, c.Name, toFieldName(c.Name))
 		case "number":
-			v := toVarName(field) + "Float"
-			fmt.Fprintf(&b, "\t%s, err := strconv.ParseFloat(%s.Get%s(), 64)\n", v, modelName, field)
+			v := toLocalVarName(field) + "Float"
+			fmt.Fprintf(&b, "\t%s, err := strconv.ParseFloat(%s.Get%s(), 64)\n", v, goVarName, field)
 			b.WriteString("\tif err != nil {\n")
 			fmt.Fprintf(&b, "\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"number\", Message: \"%s must be a number\"})\n", c.Name, toFieldName(c.Name))
 			b.WriteString("\t} else if " + v + " < 1 {\n")
 			fmt.Fprintf(&b, "\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"})\n", c.Name, toFieldName(c.Name))
 			b.WriteString("\t}\n")
 		case "date":
-			v := toVarName(field)
-			fmt.Fprintf(&b, "\t%s, err := str.ParseDate(%s.Get%s())\n", v, modelName, field)
+			v := toLocalVarName(field)
+			fmt.Fprintf(&b, "\t%s, err := str.ParseDate(%s.Get%s())\n", v, goVarName, field)
 			b.WriteString("\tif err != nil {\n")
 			fmt.Fprintf(&b, "\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"required\", Message: \"%s date is required and must be in YYYY-MM-DD or RFC3339 format\"})\n", c.Name, toFieldName(c.Name))
 			b.WriteString("\t}\n")
@@ -274,22 +302,22 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 		field := toFieldName(c.Name)
 		switch c.Type {
 		case "string":
-			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, modelName, field)
+			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, goVarName, field)
 		case "number":
-			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, modelName, field)
+			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, goVarName, field)
 		case "date":
-			v := toVarName(field)
+			v := toLocalVarName(field)
 			fmt.Fprintf(&b, "\t\t%s: %s,\n", field, v)
 		case "bool":
-			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, modelName, field)
+			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, goVarName, field)
 		}
 	}
 	b.WriteString("\t}, nil\n}\n\n")
 
 	// ValidateAndBuildUpdateParams
-	fmt.Fprintf(&b, "func ValidateAndBuildUpdateParams(userID uuid.UUID, %s *proto.%s) (*query.Update%sParams, []pkg.ValidationError) {\n", modelName, capitalizedModelName, capitalizedModelName)
+	fmt.Fprintf(&b, "func ValidateAndBuildUpdateParams(userID uuid.UUID, %s *proto.%s) (*query.Update%sParams, []pkg.ValidationError) {\n", goVarName, capitalizedModelName, capitalizedModelName)
 	b.WriteString("\terrors := make([]pkg.ValidationError, 0)\n")
-	fmt.Fprintf(&b, "\tid, err := uuid.Parse(%s.GetId())\n", modelName)
+	fmt.Fprintf(&b, "\tid, err := uuid.Parse(%s.GetId())\n", goVarName)
 	b.WriteString("\tif err != nil {\n")
 	b.WriteString("\t\terrors = append(errors, pkg.ValidationError{Field: \"id\", Tag: \"uuid\", Message: \"ID must be a valid UUID\"})\n")
 	b.WriteString("\t}\n")
@@ -302,19 +330,19 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 		field := toFieldName(c.Name)
 		switch c.Type {
 		case "string":
-			fmt.Fprintf(&b, "\tif %s.Get%s() == \"\" {\n\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"required\", Message: \"%s is required\"})\n\t}\n", modelName, field, c.Name, toFieldName(c.Name))
-			fmt.Fprintf(&b, "\tif %s.Get%s() != \"\" && len(%s.Get%s()) < 3 {\n\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"})\n\t}\n", modelName, field, modelName, field, c.Name, toFieldName(c.Name))
+			fmt.Fprintf(&b, "\tif %s.Get%s() == \"\" {\n\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"required\", Message: \"%s is required\"})\n\t}\n", goVarName, field, c.Name, toFieldName(c.Name))
+			fmt.Fprintf(&b, "\tif %s.Get%s() != \"\" && len(%s.Get%s()) < 3 {\n\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"})\n\t}\n", goVarName, field, goVarName, field, c.Name, toFieldName(c.Name))
 		case "number":
-			v := toVarName(field) + "Float"
-			fmt.Fprintf(&b, "\t%s, err := strconv.ParseFloat(%s.Get%s(), 64)\n", v, modelName, field)
+			v := toLocalVarName(field) + "Float"
+			fmt.Fprintf(&b, "\t%s, err := strconv.ParseFloat(%s.Get%s(), 64)\n", v, goVarName, field)
 			b.WriteString("\tif err != nil {\n")
 			fmt.Fprintf(&b, "\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"number\", Message: \"%s must be a number\"})\n", c.Name, toFieldName(c.Name))
 			b.WriteString("\t} else if " + v + " < 1 {\n")
 			fmt.Fprintf(&b, "\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"})\n", c.Name, toFieldName(c.Name))
 			b.WriteString("\t}\n")
 		case "date":
-			v := toVarName(field)
-			fmt.Fprintf(&b, "\t%s, err := str.ParseDate(%s.Get%s())\n", v, modelName, field)
+			v := toLocalVarName(field)
+			fmt.Fprintf(&b, "\t%s, err := str.ParseDate(%s.Get%s())\n", v, goVarName, field)
 			b.WriteString("\tif err != nil {\n")
 			fmt.Fprintf(&b, "\t\terrors = append(errors, pkg.ValidationError{Field: \"%s\", Tag: \"required\", Message: \"%s date is required and must be in YYYY-MM-DD or RFC3339 format\"})\n", c.Name, toFieldName(c.Name))
 			b.WriteString("\t}\n")
@@ -331,14 +359,14 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 		field := toFieldName(c.Name)
 		switch c.Type {
 		case "string":
-			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, modelName, field)
+			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, goVarName, field)
 		case "number":
-			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, modelName, field)
+			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, goVarName, field)
 		case "date":
-			v := toVarName(field)
+			v := toLocalVarName(field)
 			fmt.Fprintf(&b, "\t\t%s: %s,\n", field, v)
 		case "bool":
-			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, modelName, field)
+			fmt.Fprintf(&b, "\t\t%s: %s.Get%s(),\n", field, goVarName, field)
 		}
 	}
 	b.WriteString("\t}, nil\n}\n")

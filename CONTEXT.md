@@ -10,6 +10,21 @@ The `gof` CLI is a code generation tool that builds Go applications like Lego br
 
 The CLI uses a **skeleton-based code generation** approach - it copies template files and performs smart token replacements and dynamic content generation.
 
+## Source of Truth: `../gofast-app`
+
+**IMPORTANT:** The `gofast-app` repository (located at `../gofast-app` relative to this CLI) is the **single source of truth** for all templates and integrations. When investigating issues or understanding how generated code should look:
+
+1. **Check `../gofast-app` first** - it contains the complete application with all integrations enabled
+2. **Template files live there** - domain services, transport handlers, configs, migrations, etc.
+3. **Integration markers** (`GF_STRIPE_START/END`, `GF_EMAIL_START/END`, `GF_FILE_START/END`) wrap optional code
+4. **Use `TEST=true`** when running CLI commands locally - this copies from `../gofast-app` instead of downloading
+
+```bash
+# Local development - uses ../gofast-app as source
+TEST=true go run ./cmd/gof/... init demo
+TEST=true go run ../cmd/gof/... add stripe   # from inside demo/
+```
+
 ## Project Structure
 
 ```
@@ -18,6 +33,7 @@ cmd/gof/
 ├── cmd/                 # Cobra commands
 │   ├── root.go          # Root command
 │   ├── init.go          # Project initialization
+│   ├── add.go           # Add integrations (stripe, r2, postmark)
 │   ├── model.go         # Model generation orchestration
 │   ├── model_db.go      # Proto, schema, SQL query generation
 │   ├── model_service.go # Domain service layer generation
@@ -27,6 +43,11 @@ cmd/gof/
 │   ├── auth.go          # Auth command
 │   ├── infra.go         # Infrastructure files
 │   └── version.go       # Version display
+├── integrations/        # Optional integration handlers
+│   ├── integrations.go  # Shared helpers (strip, copy, migrate)
+│   ├── stripe.go        # Stripe payment integration
+│   ├── r2.go            # Cloudflare R2 file storage
+│   └── postmark.go      # Postmark email integration
 ├── config/config.go     # gofast.json configuration management
 ├── repo/repo.go         # Template repository download
 ├── svelte/svelte.go     # Svelte client page generation
@@ -93,8 +114,23 @@ Adds infrastructure/deployment files:
 - Updates `start.sh` to include infrastructure services
 - Marks project as `infraPopulated: true` in config
 
-### `gof add stripe`
-Adds Stripe payment integration to the project.
+### `gof add <integration>`
+Adds optional integrations to the project. Available integrations:
+
+**`gof add stripe`** - Stripe payment integration:
+- Payment domain service (checkout, portal, webhook handling)
+- Subscriptions database migration
+- Full subscription-based access control
+
+**`gof add r2`** - Cloudflare R2 file storage:
+- File domain service (upload, download, delete via S3 API)
+- Files database migration
+- File management UI (if client enabled)
+
+**`gof add postmark`** - Postmark email integration:
+- Email domain service (send emails with attachments)
+- Emails database migration
+- Email management UI (if client enabled)
 
 **See:** [Integration Marker System](#integration-marker-system) for how this works.
 
@@ -134,19 +170,22 @@ The CLI uses a **marker-based integration system** for optional features like St
 
 ### Marker Naming Convention
 
-Each integration has its own marker prefix:
+Each integration has its own marker prefix (singular form):
 - Stripe: `GF_STRIPE_START` / `GF_STRIPE_END`
-- Future: `GF_ANALYTICS_START`, `GF_POSTHOG_START`, etc.
+- Files: `GF_FILE_START` / `GF_FILE_END`
+- Email: `GF_EMAIL_START` / `GF_EMAIL_END`
 
 ### Files with Integration Markers
 
-For Stripe integration, markers exist in:
+Markers exist in these locations:
 - `app/service-core/main.go` - imports, deps, route mounting
+- `app/service-core/config/config.go` - integration-specific config fields
+- `app/service-core/storage/query.sql` - integration queries
+- `app/service-core/storage/migrations/` - integration tables
+- `proto/v1/main.proto` - service definitions
+
+For Stripe specifically:
 - `app/service-core/domain/login/service.go` - `CheckUserAccess()` function
-- `app/service-core/domain/login/service_test.go` - subscription tests
-- `app/service-core/storage/query.sql` - subscription queries
-- `app/service-core/storage/testutil/user.go` - test user with subscription
-- `proto/v1/main.proto` - PaymentService definition
 
 ### Benefits
 
@@ -311,17 +350,20 @@ sleep 2  # Wait for postgres to start
 goose -dir app/service-core/storage/migrations postgres "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" up
 ```
 
-## Current Task: CLI Rewrite for New App Architecture
+## Makefile Commands
 
-The reference app (`gofast-app`) has undergone a **major rewrite** - simplified and moved to a more functional programming style. The CLI code generation needs to be updated to match.
+Generated projects use Makefile commands instead of shell scripts:
 
-### What needs to happen:
-1. Update CLI code generation to match new app architecture
-2. Adjust skeleton templates and token replacements
-3. Update wiring/injection logic if changed
-4. Regenerate demo project to verify output
+| Command | Description |
+|---------|-------------|
+| `make start` | Start services with Docker Compose |
+| `make startc` | Start with client service |
+| `make keys` | Generate public/private keys |
+| `make sql` | Regenerate SQLC queries |
+| `make gen` | Regenerate proto/buf code |
+| `make migrate` | Apply database migrations |
 
-### Key considerations:
+## Design Considerations
 
 **Scalability of generation:**
 - `gof model` can have ANY combination of columns
@@ -345,6 +387,10 @@ The reference app (`gofast-app`) has undergone a **major rewrite** - simplified 
 | Database/Proto | `cmd/model_db.go` |
 | Svelte pages | `svelte/svelte.go` |
 | Config management | `config/config.go` |
+| Integration helpers | `integrations/integrations.go` |
+| Stripe integration | `integrations/stripe.go` |
+| R2 integration | `integrations/r2.go` |
+| Postmark integration | `integrations/postmark.go` |
 
 ## Gotchas
 
@@ -367,3 +413,145 @@ The reference app (`gofast-app`) has undergone a **major rewrite** - simplified 
 - **Cobra:** CLI framework
 - **Bubble Tea:** TUI for authentication
 - **go-pluralize:** Pluralization of model names
+
+## TEST FUCKING EVERYTHING :D
+
+Comprehensive testing of the CLI. Always include client - `run_tests.sh` covers Go build/lint/test + client lint/build + e2e tests.
+
+### How to Test
+
+```bash
+# 1. Generate scenario (from gofast-cli root)
+cd /home/mat/projects/gofast-cli
+rm -rf demo
+TEST=true go run ./cmd/gof/... init demo
+cd demo
+# ... add models/integrations/client ...
+
+# 2. Run full test suite (requires secrets - ask user for them)
+# Script is at scripts/run_tests.sh, run from demo directory
+CONTEXT=gofast-rc \
+GITHUB_CLIENT_ID=<ask_user> \
+GITHUB_CLIENT_SECRET=<ask_user> \
+GOOGLE_CLIENT_ID=<ask_user> \
+GOOGLE_CLIENT_SECRET=<ask_user> \
+TWILIO_ACCOUNT_SID=<ask_user> \
+TWILIO_AUTH_TOKEN=<ask_user> \
+TWILIO_SERVICE_SID=<ask_user> \
+PAYMENT_PROVIDER=stripe \
+STRIPE_API_KEY=<ask_user> \
+STRIPE_PRICE_ID_BASIC=<ask_user> \
+STRIPE_PRICE_ID_PRO=<ask_user> \
+STRIPE_WEBHOOK_SECRET=<ask_user> \
+BUCKET_NAME=gofast \
+R2_ACCESS_KEY=<ask_user> \
+R2_SECRET_KEY=<ask_user> \
+R2_ENDPOINT=<ask_user> \
+EMAIL_FROM=admin@gofast.live \
+POSTMARK_API_KEY=<ask_user> \
+bash scripts/run_tests.sh
+
+# 3. Check e2e results
+cat e2e/test-results/.last-run.json
+# Should show: {"status": "passed", "failedTests": []}
+```
+
+### Test Scenarios
+
+Each scenario should be tested fresh (rm -rf demo first). Always add client for full coverage.
+
+**Model type variations:**
+```bash
+# All strings
+TEST=true go run ../cmd/gof/... model article title:string body:string author:string
+
+# All numbers
+TEST=true go run ../cmd/gof/... model metric count:number value:number score:number
+
+# All dates
+TEST=true go run ../cmd/gof/... model event start:date end:date reminder:date
+
+# All bools
+TEST=true go run ../cmd/gof/... model settings dark_mode:bool notifications:bool auto_save:bool
+
+# Mixed (the classic)
+TEST=true go run ../cmd/gof/... model post title:string views:number published_at:date is_active:bool
+
+# Single column each type
+TEST=true go run ../cmd/gof/... model tag name:string
+TEST=true go run ../cmd/gof/... model counter value:number
+TEST=true go run ../cmd/gof/... model deadline due:date
+TEST=true go run ../cmd/gof/... model toggle enabled:bool
+
+# Snake_case names
+TEST=true go run ../cmd/gof/... model user_profile display_name:string bio:string
+TEST=true go run ../cmd/gof/... model event_log event_type:string occurred_at:date
+```
+
+**Integration combinations:**
+```bash
+# Individual
+TEST=true go run ../cmd/gof/... add stripe
+TEST=true go run ../cmd/gof/... add r2
+TEST=true go run ../cmd/gof/... add postmark
+
+# All together
+TEST=true go run ../cmd/gof/... add stripe
+TEST=true go run ../cmd/gof/... add r2
+TEST=true go run ../cmd/gof/... add postmark
+
+# Order variations (client before/after integrations)
+TEST=true go run ../cmd/gof/... client svelte
+TEST=true go run ../cmd/gof/... add postmark   # This was a bug!
+```
+
+**Client timing variations:**
+```bash
+# CLIENT AT START - client first, then models and integrations
+rm -rf demo
+TEST=true go run ./cmd/gof/... init demo
+cd demo
+TEST=true go run ../cmd/gof/... client svelte
+TEST=true go run ../cmd/gof/... add r2
+TEST=true go run ../cmd/gof/... add postmark
+TEST=true go run ../cmd/gof/... model note title:string content:string
+TEST=true go run ../cmd/gof/... model event start:date end:date
+TEST=true go run ../cmd/gof/... add stripe
+./run_tests.sh
+
+# CLIENT IN MIDDLE - some stuff, then client, then more stuff
+rm -rf demo
+TEST=true go run ./cmd/gof/... init demo
+cd demo
+TEST=true go run ../cmd/gof/... add r2
+TEST=true go run ../cmd/gof/... model note title:string content:string
+TEST=true go run ../cmd/gof/... client svelte
+TEST=true go run ../cmd/gof/... add postmark
+TEST=true go run ../cmd/gof/... add stripe
+TEST=true go run ../cmd/gof/... model task description:string due:date priority:number done:bool
+./run_tests.sh
+
+# CLIENT AT END - all models and integrations, then client last
+rm -rf demo
+TEST=true go run ./cmd/gof/... init demo
+cd demo
+TEST=true go run ../cmd/gof/... add r2
+TEST=true go run ../cmd/gof/... add postmark
+TEST=true go run ../cmd/gof/... add stripe
+TEST=true go run ../cmd/gof/... model article title:string body:string
+TEST=true go run ../cmd/gof/... model counter value:number
+TEST=true go run ../cmd/gof/... model deadline due:date
+TEST=true go run ../cmd/gof/... model toggle enabled:bool
+TEST=true go run ../cmd/gof/... client svelte
+./run_tests.sh
+```
+
+### Known Bug Patterns
+
+Things that have broken before:
+- [ ] formatDate function included when model has no date columns
+- [ ] Missing trailing comma in nav array when adding integrations
+- [ ] Icon imported but nav entry not added
+- [ ] Proto field names (snake_case vs camelCase in TypeScript)
+- [ ] Permission flags not updated for new models
+

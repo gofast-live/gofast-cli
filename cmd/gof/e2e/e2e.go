@@ -1,20 +1,45 @@
-package svelte
+package e2e
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+
+	"github.com/gertd/go-pluralize"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 )
+
+type Column struct {
+	Name string // column name in snake_case
+	Type string // "string", "number", "date", "bool"
+}
+
+var pluralizeClient = pluralize.NewClient()
+
+// toPascalCase converts snake_case to PascalCase
+// e.g., "user_profile" -> "UserProfile"
+func toPascalCase(s string) string {
+	parts := strings.Split(s, "_")
+	var b strings.Builder
+	for _, p := range parts {
+		if p == "" {
+			continue
+		}
+		b.WriteString(strings.ToUpper(p[:1]) + p[1:])
+	}
+	return b.String()
+}
 
 // generateClientE2ETest scaffolds a Playwright e2e test based on the skeleton
 // template, expanding the model configuration block with column-aware values
 // and default behaviours.
-func generateClientE2ETest(modelName string, columns []Column) error {
+func GenerateClientE2ETest(modelName string, columns []Column) error {
 	sourcePath := "./e2e/skeletons.test.ts"
 	pluralLower := pluralizeClient.Plural(modelName)
-	pluralCap := capitalize(pluralLower)
-	capitalizedModelName := capitalize(modelName)
+	pluralCap := toPascalCase(pluralLower)
+	capitalizedModelName := toPascalCase(modelName)
 
 	if err := os.MkdirAll("e2e", 0o755); err != nil {
 		return fmt.Errorf("creating e2e directory: %w", err)
@@ -203,5 +228,66 @@ func generateClientE2ETest(modelName string, columns []Column) error {
 	if err := os.WriteFile(destPath, []byte(s), 0o644); err != nil {
 		return fmt.Errorf("writing e2e test %s: %w", destPath, err)
 	}
+	return nil
+}
+
+// ComputeUserAccess calculates the permission bitmask for a dev user based on
+// the number of models in the project. This mirrors the UserAccess const in auth.go.
+//
+// Permission bit layout:
+//   - Bits 0-1: BasicPlan, ProPlan (not included in UserAccess)
+//   - Bits 2 onwards: Model flags (4 per model: Get, Create, Edit, Remove)
+//   - After model flags: Integration flags (8 total, always present)
+func ComputeUserAccess(numModels int) int64 {
+	var access int64
+
+	// Model flags start at bit 2 (after BasicPlan and ProPlan)
+	startBit := 2
+
+	// Each model has 4 flags (Get, Create, Edit, Remove)
+	modelBits := numModels * 4
+	for i := 0; i < modelBits; i++ {
+		access |= 1 << (startBit + i)
+	}
+
+	// Integration flags (8 total) always come after model flags
+	// Stripe(2) + R2/Files(4) + Postmark/Email(2) = 8
+	integrationStartBit := startBit + modelBits
+	for i := 0; i < 8; i++ {
+		access |= 1 << (integrationStartBit + i)
+	}
+
+	return access
+}
+
+// UpdateSeedDevUser updates the DEV_USER_ACCESS value in scripts/seed_dev_user.sh
+// based on the number of models in the project.
+func UpdateSeedDevUser() error {
+	cfg, err := config.ParseConfig()
+	if err != nil {
+		return fmt.Errorf("parsing config: %w", err)
+	}
+
+	path := "scripts/seed_dev_user.sh"
+	content, err := os.ReadFile(path)
+	if err != nil {
+		// Script doesn't exist yet, skip (will be created during init)
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("reading seed script: %w", err)
+	}
+
+	// config.Models includes skeleton + any additional models
+	access := ComputeUserAccess(len(cfg.Models))
+
+	// Replace DEV_USER_ACCESS=<number> with the new value
+	re := regexp.MustCompile(`DEV_USER_ACCESS=\d+`)
+	newContent := re.ReplaceAllString(string(content), fmt.Sprintf("DEV_USER_ACCESS=%d", access))
+
+	if err := os.WriteFile(path, []byte(newContent), 0644); err != nil {
+		return fmt.Errorf("writing seed script: %w", err)
+	}
+
 	return nil
 }
