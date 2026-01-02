@@ -18,13 +18,6 @@ type Column struct {
 
 var pluralizeClient = pluralize.NewClient()
 
-func capitalize(s string) string {
-	if len(s) == 0 {
-		return ""
-	}
-	return strings.ToUpper(string(s[0])) + s[1:]
-}
-
 // toPascalCase converts snake_case to PascalCase
 // e.g., "user_profile" -> "UserProfile"
 func toPascalCase(s string) string {

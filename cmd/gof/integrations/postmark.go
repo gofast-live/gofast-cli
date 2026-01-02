@@ -100,7 +100,7 @@ func PostmarkAdd(email, apiKey string) error {
 	if err != nil {
 		return fmt.Errorf("creating temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Save current directory and chdir to tmpDir for download
 	cwd, err := os.Getwd()
