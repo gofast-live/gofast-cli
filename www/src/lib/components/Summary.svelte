@@ -77,7 +77,7 @@
 				<div class="text-2xl font-bold text-white mb-2">$40 <span class="text-sm font-normal text-muted">/ one-time</span></div>
 				<ul class="text-sm text-muted space-y-2 mb-6 text-left">
 					<li class="flex gap-2"><span class="text-primary">✓</span> GoFast V2 (CLI)</li>
-					<li class="flex gap-2"><span class="text-primary">✓</span> GoFast V1 (Next.js/Vue)</li>
+					<li class="flex gap-2"><span class="text-primary">✓</span> GoFast V1 (Next.js, Vue, HTMX...)</li>
 					<li class="flex gap-2"><span class="text-primary">✓</span> Lifetime updates</li>
 				</ul>
 				<a href="https://gofast.live/buy" class="w-full py-3 bg-primary hover:bg-primary-hover text-white rounded-lg font-bold transition-colors">
@@ -97,7 +97,7 @@
 		</div>
 
 		<div class="mt-12 text-sm text-muted">
-			Want more options (Next.js, Vue, AWS)? <a href="https://gofast.live" class="underline hover:text-white">Check out V1</a>
+			Need more flexibility? <a href="https://gofast.live" class="underline hover:text-white">V1 supports Next.js, Vue, HTMX, AWS & more</a>
 		</div>
 	</div>
 </section>

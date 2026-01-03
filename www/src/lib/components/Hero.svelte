@@ -14,18 +14,21 @@
 <section class="min-h-screen flex flex-col items-center justify-center relative p-6 snap-start">
 	<!-- Top Nav -->
 	<nav class="absolute top-0 left-0 w-full p-6 flex justify-between items-center text-sm text-muted">
-		<div class="font-mono font-bold text-white tracking-tight">GoFast</div>
+		<div class="flex items-center gap-3">
+			<img src="/logo.svg" alt="GoFast Logo" class="w-8 h-8 object-contain" />
+			<div class="font-mono font-bold text-white tracking-tight">GoFast</div>
+		</div>
 		<div class="flex gap-6">
 			<a href="https://discord.gg/gofast" target="_blank" class="hover:text-white transition-colors">Discord</a>
-			<a href="https://gofast.live" target="_blank" class="hover:text-white transition-colors">V1 (Kitchen Sink) →</a>
+			<a href="https://gofast.live" target="_blank" class="hover:text-white transition-colors">V1 (Next.js, Vue, HTMX...) →</a>
 		</div>
 	</nav>
 
 	<!-- Main Content -->
 	<div class="flex flex-col items-center text-center max-w-3xl w-full">
 		<!-- Logo -->
-		<div class="mb-8 w-24 h-24 bg-surface rounded-2xl flex items-center justify-center border border-border shadow-2xl">
-			<img src="/logo.svg" alt="GoFast Logo" class="w-16 h-16" />
+		<div class="mb-8 w-24 h-24 bg-surface rounded-2xl flex items-center justify-center border border-border shadow-2xl p-4">
+			<img src="/logo.svg" alt="GoFast Logo" class="w-full h-full object-contain" />
 		</div>
 
 		<h1 class="text-4xl md:text-6xl font-bold tracking-tight mb-4 text-white">
