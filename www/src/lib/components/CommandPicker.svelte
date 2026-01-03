@@ -1,6 +1,7 @@
 <script>
 	import { state as appState } from '$lib/stores/state.svelte.js';
 	import { fade, fly } from 'svelte/transition';
+    import { ArrowRight, ArrowLeft } from '@lucide/svelte';
 
 	/** @type {{ onSelect: (cmd: { id: string, variant?: any }) => void }} */
 	let { onSelect } = $props();
@@ -50,10 +51,10 @@
 				</button>
 			{/each}
             <button
-                class="px-4 py-2 text-sm text-muted hover:text-white transition-colors"
+                class="px-4 py-2 text-sm text-muted hover:text-white transition-colors flex items-center gap-2"
                 onclick={() => showModelVariants = false}
             >
-                ← Back
+                <ArrowLeft size={16} /> Back
             </button>
 		{:else}
 			{#each appState.availableCommands as cmd}
@@ -68,10 +69,10 @@
             <!-- Finish Button -->
             <div class="flex-grow"></div>
              <button
-                class="px-5 py-3 bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary rounded-lg font-mono text-sm transition-all ml-auto"
+                class="px-5 py-3 bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary rounded-lg font-mono text-sm transition-all ml-auto flex items-center gap-2"
                 onclick={handleFinish}
             >
-                → Finish
+                Finish <ArrowRight size={16} />
             </button>
 		{/if}
 	</div>

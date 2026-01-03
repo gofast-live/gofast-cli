@@ -26,6 +26,7 @@
 		"wrangler": "^4.54.0"
 	},
 	"dependencies": {
+		"@lucide/svelte": "^0.562.0",
 		"gsap": "^3.14.2"
 	}
 }

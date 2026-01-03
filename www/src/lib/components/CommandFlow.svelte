@@ -48,8 +48,14 @@
 		});
 
 		// 1. Type the command
+		// Model is long (~50 chars) so 1.5s = ~33 chars/sec (Fast).
+		// Others are short (~10-20 chars). 
+		// Old: 1.5s = ~6-12 chars/sec (Slow).
+		// New: 0.5s = ~20-40 chars/sec (Fast, similar to model).
+		const typeDuration = commandId === 'model' ? 1.5 : 0.5;
+
 		tl.to(commandTextElement, {
-			duration: 1.5,
+			duration: typeDuration,
 			text: displayCommand,
 			ease: "none"
 		});

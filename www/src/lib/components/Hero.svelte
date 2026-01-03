@@ -1,11 +1,13 @@
 <script>
 	import { state as appState } from '$lib/stores/state.svelte.js';
 	import { gsap } from '$lib/animations/gsap.js';
+	import { Play } from '@lucide/svelte';
 
 	/** @type {{ onStart: () => void }} */
 	let { onStart } = $props();
 
 	function handleStart() {
+		appState.reset();
 		appState.init();
 		onStart();
 	}
@@ -16,7 +18,7 @@
 	<nav class="absolute top-0 left-0 w-full p-6 flex justify-between items-center text-sm text-muted">
 		<div class="flex items-center gap-3">
 			<img src="/logo.svg" alt="GoFast Logo" class="w-8 h-8 object-contain" />
-			<div class="font-mono font-bold text-white tracking-tight">GoFast</div>
+			<div class="font-bold text-white text-lg">GoFast</div>
 		</div>
 		<div class="flex gap-6">
 			<a href="https://discord.gg/gofast" target="_blank" class="hover:text-white transition-colors">Discord</a>
@@ -59,7 +61,7 @@
 						<span class="text-primary mr-2">$</span>gof init myproject
 					</span>
 					<span class="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all">
-						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+						<Play size={20} fill="currentColor" class="translate-x-0.5" />
 					</span>
 				</div>
 			</button>
