@@ -394,33 +394,6 @@ Appears after exploring (or clicking "finish"):
 4. **Line completes** → next command picker fades in
 5. **User picks next** → line continues, scroll to next section
 
-### Line Drawing (SVG + GSAP)
-
-```javascript
-// Draw the main vertical line
-gsap.fromTo(line,
-  { strokeDashoffset: lineLength },
-  {
-    strokeDashoffset: 0,
-    duration: 2,
-    ease: "none"
-  }
-);
-
-// Items appear as line passes them
-items.forEach((item, i) => {
-  gsap.fromTo(item,
-    { opacity: 0, x: -20 },
-    {
-      opacity: 1,
-      x: 0,
-      duration: 0.4,
-      delay: i * 0.3  // staggered with line progress
-    }
-  );
-});
-```
-
 ### Item Appearance Styles
 
 **Option A: Branches from line**
@@ -459,14 +432,6 @@ items.forEach((item, i) => {
 - Items text: `var(--text)` white
 - Checkmarks: `var(--success)` green
 
-### Glow Effect
-
-```css
-.flow-line {
-  stroke: var(--primary);
-  filter: drop-shadow(0 0 4px var(--primary-glow));
-}
-```
 
 ### Scroll Behavior
 
@@ -511,39 +476,12 @@ items.forEach((item, i) => {
 
 ---
 
-## Sidebar vs Hints (A/B Testing)
-
-### Option A: Subtle Hints (Default)
+### Subtle Hints (Default)
 
 - Checkmarks appear inline in terminal
 - No persistent UI
 - Clean, focused on the terminal
 - User scrolls up to review
-
-### Option B: Progress Sidebar
-
-```
-┌────────────────────────────────────────────────┐
-│  ┌──────┐                                      │
-│  │ init │ ✓ OAuth                              │
-│  │      │ ✓ Auth                               │
-│  │      │ ✓ CICD                               │
-│  ├──────┤                                      │
-│  │model │ ✓ Migration     [TERMINAL]           │
-│  │      │ ✓ Queries                            │
-│  │      │ ● Proto...                           │
-│  ├──────┤                                      │
-│  │client│ (pending)                            │
-│  └──────┘                                      │
-└────────────────────────────────────────────────┘
-```
-
-- Left sidebar showing all chapters
-- Expands to show generated items
-- Acts as navigation (click to jump)
-- Shows overall progress
-
-**Recommendation:** Start with Option A (hints), add sidebar toggle later if needed.
 
 ---
 
@@ -554,13 +492,6 @@ src/
 ├── routes/
 │   └── +page.svelte          # Main page
 ├── lib/
-│   ├── components/
-│   │   ├── Hero.svelte       # Logo + tagline + first command
-│   │   ├── Terminal.svelte   # Reusable terminal component
-│   │   ├── CommandPicker.svelte  # Choice buttons grid
-│   │   ├── FlowLine.svelte   # GSAP animated connecting lines
-│   │   ├── StateTracker.svelte   # Current project state display
-│   │   └── CTA.svelte        # Final call-to-action
 │   ├── data/
 │   │   └── commands.js       # Command definitions + context logic
 │   ├── animations/
@@ -802,59 +733,11 @@ Project already exists in `www/` with:
 - Cloudflare adapter (deploy to Cloudflare Pages)
 - JS with JSDoc (not TypeScript)
 
-### Dependencies to Add
-
-```bash
-cd www
-npm install gsap
-```
-
-### GSAP Setup
-
-```javascript
-// src/lib/animations/gsap.js
-import gsap from 'gsap';
-import { TextPlugin } from 'gsap/TextPlugin';
-
-// Register plugins (no SSR issues with TextPlugin)
-if (typeof window !== 'undefined') {
-  gsap.registerPlugin(TextPlugin);
-}
-
-export { gsap };
-```
-
 ### Fonts (via Google Fonts or self-hosted)
 
 ```html
 <!-- In app.html or via @font-face -->
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-```
-
-### CSS Variables
-
-```css
-/* app.css */
-:root {
-  --bg: #0a0a0a;
-  --surface: #141414;
-  --border: #262626;
-  --primary: #10b981;
-  --primary-glow: #059669;
-  --text: #fafafa;
-  --text-muted: #737373;
-  --success: #22c55e;
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Inter', system-ui, sans-serif;
-}
-
-.font-mono {
-  font-family: 'JetBrains Mono', monospace;
-}
 ```
 
 ---
@@ -913,48 +796,10 @@ body {
 
 ---
 
-## Implementation Order
-
-1. **Phase 1: Foundation**
-   - [ ] Install GSAP dependency
-   - [ ] Add fonts (JetBrains Mono, Inter)
-   - [ ] Create app.css with CSS variables + dark theme
-   - [ ] Add logo to static/
-
-2. **Phase 2: Core Components**
-   - [ ] Terminal.svelte - reusable terminal with typing animation
-   - [ ] Hero.svelte - logo + tagline + first command
-   - [ ] CommandPicker.svelte - choice buttons grid
-   - [ ] StateTracker.svelte - current project state display
-
-3. **Phase 3: State + Data**
-   - [ ] commands.js - all command definitions with context logic
-   - [ ] state.svelte.js - Svelte 5 runes state store
-   - [ ] Model sub-picker logic (3 variants)
-
-4. **Phase 4: Animations**
-   - [ ] GSAP typing effect for terminal
-   - [ ] Checkmark pop-in animation
-   - [ ] FlowLine.svelte - connecting lines between terminals
-   - [ ] Auto-scroll on command complete
-
-5. **Phase 5: Full Flow**
-   - [ ] Wire up: init → choices → command → choices → ...
-   - [ ] Context-aware output rendering
-   - [ ] "Finish" button → CTA section
-
-6. **Phase 6: Polish**
-   - [ ] CTA.svelte with dynamic stack summary
-   - [ ] Mobile responsiveness
-   - [ ] Hover states on buttons
-   - [ ] Final testing of all paths
-
----
-
 ## Decisions
 
 - **Tagline:** "Building blocks for Go"
-- **Mobile:** Same interactive flow, responsive design (terminal scales, may scroll horizontally)
+- **Mobile:** Same interactive flow, responsive design
 - **Loading:** Instant render (static site)
 - **Analytics:** TBD (can add Plausible later if needed)
 
