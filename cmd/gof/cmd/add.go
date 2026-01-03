@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os/exec"
+	"strings"
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
@@ -72,6 +73,14 @@ After running this command:
 			cmd.Printf("Error updating config: %v\n", err)
 			return
 		}
+		showInfraReqs := false
+		if cfg, err := config.ParseConfig(); err == nil && cfg.InfraPopulated {
+			if err := integrations.ApplyInfraIntegrations(".", cfg.Integrations); err != nil {
+				cmd.Printf("Error updating infra integrations: %v\n", err)
+				return
+			}
+			showInfraReqs = true
+		}
 
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Stripe integration added successfully!"))
@@ -85,6 +94,9 @@ After running this command:
 		cmd.Println("     - STRIPE_WEBHOOK_SECRET")
 		cmd.Println("     - STRIPE_PRICE_ID_BASIC")
 		cmd.Println("     - STRIPE_PRICE_ID_PRO")
+		if showInfraReqs {
+			printInfraRequirements(cmd, "stripe")
+		}
 		cmd.Println("")
 	},
 }
@@ -138,6 +150,14 @@ After running this command:
 			cmd.Printf("Error updating config: %v\n", err)
 			return
 		}
+		showInfraReqs := false
+		if cfg, err := config.ParseConfig(); err == nil && cfg.InfraPopulated {
+			if err := integrations.ApplyInfraIntegrations(".", cfg.Integrations); err != nil {
+				cmd.Printf("Error updating infra integrations: %v\n", err)
+				return
+			}
+			showInfraReqs = true
+		}
 
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("R2 integration added successfully!"))
@@ -150,6 +170,9 @@ After running this command:
 		cmd.Println("     - R2_ACCESS_KEY")
 		cmd.Println("     - R2_SECRET_KEY")
 		cmd.Println("     - R2_ENDPOINT")
+		if showInfraReqs {
+			printInfraRequirements(cmd, "r2")
+		}
 		cmd.Println("")
 	},
 }
@@ -203,6 +226,14 @@ After running this command:
 			cmd.Printf("Error updating config: %v\n", err)
 			return
 		}
+		showInfraReqs := false
+		if cfg, err := config.ParseConfig(); err == nil && cfg.InfraPopulated {
+			if err := integrations.ApplyInfraIntegrations(".", cfg.Integrations); err != nil {
+				cmd.Printf("Error updating infra integrations: %v\n", err)
+				return
+			}
+			showInfraReqs = true
+		}
 
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Postmark integration added successfully!"))
@@ -213,6 +244,31 @@ After running this command:
 		cmd.Printf("  3. Run %s to apply migrations\n", config.SuccessStyle.Render("'make migrate'"))
 		cmd.Println("  4. Add Postmark environment variables to your .env file:")
 		cmd.Println("     - POSTMARK_API_KEY")
+		if showInfraReqs {
+			printInfraRequirements(cmd, "postmark")
+		}
 		cmd.Println("")
 	},
+}
+
+func printInfraRequirements(cmd *cobra.Command, name string) {
+	req, ok := integrations.InfraRequirementFor(name)
+	if !ok || (len(req.Secrets) == 0 && len(req.Vars) == 0) {
+		return
+	}
+
+	cmd.Println("")
+	cmd.Println("GitHub integration secrets/vars to add:")
+	if len(req.Secrets) > 0 {
+		cmd.Printf("  %s secrets:\n", strings.ToUpper(req.Name))
+		for _, value := range req.Secrets {
+			cmd.Printf("    - %s\n", value)
+		}
+	}
+	if len(req.Vars) > 0 {
+		cmd.Printf("  %s vars:\n", strings.ToUpper(req.Name))
+		for _, value := range req.Vars {
+			cmd.Printf("    - %s\n", value)
+		}
+	}
 }
