@@ -41,62 +41,197 @@ Success:        #22c55e (green-500)
 
 ## Page Structure
 
-### 1. Hero Section (100vh)
+**Key concept:** Each step is a **full viewport height (100vh) section**. Users scroll/transition between sections like a presentation. No sidebar - status shown at the end.
+
+---
+
+### Section 1: Hero / Landing (100vh)
+
+The user lands here. Show the stack upfront, make it clear what this is.
 
 ```
-┌─────────────────────────────────────────┐
-│                        [Discord] [V1 →] │  ← minimal header
-│                                         │
-│              [LOGO]                     │
-│                                         │
-│       "Building blocks for Go"          │
-│                                         │
-│  ┌─────────────────────────────────┐    │
-│  │  $ gof init myproject       [▶] │    │
-│  └─────────────────────────────────┘    │
-│                                         │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                                    [Discord] [V1 →]         │
+│                                                             │
+│                          [LOGO]                             │
+│                                                             │
+│                  "Building blocks for Go"                   │
+│                                                             │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │                                                     │   │
+│   │     Go  +  ConnectRPC  +  SvelteKit                 │   │
+│   │                                                     │   │
+│   │     Production-ready. Type-safe. Deployable.        │   │
+│   │                                                     │   │
+│   └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │  $ gof init myproject                          [▶]  │   │
+│   └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│                    Click to start building                  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-- Minimal header: Discord icon + "V1" link (top right)
-- Logo centered
-- Single punchy tagline
-- First command - click to start
+**Content:**
+- Logo + tagline at top
+- Stack highlight: **Go + ConnectRPC + SvelteKit**
+- Brief value props (production-ready, type-safe, deployable)
+- The `gof init` command with play button
+- "Click to start building" prompt
 
-### 2. Interactive CLI Journey (Branching / User Choice)
+---
 
-After `gof init`, user **chooses** their next command. This mirrors the real CLI and shows contextual intelligence.
+### Section 2+: Command Flow (100vh each)
 
-#### Step 1: `gof init` (Always First)
+After clicking init, the line starts drawing and items appear. Each command gets its own full-height section with the animated line flow.
+
+**Visual: Init command flow**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│         ┌───────────────────────────────────┐               │
+│         │  $ gof init myproject             │               │
+│         └───────────────────────────────────┘               │
+│                         │                                   │
+│                         │                                   │
+│                         ├──── Go HTTP server + ConnectRPC   │
+│                         │                                   │
+│                         ├──── PostgreSQL + SQLC queries     │
+│                         │                                   │
+│                         ├──── OAuth2 (GitHub + Google)      │
+│                         │                                   │
+│                         ├──── Role-based authorization      │
+│                         │                                   │
+│                         ├──── Docker Compose                │
+│                         │                                   │
+│                         ├──── GitHub Actions CI/CD          │
+│                         │                                   │
+│                         ├──── PR preview deployments        │
+│                         │                                   │
+│                         ▼                                   │
+│         ┌───────────────────────────────────┐               │
+│         │  What's next?                     │               │
+│         │  [model] [client] [stripe]        │               │
+│         │  [r2] [postmark] [infra]          │               │
+│         │                    [→ finish]     │               │
+│         └───────────────────────────────────┘               │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Visual: Model command flow**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│         ┌───────────────────────────────────┐               │
+│         │  $ gof model task                 │               │
+│         │    title:string due:date done:bool│               │
+│         └───────────────────────────────────┘               │
+│                         │                                   │
+│                         │                                   │
+│              Database   ├──── SQL migration                 │
+│                         ├──── SQLC queries (CRUD + List)    │
+│                         ├──── Type-safe Go structs          │
+│                         │                                   │
+│              Service    ├──── Domain service layer          │
+│                         ├──── Input validation              │
+│                         ├──── ConnectRPC handlers           │
+│                         │                                   │
+│              Testing    ├──── Service tests                 │
+│                         ├──── Transport tests               │
+│                         │                                   │
+│              + Context  ├──── Svelte pages (if client)      │
+│                         │                                   │
+│                         ▼                                   │
+│         ┌───────────────────────────────────┐               │
+│         │  [model] [client] [stripe] ...    │               │
+│         └───────────────────────────────────┘               │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key elements:**
+- Command box at top (clean, minimal)
+- Animated line draws downward
+- Items appear along the line as it draws
+- Category labels on the left (Database, Service, Testing)
+- Context-aware items at the bottom (grayed or highlighted)
+- Next command picker at bottom
+
+---
+
+### Final Section: Summary + CTA (100vh)
+
+When user clicks "finish" or exhausts options:
 
 ```
-┌─────────────────────────────────────────┐
-│  ┌─ Terminal ─────────────────────┐     │
-│  │ $ gof init myproject           │     │
-│  │                                │     │
-│  │ Creating project structure...  │     │
-│  │ ✓ OAuth (GitHub + Google)      │     │
-│  │ ✓ Bitwise role authorization   │     │
-│  │ ✓ Docker Compose setup         │     │
-│  │ ✓ GitHub Actions CI/CD         │     │
-│  │ ✓ PR preview deployments       │     │
-│  │ ✓ PostgreSQL + SQLC            │     │
-│  │ ✓ ConnectRPC transport         │     │
-│  │                                │     │
-│  │ Done in 2.3s                   │     │
-│  └────────────────────────────────┘     │
-│                                         │
-│  What's next?                           │
-│  ┌───────┐ ┌───────┐ ┌────────┐        │
-│  │ model │ │client │ │ stripe │        │
-│  └───────┘ └───────┘ └────────┘        │
-│  ┌───────┐ ┌────────┐ ┌───────┐        │
-│  │  r2   │ │postmark│ │ infra │        │
-│  └───────┘ └────────┘ └───────┘        │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│                     Your stack is ready                     │
+│                                                             │
+│   ┌─ What you built ─────────────────────────────────────┐  │
+│   │                                                      │  │
+│   │  ✓ init     ✓ model: task, post    ✓ client         │  │
+│   │  ✓ stripe   ○ r2    ○ postmark     ✓ infra          │  │
+│   │                                                      │  │
+│   │  Stack: Go + ConnectRPC + Svelte + Stripe + K8s     │  │
+│   │                                                      │  │
+│   └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│   ┌─ Pricing ────────────────────────────────────────────┐  │
+│   │                                                      │  │
+│   │  $40 one-time · Lifetime access                      │  │
+│   │                                                      │  │
+│   │  ✓ GoFast V2 (this CLI)                              │  │
+│   │  ✓ GoFast V1 (Next.js, Vue, AWS, GCP...)            │  │
+│   │  ✓ All future updates                                │  │
+│   │                                                      │  │
+│   │              [ Get Access → ]                        │  │
+│   │                                                      │  │
+│   └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│   ──────────────────────────────────────────────────────    │
+│                                                             │
+│   [Discord] Join 100+ devs · Free, no purchase needed      │
+│                                                             │
+│   Want more stacks? V1 has Next.js, Vue, AWS S3, GCP...    │
+│   → gofast.live                                             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-#### Step 2+: Context-Aware Output
+**Content:**
+- Summary box showing what was built (checked) vs available (unchecked)
+- Dynamic stack summary
+- Pricing card with CTA
+- Discord link (free)
+- V1 link for more options
+
+---
+
+## Scroll/Transition Behavior
+
+- Each section is `100vh` with `scroll-snap-align: start`
+- Use CSS `scroll-snap-type: y mandatory` on container
+- When command completes → auto-scroll to next section
+- Smooth scroll animation (~600ms)
+- Optional: GSAP ScrollToPlugin for more control
+
+---
+
+## Key Changes from Previous Plan
+
+1. **Full viewport sections** - not stacking terminals
+2. **More descriptive output** - grouped by category (Backend, DevOps, etc.)
+3. **No sidebar** - status shown only at the end
+4. **Stack shown upfront** - Go + ConnectRPC + SvelteKit on landing
+5. **Scroll-snap pagination** - each step fills the screen
+
+---
+
+#### Context-Aware Output
 
 Output adapts based on what's already been added.
 
@@ -223,62 +358,121 @@ Appears after exploring (or clicking "finish"):
 
 ---
 
-## Animation System (GSAP)
+## Animation System (GSAP) - Line Flow Concept
 
-### 1. Flowing Lines
+**Core idea:** No fake terminals. Commands in clean boxes, connected by animated lines. Generated items appear ALONG the line as it draws.
 
-When transitioning between commands, animated SVG paths flow from the completed terminal to the next:
+### Visual Concept
 
 ```
-   [Terminal 1 - Complete]
-          │
-          │  ← emerald particle line
-          │     flows downward
-          ▼
-   [Terminal 2 - Starting]
+   ┌─────────────────────────────┐
+   │  $ gof init myproject   [▶] │
+   └─────────────────────────────┘
+                │
+                │──── ✓ Go + ConnectRPC server
+                │
+                │──── ✓ OAuth2 (GitHub + Google)
+                │
+                │──── ✓ PostgreSQL + SQLC
+                │
+                │──── ✓ Docker Compose
+                │
+                │──── ✓ GitHub Actions CI/CD
+                │
+                ▼
+   ┌─────────────────────────────┐
+   │  What's next?               │
+   │  [model] [client] [stripe]  │
+   └─────────────────────────────┘
 ```
 
-**Implementation:**
-- SVG `<path>` elements with GSAP `motionPath`
-- Small glowing dots travel along the path
-- Path draws itself using `drawSVG` plugin (or stroke-dashoffset)
-- 0.5-1s duration, ease: "power2.inOut"
+### Animation Flow
 
-### 2. Terminal Typing Effect
+1. **User clicks command** → line starts drawing downward
+2. **As line draws**, items fade in along the line (left or right side, alternating)
+3. **Each item** has a small branch from the main line
+4. **Line completes** → next command picker fades in
+5. **User picks next** → line continues, scroll to next section
+
+### Line Drawing (SVG + GSAP)
 
 ```javascript
-// Typewriter for command output
-gsap.to(textElement, {
-  text: "✓ OAuth configured",
-  duration: 0.8,
-  ease: "none",
-  delay: stagger
+// Draw the main vertical line
+gsap.fromTo(line,
+  { strokeDashoffset: lineLength },
+  {
+    strokeDashoffset: 0,
+    duration: 2,
+    ease: "none"
+  }
+);
+
+// Items appear as line passes them
+items.forEach((item, i) => {
+  gsap.fromTo(item,
+    { opacity: 0, x: -20 },
+    {
+      opacity: 1,
+      x: 0,
+      duration: 0.4,
+      delay: i * 0.3  // staggered with line progress
+    }
+  );
 });
 ```
 
-Each line appears with typing animation:
-- Command types out first
-- Then output lines appear one by one
-- Checkmarks animate in with slight scale bounce
+### Item Appearance Styles
 
-### 3. Checkmark Animations
-
-```javascript
-// Checkmark appears with satisfying pop
-gsap.from(checkmark, {
-  scale: 0,
-  opacity: 0,
-  duration: 0.3,
-  ease: "back.out(1.7)"
-});
+**Option A: Branches from line**
+```
+        │
+        ├──── ✓ OAuth2 authentication
+        │
+        ├──── ✓ PostgreSQL + SQLC
+        │
 ```
 
-### 4. Scroll-triggered Reveals
+**Option B: Dots on line with labels**
+```
+        │
+        ●──── OAuth2 authentication
+        │
+        ●──── PostgreSQL + SQLC
+        │
+```
 
-Even though interaction is click-based, use GSAP ScrollTrigger for:
-- Subtle parallax on background elements
-- Fade-in for sections when scrolling back up
-- Progress indicator on the side
+**Option C: Alternating sides**
+```
+                        │
+   OAuth2 auth ─────────┤
+                        │
+                        ├───────── PostgreSQL + SQLC
+                        │
+   Docker Compose ──────┤
+                        │
+```
+
+### Colors
+
+- Line: `var(--primary)` emerald with subtle glow
+- Dots/branches: Same emerald
+- Items text: `var(--text)` white
+- Checkmarks: `var(--success)` green
+
+### Glow Effect
+
+```css
+.flow-line {
+  stroke: var(--primary);
+  filter: drop-shadow(0 0 4px var(--primary-glow));
+}
+```
+
+### Scroll Behavior
+
+- Each section is 100vh
+- Line animation triggers on scroll-snap to section
+- Or: Line animation triggers on click, then auto-scrolls when complete
 
 ---
 
