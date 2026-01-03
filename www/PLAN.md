@@ -26,7 +26,7 @@ Success:        #22c55e (green-500)
 ### Typography
 
 - **CLI/Code:** `JetBrains Mono` or `Fira Code` (monospace)
-- **UI Text:** `Inter` or system sans-serif
+- **UI Text:** `Poppins` (Google Fonts: 400, 500, 600, 700)
 - **Sizing:** Large, readable, lots of whitespace
 
 ### Visual Style
@@ -36,6 +36,7 @@ Success:        #22c55e (green-500)
 - Generous spacing, centered content
 - Subtle glow effects on primary actions
 - No gradients, no noise textures - pure clean
+- **Icons:** `@lucide/svelte` (Play, ArrowRight, ArrowLeft)
 
 ---
 
@@ -213,11 +214,11 @@ When user clicks "finish" or exhausts options:
 
 ## Scroll/Transition Behavior
 
-- Each section is `100vh` with `scroll-snap-align: start`
-- Use CSS `scroll-snap-type: y mandatory` on container
-- When command completes → auto-scroll to next section
-- Smooth scroll animation (~600ms)
-- Optional: GSAP ScrollToPlugin for more control
+- **Natural Flow:** No forced `100vh` or `scroll-snap`.
+- **Auto-scroll:** Smooth scroll to the start of the new command block when added.
+- **Typing Animation:**
+    - `model` commands (long text): **1.5s** duration.
+    - Other commands (short text): **0.5s** duration (snappy).
 
 ---
 
