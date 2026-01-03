@@ -555,3 +555,58 @@ Things that have broken before:
 - [ ] Proto field names (snake_case vs camelCase in TypeScript)
 - [ ] Permission flags not updated for new models
 
+## Infrastructure & Integrations Gap Analysis
+
+**Problem:**
+The `gof infra` command copies infrastructure files from the source template, but these files **do not** account for optional integrations (Stripe, R2, Postmark). This affects both the main Terraform-based deployment and the Kubernetes-manifest-based PR preview environment.
+
+**Affected Areas:**
+
+1.  **Terraform Infrastructure (`infra/`)**:
+    -   `service-core.tf`: Missing environment variable mappings for integration secrets.
+    -   `variables.tf`: Missing variable definitions.
+    -   `secrets.tf`: Missing Kubernetes secret resources.
+
+2.  **GitHub Workflows (`.github/workflows/`)**:
+    -   `terraform.yml`: The reusable workflow for `tf apply` is missing `TF_VAR_` environment variable mappings for integration secrets.
+    -   `pr-deploy.yml`: The PR preview workflow is missing `export` statements to pass secrets to `envsubst`.
+
+3.  **PR Environment Manifests (`infra/pr-environment/`)**:
+    -   `secrets.yaml`: Missing `stringData` entries for integration secrets.
+    -   `service-core.yaml`: (Likely) Missing `env` entries for integration secrets.
+
+**Required Changes:**
+
+The CLI must dynamically inject configuration into all above files based on enabled integrations. This should happen during `gof infra` (checking enabled integrations) and `gof add` (if infra exists).
+
+**1. Terraform Injection (`infra/`)**
+
+*   **Stripe:**
+    *   `variables.tf`: Add `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_BASIC`, `STRIPE_PRICE_ID_PRO`
+    *   `secrets.tf`: Add `kubernetes_secret` "stripe-secrets"
+    *   `service-core.tf`: Add `env` blocks mapping secrets to container vars
+
+*   **R2:**
+    *   `variables.tf`: Add `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_ENDPOINT`, `BUCKET_NAME`
+    *   `secrets.tf`: Add `kubernetes_secret` "r2-secrets"
+    *   `service-core.tf`: Add `env` blocks
+
+*   **Postmark:**
+    *   `variables.tf`: Add `POSTMARK_API_KEY`, `EMAIL_FROM`
+    *   `secrets.tf`: Add `kubernetes_secret` "postmark-secrets"
+    *   `service-core.tf`: Add `env` blocks
+
+**2. GitHub Workflow Injection (`.github/workflows/`)**
+
+*   `terraform.yml`: Inject `TF_VAR_STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}` etc. into the `env` block.
+*   `pr-deploy.yml`: Inject `export STRIPE_API_KEY='${{ secrets.STRIPE_API_KEY }}'` etc. into the "Deploy Other Secrets" step.
+
+**3. PR Environment Injection (`infra/pr-environment/`)**
+
+*   `secrets.yaml`: Inject `stripe_api_key: ${STRIPE_API_KEY}` etc.
+*   `service-core.yaml`: Inject `env` vars using the secrets.
+
+**4. User Instructions**
+
+*   `gof infra` and `gof add` should print clear instructions telling the user which secrets to add to their GitHub repository environment.
+
