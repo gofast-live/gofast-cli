@@ -81,7 +81,7 @@
 
 <section 
 	bind:this={container} 
-	class="min-h-screen flex flex-col items-center pt-24 pb-12 px-6 snap-start relative"
+	class="flex flex-col items-center pt-12 pb-12 px-6 relative"
 >
 	<!-- Command Box -->
 	<div class="relative z-10 bg-surface border border-border rounded-xl p-4 md:p-6 w-full max-w-2xl shadow-lg mb-8">

@@ -3,7 +3,7 @@
 	import { fade, fly } from 'svelte/transition';
 </script>
 
-<section class="min-h-screen flex flex-col items-center justify-center p-6 snap-start text-center max-w-4xl mx-auto">
+<section class="flex flex-col items-center justify-center p-6 py-24 text-center max-w-4xl mx-auto">
 	<div in:fade={{ duration: 800, delay: 200 }}>
 		<h2 class="text-3xl md:text-5xl font-bold mb-6 text-white">Your stack is ready.</h2>
 		<p class="text-xl text-muted mb-12">

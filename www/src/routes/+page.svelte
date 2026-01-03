@@ -19,7 +19,8 @@
 			const sections = mainContainer.querySelectorAll('section');
 			const lastSection = sections[sections.length - 1];
 			if (lastSection) {
-				lastSection.scrollIntoView({ behavior: 'smooth' });
+                // Scroll so the new section is visible, but not necessarily at the very top if it fits
+				lastSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 			}
 		}
 	}
@@ -53,7 +54,7 @@
 
 <main 
 	bind:this={mainContainer}
-	class="h-screen w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth bg-bg text-text"
+	class="w-full min-h-screen bg-bg text-text pb-24"
 >
 	<Hero onStart={handleStart} />
 
@@ -75,12 +76,4 @@
 </main>
 
 <style>
-	/* Hide scrollbar for cleaner look if desired */
-	main {
-		scrollbar-width: none; /* Firefox */
-		-ms-overflow-style: none;  /* IE 10+ */
-	}
-	main::-webkit-scrollbar { 
-		display: none;  /* Chrome/Safari */
-	}
 </style>

@@ -11,7 +11,7 @@
 	}
 </script>
 
-<section class="min-h-screen flex flex-col items-center justify-center relative p-6 snap-start">
+<section class="min-h-screen flex flex-col items-center justify-center relative p-6">
 	<!-- Top Nav -->
 	<nav class="absolute top-0 left-0 w-full p-6 flex justify-between items-center text-sm text-muted">
 		<div class="flex items-center gap-3">
