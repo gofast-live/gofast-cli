@@ -1,44 +1,48 @@
 @import 'tailwindcss';
 
-/* GoFast V2 - Global Styles */
+@theme {
+	--color-bg: #0a0a0a;
+	--color-surface: #141414;
+	--color-surface-hover: #1a1a1a;
+	
+	--color-border: #262626;
+	--color-border-hover: #333333;
 
-:root {
-	/* Colors */
-	--bg: #0a0a0a;
-	--surface: #141414;
-	--surface-hover: #1a1a1a;
-	--border: #262626;
-	--border-hover: #333333;
+	--color-primary: #10b981;
+	--color-primary-hover: #0d9668;
+	
+	--color-text: #fafafa;
+	--color-text-muted: #737373;
+	--color-text-subtle: #525252;
+    --color-muted: #737373; /* Alias for convenience if I used text-muted vs text-text-muted */
 
-	/* Primary - Emerald */
-	--primary: #10b981;
-	--primary-hover: #0d9668;
-	--primary-glow: rgba(16, 185, 129, 0.15);
+	--color-success: #22c55e;
+	--color-error: #ef4444;
 
-	/* Text */
-	--text: #fafafa;
-	--text-muted: #737373;
-	--text-subtle: #525252;
-
-	/* Semantic */
-	--success: #22c55e;
-	--error: #ef4444;
-
-	/* Spacing */
-	--space-xs: 0.25rem;
-	--space-sm: 0.5rem;
-	--space-md: 1rem;
-	--space-lg: 1.5rem;
-	--space-xl: 2rem;
-	--space-2xl: 3rem;
-	--space-3xl: 4rem;
-
-	/* Typography */
 	--font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 	--font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    
+    /* Animation utilities */
+    --animate-float: float 3s ease-in-out infinite;
+}
 
-	/* Transitions */
-	--transition-fast: 150ms ease;
-	--transition-base: 200ms ease;
-	--transition-slow: 300ms ease;
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+/* Global resets & styles */
+body {
+	background-color: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+    overflow: hidden; /* Main container handles scroll */
+}
+
+/* Custom Utilities if needed (Tailwind v4 allows them inline usually) */
+.snap-y {
+    scroll-snap-type: y mandatory;
+}
+.snap-start {
+    scroll-snap-align: start;
 }
