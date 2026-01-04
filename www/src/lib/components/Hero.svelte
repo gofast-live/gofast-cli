@@ -34,7 +34,7 @@
 		</div>
 
 		<h1 class="text-4xl md:text-6xl font-bold tracking-tight mb-4 text-white">
-			Building blocks for <span class="text-primary">Go</span>
+			Building blocks for <span class="text-[#0ea5e9]">Go</span>
 		</h1>
 		
 		<p class="text-xl text-muted mb-12 max-w-xl">

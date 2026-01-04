@@ -1,6 +1,118 @@
 # GoFast Marketing Page - Design Plan
 
-## Overview
+## Implementation Status
+
+**Status:** Phase 1 Complete (Basic Flow). Phase 2 Planned.
+**Date:** January 4, 2026
+
+The design plan below has been fully implemented with the following refinements:
+
+1.  **Polished Animations:**
+    -   **Dynamic Typing Speed:** Typing duration is now calculated dynamically based on command length (0.03s/char), making short commands snappy (0.5s min) and long commands naturally paced.
+    -   **Smoother Transitions:** Added fade-in effects for the command picker and summary sections.
+    -   **Auto-hiding Cursor:** The terminal cursor automatically hides after command execution completes, reducing visual clutter.
+
+2.  **Mobile Responsiveness:**
+    -   Output items use responsive padding (`pr-4 md:pr-12`, `pl-4 md:pl-12`) to ensure content fits comfortably on smaller screens.
+    -   Font sizes and spacing have been tuned for mobile devices.
+
+3.  **Code Quality:**
+    -   Used Svelte 5 runes (`$derived`, `$state`) for reactive state management.
+    -   Fixed reactivity warnings by converting derived values to proper `$derived` blocks.
+
+---
+
+# Phase 2: The Power Reveal (Current Focus)
+
+**Goal:** Demonstrate the sheer density of value provided. "Show, don't just tell."
+
+## 1. Interactive "Under the Hood" Context
+Instead of just static checkmarks, every output item becomes an interactive element.
+
+**Interaction:**
+- **Desktop:** Hovering a checklist item fades in a "Detail Card" (to the side or floating).
+- **Mobile:** Tapping an item expands it or opens a small bottom sheet.
+
+**Content Strategy (Mockup):**
+
+**Item:** `✓ OAuth (GitHub + Google)`
+**Detail Card:**
+```
+[Files Generated]
+• internal/auth/handler.go
+• internal/auth/provider.go
+• schema/001_users.sql
+
+[Logic Wired]
+• OIDC Callback handling
+• Secure HTTP-only cookies
+• User persistence & session lookups
+```
+
+**Item:** `✓ PostgreSQL + SQLC`
+**Detail Card:**
+```
+[Files Generated]
+• internal/db/models.go
+• internal/db/query.sql.go
+• db/schema.sql
+
+[Features]
+• Type-safe struct generation
+• Connection pooling (pgxpool)
+• Database migration runner
+```
+
+## 2. The "Wall of Value" Summary
+The final screen currently looks too clean. We need to replace or augment the summary with a **Massive List** of everything created.
+
+**Visual Concept:**
+A dense, multi-column grid or "masonry" layout labeled **"Your Production Stack"**.
+
+**Categories to Display:**
+
+**Backend (Go)**
+- `main.go` entrypoint
+- Graceful shutdown handler
+- Structured Logging (slog)
+- CORS middleware
+- Rate limiting interceptor
+- Health check endpoints
+
+**Data & Auth**
+- User SQL schema
+- Session management
+- Password hashing (Argon2)
+- Role-based Access Control (RBAC)
+- Data validation layer
+
+**API (ConnectRPC)**
+- Proto definitions (`.proto`)
+- Go generated code
+- TypeScript generated code
+- gRPC-Web support
+- JSON fallback support
+
+**DevOps**
+- `Dockerfile` (Multi-stage)
+- `docker-compose.yml`
+- `.github/workflows/ci.yml`
+- `.github/workflows/deploy.yml`
+- Database migration container
+
+**Frontend (Svelte)**
+- Auth context/stores
+- Typed API client
+- Form components
+- Toast notifications
+- layout.svelte (Auth protected)
+
+**Metric Highlight:**
+"~45 files generated. ~3,200 lines of boilerplate saved."
+
+---
+
+## Overview (Original Plan)
 
 A minimalist, dark-themed marketing page that showcases GoFast CLI through an **interactive fake CLI experience**. Users click through commands, watching generation animations and discovering what each command creates.
 
@@ -217,8 +329,7 @@ When user clicks "finish" or exhausts options:
 - **Natural Flow:** No forced `100vh` or `scroll-snap`.
 - **Auto-scroll:** Smooth scroll to the start of the new command block when added.
 - **Typing Animation:**
-    - `model` commands (long text): **1.5s** duration.
-    - Other commands (short text): **0.5s** duration (snappy).
+    - **Dynamic:** Duration based on character count (`0.03s` per char), min `0.5s`.
 
 ---
 
