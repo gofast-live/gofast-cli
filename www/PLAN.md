@@ -2,27 +2,30 @@
 
 ## Implementation Status
 
-**Status:** Phase 1 Complete (Basic Flow). Phase 2 Planned.
+**Status:** Phase 2 Complete (The Power Reveal)
 **Date:** January 4, 2026
 
 The design plan below has been fully implemented with the following refinements:
 
-1.  **Polished Animations:**
-    -   **Dynamic Typing Speed:** Typing duration is now calculated dynamically based on command length (0.03s/char), making short commands snappy (0.5s min) and long commands naturally paced.
-    -   **Smoother Transitions:** Added fade-in effects for the command picker and summary sections.
-    -   **Auto-hiding Cursor:** The terminal cursor automatically hides after command execution completes, reducing visual clutter.
+1.  **Phase 1: Basic Flow (Completed)**
+    -   Basic "fake CLI" interaction with GSAP animations.
+    -   Responsive layout with full-height sections.
+    -   Svelte 5 runes for state management.
 
-2.  **Mobile Responsiveness:**
-    -   Output items use responsive padding (`pr-4 md:pr-12`, `pl-4 md:pl-12`) to ensure content fits comfortably on smaller screens.
-    -   Font sizes and spacing have been tuned for mobile devices.
-
-3.  **Code Quality:**
-    -   Used Svelte 5 runes (`$derived`, `$state`) for reactive state management.
-    -   Fixed reactivity warnings by converting derived values to proper `$derived` blocks.
+2.  **Phase 2: The Power Reveal (Completed)**
+    -   **Interactive "Under the Hood" Details:**
+        -   **Desktop:** Hovering over checklist items reveals a fixed side panel showing generated files and wired logic.
+        -   **Mobile:** Tapping items opens a smooth bottom sheet with the same details.
+    -   **Mobile UX Refinements:**
+        -   Left-aligned flow line on mobile for better space utilization.
+        -   "Info" icons (visible on mobile, hover on desktop) to hint at interactivity.
+    -   **"Wall of Value" Summary:**
+        -   Overhauled summary section featuring a masonry-style grid listing all generated artifacts.
+        -   Categorized by Backend, Data, API, DevOps, etc.
 
 ---
 
-# Phase 2: The Power Reveal (Current Focus)
+# Phase 2: The Power Reveal (Implemented)
 
 **Goal:** Demonstrate the sheer density of value provided. "Show, don't just tell."
 
@@ -30,10 +33,10 @@ The design plan below has been fully implemented with the following refinements:
 Instead of just static checkmarks, every output item becomes an interactive element.
 
 **Interaction:**
-- **Desktop:** Hovering a checklist item fades in a "Detail Card" (to the side or floating).
-- **Mobile:** Tapping an item expands it or opens a small bottom sheet.
+- **Desktop:** Hovering a checklist item fades in a "Detail Card" (fixed to the right).
+- **Mobile:** Tapping an item opens a bottom sheet with details.
 
-**Content Strategy (Mockup):**
+**Content Strategy:**
 
 **Item:** `✓ OAuth (GitHub + Google)`
 **Detail Card:**
@@ -64,51 +67,18 @@ Instead of just static checkmarks, every output item becomes an interactive elem
 ```
 
 ## 2. The "Wall of Value" Summary
-The final screen currently looks too clean. We need to replace or augment the summary with a **Massive List** of everything created.
+The final screen replaces the simple summary with a **Massive List** of everything created.
 
 **Visual Concept:**
-A dense, multi-column grid or "masonry" layout labeled **"Your Production Stack"**.
+A dense, multi-column grid layout labeled **"Your stack is ready"**.
 
-**Categories to Display:**
-
-**Backend (Go)**
-- `main.go` entrypoint
-- Graceful shutdown handler
-- Structured Logging (slog)
-- CORS middleware
-- Rate limiting interceptor
-- Health check endpoints
-
-**Data & Auth**
-- User SQL schema
-- Session management
-- Password hashing (Argon2)
-- Role-based Access Control (RBAC)
-- Data validation layer
-
-**API (ConnectRPC)**
-- Proto definitions (`.proto`)
-- Go generated code
-- TypeScript generated code
-- gRPC-Web support
-- JSON fallback support
-
-**DevOps**
-- `Dockerfile` (Multi-stage)
-- `docker-compose.yml`
-- `.github/workflows/ci.yml`
-- `.github/workflows/deploy.yml`
-- Database migration container
-
-**Frontend (Svelte)**
-- Auth context/stores
-- Typed API client
-- Form components
-- Toast notifications
-- layout.svelte (Auth protected)
-
-**Metric Highlight:**
-"~45 files generated. ~3,200 lines of boilerplate saved."
+**Categories Displayed:**
+- **Backend (Go):** `main.go`, handlers, middleware, logging.
+- **Data & Auth:** Schema, migrations, RBAC, sessions.
+- **API (ConnectRPC):** Proto defs, generated code, interceptors.
+- **DevOps:** Docker, CI/CD, K8s manifests, Terraform.
+- **Frontend (Svelte):** Components, stores, typed client.
+- **Payments (Stripe):** Webhooks, subscription logic.
 
 ---
 

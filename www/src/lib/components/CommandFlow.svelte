@@ -119,41 +119,47 @@
 	
 	<!-- FIXED PANELS -->
 
-	<!-- Desktop: Fixed Right Panel -->
-	<div
-		class="fixed top-1/2 -translate-y-1/2 right-8 w-80 bg-surface/90 backdrop-blur border border-border rounded-xl p-6 hidden xl:block shadow-2xl transition-opacity duration-300 pointer-events-none z-50"
-		class:opacity-0={!activeDetails}
-		class:opacity-100={!!activeDetails}
-	>
-		{#if activeDetails}
+	<!-- Fixed Detail Panel (Desktop) -->
+	{#if activeDetails}
+		<div
+			transition:fade={{ duration: 200 }}
+			class="fixed top-1/2 -translate-y-1/2 right-8 w-80 bg-surface/90 backdrop-blur border border-border rounded-xl p-6 hidden xl:block shadow-2xl pointer-events-none z-50"
+		>
 			<div class="space-y-6">
-				{#if activeDetails.files?.length}
+				{#if activeDetails.files && activeDetails.files.length > 0}
 					<div>
-						<h4 class="text-primary font-mono text-sm mb-3 border-b border-border pb-2">[Generated Files]</h4>
+						<h4 class="text-primary font-mono text-sm mb-3 border-b border-border pb-2">
+							[Generated Files]
+						</h4>
 						<ul class="space-y-1.5">
 							{#each activeDetails.files as file}
 								<li class="text-xs text-gray-300 font-mono flex items-start gap-2">
-									<span class="text-border">└</span> {file}
+									<span class="text-border">└</span>
+									{file}
 								</li>
 							{/each}
 						</ul>
 					</div>
 				{/if}
-				{#if activeDetails.features?.length}
+
+				{#if activeDetails.features && activeDetails.features.length > 0}
 					<div>
-						<h4 class="text-primary font-mono text-sm mb-3 border-b border-border pb-2">[Logic Wired]</h4>
+						<h4 class="text-primary font-mono text-sm mb-3 border-b border-border pb-2">
+							[Logic Wired]
+						</h4>
 						<ul class="space-y-1.5">
 							{#each activeDetails.features as feature}
 								<li class="text-xs text-gray-300 font-sans flex items-start gap-2">
-									<span class="text-primary text-[10px] mt-0.5">●</span> {feature}
+									<span class="text-primary text-[10px] mt-0.5">●</span>
+									{feature}
 								</li>
 							{/each}
 						</ul>
 					</div>
 				{/if}
 			</div>
-		{/if}
-	</div>
+		</div>
+	{/if}
 
 	<!-- Mobile: Fixed Bottom Sheet -->
 	{#if activeDetails}
