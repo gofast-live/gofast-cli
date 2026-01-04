@@ -72,7 +72,7 @@
             class="flex flex-wrap justify-center gap-3 mb-16 font-mono text-sm text-text-subtle"
         >
             <span class="px-3 py-1 bg-surface border border-border rounded-full"
-                >Go 1.23+</span
+                >Go 1.25+</span
             >
             <span class="px-3 py-1 bg-surface border border-border rounded-full"
                 >ConnectRPC</span
@@ -81,7 +81,7 @@
                 >SvelteKit</span
             >
             <span class="px-3 py-1 bg-surface border border-border rounded-full"
-                >SQLC</span
+                >PostgreSQL 18</span
             >
         </div>
 
