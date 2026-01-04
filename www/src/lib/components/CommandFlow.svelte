@@ -4,7 +4,7 @@
 	import { getCommand } from '$lib/data/commands.js';
 	import { gsap } from '$lib/animations/gsap.js';
 	import { fade, fly } from 'svelte/transition';
-	import { Info, X } from '@lucide/svelte';
+	import { Info, X, Zap } from '@lucide/svelte';
 
 	/** @type {{ commandId: string, variant?: any, onComplete?: () => void, children?: import('svelte').Snippet }} */
 	const { commandId, variant, onComplete, children } = $props();
@@ -92,8 +92,6 @@
 
 	// Desktop Hover
 	function handleMouseEnter(details) {
-		// Only use hover on desktop (checked via CSS media query logic or assuming touch behavior)
-		// For simplicity, we just set it. Mobile 'tap' will override or toggle.
 		if (window.matchMedia('(min-width: 1280px)').matches) {
 			activeDetails = details;
 		}
@@ -119,7 +117,7 @@
 	
 	<!-- FIXED PANELS -->
 
-	<!-- Fixed Detail Panel (Desktop) -->
+	<!-- Desktop: Fixed Right Panel -->
 	{#if activeDetails}
 		<div
 			transition:fade={{ duration: 200 }}
@@ -223,7 +221,6 @@
 	<!-- Flow Container -->
 	<div class="relative flex-grow w-full max-w-2xl flex flex-col items-start md:items-center pl-8 md:pl-0">
 		<!-- The Line -->
-		<!-- Mobile: Left aligned (left-0 of container). Desktop: Centered (left-1/2) -->
 		<div 
 			bind:this={lineElement}
 			class="absolute top-0 left-0 md:left-1/2 md:-translate-x-1/2 w-0.5 bg-gradient-to-b from-primary via-primary/50 to-transparent h-0 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
@@ -234,18 +231,32 @@
 			{#each outputs as output, i}
 				<div class="relative flex items-center w-full group">
 					<!-- Connector Dot -->
-					<!-- Mobile: Left aligned with line. Desktop: Centered -->
 					<div
 						class="absolute left-0 -translate-x-1/2 md:left-1/2 w-3 h-3 bg-bg border-2 border-primary rounded-full z-20 shadow-[0_0_8px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-125 duration-300"
 					></div>
 
 					<!-- Content Card -->
-					<!-- Mobile: Always right of line (pl-8). Desktop: Alternating -->
 					<div
-						class={`flex-1 flex w-full 
+						class={`flex-1 flex w-full relative
 							pl-6 md:pl-0 
 							${i % 2 === 0 ? 'md:justify-end md:pr-12' : 'md:justify-start md:pl-12 md:order-last'}`}
 					>
+						<!-- Dependency Label (Desktop: On the branch) -->
+						{#if output.dependency}
+							<!-- Right side items (label on left) -->
+							<div class={`absolute top-1/2 -translate-y-1/2 hidden md:flex items-center gap-1
+								${i % 2 === 0 
+									? 'right-0 mr-3 justify-end' 
+									: 'left-0 ml-3 justify-start'
+								}`}
+							>
+								<div class="bg-surface border border-primary/30 rounded px-1.5 py-0.5 text-[10px] font-mono text-primary flex items-center gap-1 shadow-sm whitespace-nowrap">
+									<Zap size={10} class="text-primary fill-primary/20" />
+									{output.dependency}
+								</div>
+							</div>
+						{/if}
+
 						<!-- Interactive Item -->
 						<button
 							class="group/btn relative text-left bg-surface/80 backdrop-blur border border-border/50 px-4 py-3 rounded-lg text-sm md:text-base text-gray-300 font-mono shadow-sm hover:border-primary/50 hover:bg-surface-hover hover:text-white hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-all duration-300 cursor-pointer flex items-center gap-2 pr-8 w-full md:w-auto"
@@ -253,6 +264,14 @@
 							onmouseleave={handleMouseLeave}
 							onclick={() => handleTap(output.details)}
 						>
+							<!-- Mobile Dependency Label (Top right of card) -->
+							{#if output.dependency}
+								<div class="absolute -top-2.5 right-2 md:hidden bg-surface border border-primary/30 rounded px-1.5 py-0.5 text-[10px] font-mono text-primary flex items-center gap-1 shadow-sm">
+									<Zap size={8} class="text-primary fill-primary/20" />
+									{output.dependency}
+								</div>
+							{/if}
+
 							<span class="text-success">✓</span>
 							<span class="flex-grow truncate">{typeof output.text === 'function' ? output.text(appState) : output.text}</span>
 							

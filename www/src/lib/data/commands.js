@@ -9,6 +9,7 @@
  * @property {string | ((state: import('../stores/state.svelte.js').State) => string)} text
  * @property {(state: import('../stores/state.svelte.js').State) => boolean} [showIf]
  * @property {OutputDetails} [details]
+ * @property {string} [dependency] - The feature that triggered this output (e.g., "Stripe", "Models")
  */
 
 /**
@@ -227,6 +228,7 @@ export const commands = [
 			{
 				text: 'Svelte pages generated',
 				showIf: (s) => s.has('client'),
+				dependency: 'Frontend',
 				details: {
 					files: [
 						'src/routes/app/[model]/+page.svelte',
@@ -238,6 +240,7 @@ export const commands = [
 			{
 				text: 'Subscription checks wired',
 				showIf: (s) => s.has('stripe'),
+				dependency: 'Stripe',
 				details: {
 					files: ['internal/service/policy.go'],
 					features: [
@@ -289,6 +292,7 @@ export const commands = [
 			{
 				text: (s) => `Generated pages for: ${s.models.join(', ')}`,
 				showIf: (s) => s.models.length > 0,
+				dependency: 'Data Models',
 				details: {
 					files: ['src/routes/app/[model]/...'],
 					features: ['Auto-generated CRUD UIs', 'Form validation', 'Data loading']
@@ -297,6 +301,7 @@ export const commands = [
 			{
 				text: 'Stripe billing UI',
 				showIf: (s) => s.has('stripe'),
+				dependency: 'Stripe',
 				details: {
 					files: ['src/routes/app/billing/+page.svelte'],
 					features: ['Subscription management', 'Invoice history', 'Plan switching']
@@ -305,6 +310,7 @@ export const commands = [
 			{
 				text: 'File management UI',
 				showIf: (s) => s.has('r2'),
+				dependency: 'R2 Storage',
 				details: {
 					files: ['src/lib/components/FileManager.svelte'],
 					features: ['Drag & drop uploads', 'File preview', 'Progress bars']
@@ -313,6 +319,7 @@ export const commands = [
 			{
 				text: 'Email dashboard',
 				showIf: (s) => s.has('postmark'),
+				dependency: 'Postmark',
 				details: {
 					files: ['src/routes/admin/emails/+page.svelte'],
 					features: ['Template preview', 'Send history', 'Bounce logs']
@@ -367,6 +374,7 @@ export const commands = [
 			{
 				text: 'Billing UI components',
 				showIf: (s) => s.has('client'),
+				dependency: 'Frontend',
 				details: {
 					files: ['src/lib/components/PricingTable.svelte'],
 					features: ['Plan comparison', 'Upgrade/Downgrade flows']
@@ -376,7 +384,7 @@ export const commands = [
 	},
 	{
 		id: 'r2',
-		label: 'r2',
+		label: 'Cloudflare R2',
 		command: () => 'gof add r2',
 		description: 'Adding file storage...',
 		baseOutputs: [
@@ -406,6 +414,7 @@ export const commands = [
 			{
 				text: 'File manager UI',
 				showIf: (s) => s.has('client'),
+				dependency: 'Frontend',
 				details: {
 					files: ['src/lib/components/FileUploader.svelte'],
 					features: ['Client-side validation', 'Direct-to-cloud upload']
@@ -445,6 +454,7 @@ export const commands = [
 			{
 				text: 'Email dashboard UI',
 				showIf: (s) => s.has('client'),
+				dependency: 'Frontend',
 				details: {
 					files: ['src/routes/admin/emails/logs/+page.svelte'],
 					features: ['Search & filter', 'Resend capabilities']
@@ -491,6 +501,7 @@ export const commands = [
 			{
 				text: 'Cloudflare Workers (client)',
 				showIf: (s) => s.has('client'),
+				dependency: 'Frontend',
 				details: {
 					files: ['wrangler.toml'],
 					features: ['Edge hosting configuration', 'Route binding']
@@ -499,6 +510,7 @@ export const commands = [
 			{
 				text: 'Stripe secrets configured',
 				showIf: (s) => s.has('stripe'),
+				dependency: 'Stripe',
 				details: {
 					files: ['k8s/secrets.yaml'],
 					features: ['Secure key injection', 'Webhook signing secrets']
@@ -507,6 +519,7 @@ export const commands = [
 			{
 				text: 'R2 bucket configured',
 				showIf: (s) => s.has('r2'),
+				dependency: 'R2 Storage',
 				details: {
 					files: ['terraform/r2.tf'],
 					features: ['Bucket creation', 'CORS policy']
@@ -515,6 +528,7 @@ export const commands = [
 			{
 				text: 'Postmark configured',
 				showIf: (s) => s.has('postmark'),
+				dependency: 'Postmark',
 				details: {
 					files: ['k8s/configmap.yaml'],
 					features: ['API token management', 'Sender signature ID']
