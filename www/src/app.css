@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+
+@theme {
+	--color-bg: #0a0a0a;
+	--color-surface: #141414;
+	--color-surface-hover: #1a1a1a;
+	
+	--color-border: #262626;
+	--color-border-hover: #333333;
+
+	--color-primary: #10b981;
+	--color-primary-hover: #0d9668;
+	
+	--color-text: #fafafa;
+	--color-text-muted: #737373;
+	--color-text-subtle: #525252;
+    --color-muted: #737373; /* Alias for convenience if I used text-muted vs text-text-muted */
+
+	--color-success: #22c55e;
+	--color-error: #ef4444;
+
+	--font-sans: 'Poppins', system-ui, -apple-system, sans-serif;
+	--font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    
+    /* Animation utilities */
+    --animate-float: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+/* Global resets & styles */
+body {
+	background-color: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+    /* overflow: hidden; Removed to allow natural window scroll */
+}
+
+/* Custom Utilities if needed (Tailwind v4 allows them inline usually) */
+.snap-y {
+    scroll-snap-type: y mandatory;
+}
+.snap-start {
+    scroll-snap-align: start;
+}
