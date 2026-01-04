@@ -156,12 +156,11 @@
 	</div>
 
 	<!-- Mobile: Fixed Bottom Sheet -->
-	<div 
-		class="fixed bottom-0 left-0 w-full bg-surface border-t border-border p-6 xl:hidden z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-in-out"
-		class:translate-y-full={!activeDetails}
-		class:translate-y-0={!!activeDetails}
-	>
-		{#if activeDetails}
+	{#if activeDetails}
+		<div 
+			transition:fly={{ y: '100%', duration: 300, opacity: 1 }}
+			class="fixed bottom-0 left-0 w-full bg-surface border-t border-border p-6 xl:hidden z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]"
+		>
 			<div class="flex justify-between items-center mb-4">
 				<span class="text-xs font-mono text-primary uppercase tracking-wider">Under the hood</span>
 				<button class="text-muted hover:text-white" onclick={() => activeDetails = null}>
@@ -194,8 +193,8 @@
 					</div>
 				{/if}
 			</div>
-		{/if}
-	</div>
+		</div>
+	{/if}
 
 	<!-- MAIN CONTENT -->
 
