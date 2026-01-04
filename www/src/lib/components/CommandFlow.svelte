@@ -262,19 +262,19 @@
 					<!-- Content Card -->
 					<!-- Mobile: Always right of line (pl-8). Desktop: Alternating -->
 					<div
-						class={`flex-1 flex w-full relative
+						class={`flex-1 flex w-full relative min-w-0
 							pl-6 md:pl-0 
 							${i % 2 === 0 ? 'md:justify-end md:pr-12' : 'md:justify-start md:pl-12 md:order-last'}`}
 					>
 						<!-- Interactive Item -->
 						<button
-							class="group/btn relative text-left bg-surface/80 backdrop-blur border border-border/50 px-4 py-3 rounded-lg text-sm md:text-base text-gray-300 font-mono shadow-sm hover:border-primary/50 hover:bg-surface-hover hover:text-white hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-all duration-300 cursor-pointer flex items-center gap-2 pr-8 w-full md:w-auto"
+							class="group/btn relative text-left bg-surface/80 backdrop-blur border border-border/50 px-4 py-3 rounded-lg text-sm md:text-base text-gray-300 font-mono shadow-sm hover:border-primary/50 hover:bg-surface-hover hover:text-white hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-all duration-300 cursor-pointer flex items-center gap-2 pr-8 w-full md:w-auto max-w-full"
 							onmouseenter={() => handleMouseEnter(output.details)}
 							onmouseleave={handleMouseLeave}
 							onclick={() => handleTap(output.details)}
 						>
 							<span class="text-success">✓</span>
-							<span class="flex-grow truncate">{output.text}</span>
+							<span class="flex-grow">{output.text}</span>
 							
 							<!-- Info Icon (Mobile: Visible, Desktop: Hover) -->
 							<span class="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 md:opacity-0 md:group-hover/btn:opacity-100 transition-opacity text-primary">
