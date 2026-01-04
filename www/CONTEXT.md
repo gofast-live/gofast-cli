@@ -16,6 +16,11 @@ The design plan below has been fully implemented with the following refinements:
     -   **Interactive "Under the Hood" Details:**
         -   **Desktop:** Hovering over checklist items reveals a fixed side panel showing generated files and wired logic.
         -   **Mobile:** Tapping items opens a smooth bottom sheet with the same details.
+    -   **Static History:**
+        -   CLI history is snapshotted at creation time. Past output does not update retroactively, preserving the authenticity of a terminal session.
+    -   **Bidirectional Dependencies:**
+        -   Visual "Dependency Badges" (⚡) appear when features interconnect (e.g., Stripe <-> Infra secrets, Models <-> Frontend pages).
+        -   This works both ways (adding Infra later detects Stripe, adding Stripe later detects Infra).
     -   **Mobile UX Refinements:**
         -   Left-aligned flow line on mobile for better space utilization.
         -   "Info" icons (visible on mobile, hover on desktop) to hint at interactivity.
