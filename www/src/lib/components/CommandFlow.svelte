@@ -3,8 +3,8 @@
 	import { state as appState } from '$lib/stores/state.svelte.js';
 	import { getCommand } from '$lib/data/commands.js';
 	import { gsap } from '$lib/animations/gsap.js';
-	import { fade } from 'svelte/transition';
-	import { Info } from '@lucide/svelte';
+	import { fade, fly } from 'svelte/transition';
+	import { Info, X } from '@lucide/svelte';
 
 	/** @type {{ commandId: string, variant?: any, onComplete?: () => void, children?: import('svelte').Snippet }} */
 	const { commandId, variant, onComplete, children } = $props();
@@ -16,9 +16,9 @@
 
 	let isCompleted = $state(false);
 	
-	// State for the hovered item details
+	// State for the hovered/active item details
 	/** @type {import('$lib/data/commands.js').OutputDetails | null} */
-	let hoveredDetails = $state(null);
+	let activeDetails = $state(null);
 
 	let commandData = $derived(
 		getCommand(commandId) || {
@@ -56,8 +56,6 @@
 		});
 
 		// 1. Type the command
-		// Calculate duration based on length: ~30 chars/sec
-		// longer commands (like model) will take ~1.5s, shorter ones ~0.5s
 		const typeDuration = Math.max(0.5, displayCommand.length * 0.03);
 
 		tl.to(commandTextElement, {
@@ -67,9 +65,6 @@
 		});
 
 		// 2. Draw line down
-		// We want the line to grow as items appear
-
-		// Check if itemsContainer has children before animating
 		const items = itemsContainer?.children;
 
 		tl.to(
@@ -88,57 +83,69 @@
 				items,
 				{ opacity: 0, x: -20 },
 				{ opacity: 1, x: 0, duration: 0.4, stagger: 0.3 },
-				'<+=0.2' // Start 0.2s after line starts
+				'<+=0.2'
 			);
 		}
 
 		return () => tl.kill();
 	});
 
+	// Desktop Hover
 	function handleMouseEnter(details) {
-		hoveredDetails = details;
+		// Only use hover on desktop (checked via CSS media query logic or assuming touch behavior)
+		// For simplicity, we just set it. Mobile 'tap' will override or toggle.
+		if (window.matchMedia('(min-width: 1280px)').matches) {
+			activeDetails = details;
+		}
 	}
 
 	function handleMouseLeave() {
-		hoveredDetails = null;
+		if (window.matchMedia('(min-width: 1280px)').matches) {
+			activeDetails = null;
+		}
+	}
+
+	// Mobile Tap
+	function handleTap(details) {
+		if (activeDetails === details) {
+			activeDetails = null; // Toggle off
+		} else {
+			activeDetails = details;
+		}
 	}
 </script>
 
-<section bind:this={container} class="flex flex-col items-center pt-12 pb-12 px-6 relative w-full">
-	<!-- Fixed Detail Panel (Desktop) -->
+<section bind:this={container} class="flex flex-col items-center pt-12 pb-12 px-4 md:px-6 relative w-full">
+	
+	<!-- FIXED PANELS -->
+
+	<!-- Desktop: Fixed Right Panel -->
 	<div
 		class="fixed top-1/2 -translate-y-1/2 right-8 w-80 bg-surface/90 backdrop-blur border border-border rounded-xl p-6 hidden xl:block shadow-2xl transition-opacity duration-300 pointer-events-none z-50"
-		class:opacity-0={!hoveredDetails}
-		class:opacity-100={!!hoveredDetails}
+		class:opacity-0={!activeDetails}
+		class:opacity-100={!!activeDetails}
 	>
-		{#if hoveredDetails}
+		{#if activeDetails}
 			<div class="space-y-6">
-				{#if hoveredDetails.files && hoveredDetails.files.length > 0}
+				{#if activeDetails.files?.length}
 					<div>
-						<h4 class="text-primary font-mono text-sm mb-3 border-b border-border pb-2">
-							[Generated Files]
-						</h4>
+						<h4 class="text-primary font-mono text-sm mb-3 border-b border-border pb-2">[Generated Files]</h4>
 						<ul class="space-y-1.5">
-							{#each hoveredDetails.files as file}
+							{#each activeDetails.files as file}
 								<li class="text-xs text-gray-300 font-mono flex items-start gap-2">
-									<span class="text-border">└</span>
-									{file}
+									<span class="text-border">└</span> {file}
 								</li>
 							{/each}
 						</ul>
 					</div>
 				{/if}
-
-				{#if hoveredDetails.features && hoveredDetails.features.length > 0}
+				{#if activeDetails.features?.length}
 					<div>
-						<h4 class="text-primary font-mono text-sm mb-3 border-b border-border pb-2">
-							[Logic Wired]
-						</h4>
+						<h4 class="text-primary font-mono text-sm mb-3 border-b border-border pb-2">[Logic Wired]</h4>
 						<ul class="space-y-1.5">
-							{#each hoveredDetails.features as feature}
+							{#each activeDetails.features as feature}
 								<li class="text-xs text-gray-300 font-sans flex items-start gap-2">
-									<span class="text-primary text-[10px] mt-0.5">●</span>
-									{feature}
+									<span class="text-primary text-[10px] mt-0.5">●</span> {feature}
 								</li>
 							{/each}
 						</ul>
@@ -148,10 +155,52 @@
 		{/if}
 	</div>
 
-	<!-- Command Box -->
-	<div
-		class="relative z-10 bg-surface border border-border rounded-xl p-4 md:p-6 w-full max-w-2xl shadow-lg mb-8"
+	<!-- Mobile: Fixed Bottom Sheet -->
+	<div 
+		class="fixed bottom-0 left-0 w-full bg-surface border-t border-border p-6 xl:hidden z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-in-out"
+		class:translate-y-full={!activeDetails}
+		class:translate-y-0={!!activeDetails}
 	>
+		{#if activeDetails}
+			<div class="flex justify-between items-center mb-4">
+				<span class="text-xs font-mono text-primary uppercase tracking-wider">Under the hood</span>
+				<button class="text-muted hover:text-white" onclick={() => activeDetails = null}>
+					<X size={20} />
+				</button>
+			</div>
+			<div class="grid grid-cols-1 gap-6 max-h-[40vh] overflow-y-auto">
+				{#if activeDetails.files?.length}
+					<div>
+						<h4 class="text-white font-mono text-xs mb-2 border-b border-border/50 pb-1">Generated Files</h4>
+						<ul class="space-y-1">
+							{#each activeDetails.files as file}
+								<li class="text-xs text-gray-400 font-mono flex items-start gap-2">
+									<span class="text-border">└</span> {file}
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
+				{#if activeDetails.features?.length}
+					<div>
+						<h4 class="text-white font-mono text-xs mb-2 border-b border-border/50 pb-1">Logic Wired</h4>
+						<ul class="space-y-1">
+							{#each activeDetails.features as feature}
+								<li class="text-xs text-gray-400 font-sans flex items-start gap-2">
+									<span class="text-primary text-[10px] mt-0.5">●</span> {feature}
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
+			</div>
+		{/if}
+	</div>
+
+	<!-- MAIN CONTENT -->
+
+	<!-- Command Box -->
+	<div class="relative z-10 bg-surface border border-border rounded-xl p-4 md:p-6 w-full max-w-2xl shadow-lg mb-8">
 		<div class="flex items-center gap-2 mb-2 text-xs text-muted font-mono">
 			<div class="w-3 h-3 rounded-full bg-red-500/20"></div>
 			<div class="w-3 h-3 rounded-full bg-yellow-500/20"></div>
@@ -167,11 +216,12 @@
 	</div>
 
 	<!-- Flow Container -->
-	<div class="relative flex-grow w-full max-w-2xl flex flex-col items-center">
+	<div class="relative flex-grow w-full max-w-2xl flex flex-col items-start md:items-center pl-8 md:pl-0">
 		<!-- The Line -->
-		<div
+		<!-- Mobile: Left aligned (left-0 of container). Desktop: Centered (left-1/2) -->
+		<div 
 			bind:this={lineElement}
-			class="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 bg-gradient-to-b from-primary via-primary/50 to-transparent h-0 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+			class="absolute top-0 left-0 md:left-1/2 md:-translate-x-1/2 w-0.5 bg-gradient-to-b from-primary via-primary/50 to-transparent h-0 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
 		></div>
 
 		<!-- Output Items -->
@@ -179,34 +229,37 @@
 			{#each outputs as output, i}
 				<div class="relative flex items-center w-full group">
 					<!-- Connector Dot -->
+					<!-- Mobile: Left aligned with line. Desktop: Centered -->
 					<div
-						class="absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-bg border-2 border-primary rounded-full z-20 shadow-[0_0_8px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-125 duration-300"
+						class="absolute left-0 -translate-x-1/2 md:left-1/2 w-3 h-3 bg-bg border-2 border-primary rounded-full z-20 shadow-[0_0_8px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-125 duration-300"
 					></div>
 
 					<!-- Content Card -->
+					<!-- Mobile: Always right of line (pl-8). Desktop: Alternating -->
 					<div
-						class={`flex-1 flex ${i % 2 === 0 ? 'justify-end pr-4 md:pr-12' : 'justify-start pl-4 md:pl-12 order-last'}`}
+						class={`flex-1 flex w-full 
+							pl-6 md:pl-0 
+							${i % 2 === 0 ? 'md:justify-end md:pr-12' : 'md:justify-start md:pl-12 md:order-last'}`}
 					>
 						<!-- Interactive Item -->
 						<button
-							class="group/btn relative text-left bg-surface/80 backdrop-blur border border-border/50 px-4 py-3 rounded-lg text-sm md:text-base text-gray-300 font-mono shadow-sm hover:border-primary/50 hover:bg-surface-hover hover:text-white hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-all duration-300 cursor-help flex items-center gap-2 pr-8"
+							class="group/btn relative text-left bg-surface/80 backdrop-blur border border-border/50 px-4 py-3 rounded-lg text-sm md:text-base text-gray-300 font-mono shadow-sm hover:border-primary/50 hover:bg-surface-hover hover:text-white hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-all duration-300 cursor-pointer flex items-center gap-2 pr-8 w-full md:w-auto"
 							onmouseenter={() => handleMouseEnter(output.details)}
 							onmouseleave={handleMouseLeave}
-							onfocus={() => handleMouseEnter(output.details)}
-							onblur={handleMouseLeave}
+							onclick={() => handleTap(output.details)}
 						>
 							<span class="text-success">✓</span>
-							<span class="flex-grow">{typeof output.text === 'function' ? output.text(appState) : output.text}</span>
+							<span class="flex-grow truncate">{typeof output.text === 'function' ? output.text(appState) : output.text}</span>
 							
-							<!-- Info Icon -->
-							<span class="absolute right-3 top-1/2 -translate-y-1/2 opacity-30 group-hover/btn:opacity-100 transition-opacity text-primary">
+							<!-- Info Icon (Mobile: Visible, Desktop: Hover) -->
+							<span class="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 md:opacity-0 md:group-hover/btn:opacity-100 transition-opacity text-primary">
 								<Info size={14} />
 							</span>
 						</button>
 					</div>
 
-					<!-- Spacer for the other side -->
-					<div class="flex-1"></div>
+					<!-- Spacer (Desktop only) -->
+					<div class="hidden md:block flex-1"></div>
 				</div>
 			{/each}
 		</div>
