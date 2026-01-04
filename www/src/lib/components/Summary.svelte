@@ -9,9 +9,16 @@
 		mounted = true;
 	});
 
+	/**
+	 * @typedef {Object} WallSection
+	 * @property {string} category
+	 * @property {string[]} items
+	 */
+
 	// Helper to generate the "wall" data based on state
 	function getWallData() {
-		return [
+		/** @type {WallSection[]} */
+		const sections = [
 			{
 				category: 'Backend (Go)',
 				items: [
@@ -38,18 +45,18 @@
 			},
 			{
 				category: 'API (ConnectRPC)',
-				items: [
+				items: /** @type {string[]} */ ([
 					'Proto definitions (.proto)',
 					'Go generated code',
 					appState.has('client') ? 'TypeScript generated code' : null,
 					'gRPC-Web support',
 					'JSON fallback support',
 					'Error handling interceptors'
-				].filter(Boolean)
+				].filter(Boolean))
 			},
 			{
 				category: 'DevOps',
-				items: [
+				items: /** @type {string[]} */ ([
 					'Dockerfile (Multi-stage)',
 					'docker-compose.yml',
 					'.github/workflows/ci.yml',
@@ -57,9 +64,12 @@
 					'Database migration container',
 					appState.has('infra') ? 'Terraform configurations' : null,
 					appState.has('infra') ? 'Kubernetes manifests' : null
-				].filter(Boolean)
-			},
-			appState.has('client') ? {
+				].filter(Boolean))
+			}
+		];
+
+		if (appState.has('client')) {
+			sections.push({
 				category: 'Frontend (Svelte)',
 				items: [
 					'Auth context/stores',
@@ -69,8 +79,11 @@
 					'layout.svelte (Protected)',
 					...appState.models.map(m => `CRUD pages for ${m}`)
 				]
-			} : null,
-			appState.has('stripe') ? {
+			});
+		}
+
+		if (appState.has('stripe')) {
+			sections.push({
 				category: 'Payments',
 				items: [
 					'Stripe webhook handler',
@@ -78,8 +91,10 @@
 					'Customer portal integration',
 					'Pricing table UI'
 				]
-			} : null
-		].filter(Boolean);
+			});
+		}
+
+		return sections;
 	}
 
 	let wallData = $derived(getWallData());

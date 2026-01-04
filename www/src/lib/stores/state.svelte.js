@@ -5,8 +5,17 @@ import { commands } from '$lib/data/commands.js';
  * @property {Set<string>} completed
  * @property {string[]} models
  * @property {boolean} initialized
+ * @property {boolean} finished
  * @property {(id: string) => boolean} has
  * @property {(name: string) => boolean} hasModel
+ * @property {() => void} init
+ * @property {(id: string) => void} add
+ * @property {(name: string) => void} addModel
+ * @property {() => void} finish
+ * @property {() => void} reset
+ * @property {import('$lib/data/commands.js').Command[]} availableCommands
+ * @property {import('$lib/data/commands.js').ModelVariant[]} availableModelVariants
+ * @property {string} stackSummary
  */
 
 /** @type {Set<string>} */

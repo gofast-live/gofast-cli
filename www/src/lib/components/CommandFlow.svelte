@@ -21,43 +21,55 @@
 	let activeDetails = $state(null);
 
 	// Snapshot state at creation time to prevent retroactive updates (CLI history style)
+	/** @type {import('$lib/stores/state.svelte.js').State} */
 	const snapshotState = {
 		completed: new Set(appState.completed),
 		models: [...appState.models],
+		/** @param {string} id */
 		has: (id) => appState.completed.has(id),
+		/** @param {string} name */
 		hasModel: (name) => appState.models.includes(name),
-		// Mock getters to match appState interface if needed
-		get initialized() { return appState.initialized; } 
+		get initialized() { return appState.initialized; },
+		get finished() { return appState.finished; },
+		init: () => {},
+		add: () => {},
+		addModel: () => {},
+		finish: () => {},
+		reset: () => {},
+		get availableCommands() { return []; },
+		get availableModelVariants() { return []; },
+		get stackSummary() { return ''; }
 	};
 
-	const commandData = getCommand(commandId) || {
-		id: 'error',
-		label: 'Error',
-		command: 'echo "Error: Command not found"',
-		description: 'Error',
-		baseOutputs: [{ text: 'Error: Command not found' }],
-		contextOutputs: []
-	};
+	let commandData = $derived(
+		getCommand(commandId) || {
+			id: 'error',
+			label: 'Error',
+			command: 'echo "Error: Command not found"',
+			description: 'Error',
+			baseOutputs: [{ text: 'Error: Command not found' }],
+			contextOutputs: []
+		}
+	);
 
-	// Determine the display command string (Static)
-	const displayCommand = (() => {
+	// Determine the display command string
+	let displayCommand = $derived.by(() => {
 		if (variant) return variant.command;
 		if (typeof commandData.command === 'function') return commandData.command();
 		return commandData.command || `gof ${commandId}`;
-	})();
+	});
 
-	// Compute outputs based on SNAPSHOT state (Static)
-	const outputs = (() => {
+	// Compute outputs based on SNAPSHOT state
+	let outputs = $derived.by(() => {
 		const base = commandData.baseOutputs || [];
 		const context = (commandData.contextOutputs || []).filter(
 			(o) => !o.showIf || o.showIf(snapshotState)
 		);
-		return [...base, ...context].map(o => ({
+		return /** @type {import('$lib/data/commands.js').Output[]} */ ([...base, ...context].map(o => ({
 			...o,
-			// Resolve function text immediately using snapshot
 			text: typeof o.text === 'function' ? o.text(snapshotState) : o.text
-		}));
-	})();
+		})));
+	});
 
 	onMount(() => {
 		const tl = gsap.timeline({
@@ -103,8 +115,9 @@
 	});
 
 	// Desktop Hover
+	/** @param {import('$lib/data/commands.js').OutputDetails | undefined} details */
 	function handleMouseEnter(details) {
-		if (window.matchMedia('(min-width: 1280px)').matches) {
+		if (details && window.matchMedia('(min-width: 1280px)').matches) {
 			activeDetails = details;
 		}
 	}
@@ -116,7 +129,9 @@
 	}
 
 	// Mobile Tap
+	/** @param {import('$lib/data/commands.js').OutputDetails | undefined} details */
 	function handleTap(details) {
+		if (!details) return;
 		if (activeDetails === details) {
 			activeDetails = null; // Toggle off
 		} else {
