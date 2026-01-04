@@ -3,6 +3,7 @@
 	import { state as appState } from '$lib/stores/state.svelte.js';
 	import { getCommand } from '$lib/data/commands.js';
 	import { gsap } from '$lib/animations/gsap.js';
+    import { fade } from 'svelte/transition';
 
 	/** @type {{ commandId: string, variant?: any, onComplete?: () => void, children?: import('svelte').Snippet }} */
 	let { commandId, variant, onComplete, children } = $props();
@@ -135,7 +136,9 @@
 	<!-- Next Step Picker (Slot) -->
 	<div class="w-full flex justify-center mt-auto min-h-[120px]">
 		{#if isCompleted}
-			{@render children?.()}
+            <div in:fade={{ duration: 500 }} class="w-full flex justify-center">
+			    {@render children?.()}
+            </div>
 		{/if}
 	</div>
 
