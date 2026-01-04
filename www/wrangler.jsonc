@@ -18,6 +18,9 @@
 	"observability": {
 		"enabled": true
 	},
+    "build": {
+        "command": "npm run build"
+    },
     "routes": [
         {
             "pattern": "v2.gofast.live",
