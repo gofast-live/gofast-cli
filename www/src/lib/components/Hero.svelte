@@ -1,6 +1,5 @@
 <script>
     import { state as appState } from "$lib/stores/state.svelte.js";
-    import { gsap } from "$lib/animations/gsap.js";
     import { Play } from "@lucide/svelte";
 
     /** @type {{ onStart: () => void }} */
