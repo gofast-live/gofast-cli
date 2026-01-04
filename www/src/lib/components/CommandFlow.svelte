@@ -235,7 +235,7 @@
 		<!-- The Line -->
 		<div 
 			bind:this={lineElement}
-			class="absolute top-0 left-0 md:left-1/2 md:-translate-x-1/2 w-0.5 bg-gradient-to-b from-primary via-primary/50 to-transparent h-0 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+			class="absolute top-0 left-8 md:left-1/2 md:-translate-x-1/2 w-0.5 bg-gradient-to-b from-primary via-primary/50 to-transparent h-0 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
 		></div>
 
 		<!-- Output Items -->

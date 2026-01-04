@@ -379,12 +379,21 @@ export const commands = [
 					files: ['src/lib/components/PricingTable.svelte'],
 					features: ['Plan comparison', 'Upgrade/Downgrade flows']
 				}
+			},
+			{
+				text: 'Infra secrets configured',
+				showIf: (s) => s.has('infra'),
+				dependency: 'Infrastructure',
+				details: {
+					files: ['k8s/secrets.yaml'],
+					features: ['Secure key injection', 'Webhook signing secrets']
+				}
 			}
 		]
 	},
 	{
 		id: 'r2',
-		label: 'Cloudflare R2',
+		label: 'cloudflare r2',
 		command: () => 'gof add r2',
 		description: 'Adding file storage...',
 		baseOutputs: [
@@ -418,6 +427,15 @@ export const commands = [
 				details: {
 					files: ['src/lib/components/FileUploader.svelte'],
 					features: ['Client-side validation', 'Direct-to-cloud upload']
+				}
+			},
+			{
+				text: 'Infra secrets configured',
+				showIf: (s) => s.has('infra'),
+				dependency: 'Infrastructure',
+				details: {
+					files: ['terraform/r2.tf'],
+					features: ['Bucket creation', 'CORS policy']
 				}
 			}
 		]
@@ -458,6 +476,15 @@ export const commands = [
 				details: {
 					files: ['src/routes/admin/emails/logs/+page.svelte'],
 					features: ['Search & filter', 'Resend capabilities']
+				}
+			},
+			{
+				text: 'Infra secrets configured',
+				showIf: (s) => s.has('infra'),
+				dependency: 'Infrastructure',
+				details: {
+					files: ['k8s/configmap.yaml'],
+					features: ['API token management', 'Sender signature ID']
 				}
 			}
 		]
