@@ -3,7 +3,8 @@
 	import { state as appState } from '$lib/stores/state.svelte.js';
 	import { getCommand } from '$lib/data/commands.js';
 	import { gsap } from '$lib/animations/gsap.js';
-	import { fade, fly } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
+	import { Info } from '@lucide/svelte';
 
 	/** @type {{ commandId: string, variant?: any, onComplete?: () => void, children?: import('svelte').Snippet }} */
 	const { commandId, variant, onComplete, children } = $props();
@@ -188,14 +189,19 @@
 					>
 						<!-- Interactive Item -->
 						<button
-							class="text-left bg-surface/80 backdrop-blur border border-border/50 px-4 py-3 rounded-lg text-sm md:text-base text-gray-300 font-mono shadow-sm hover:border-primary/50 hover:bg-surface-hover hover:text-white hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-all duration-300 cursor-help"
+							class="group/btn relative text-left bg-surface/80 backdrop-blur border border-border/50 px-4 py-3 rounded-lg text-sm md:text-base text-gray-300 font-mono shadow-sm hover:border-primary/50 hover:bg-surface-hover hover:text-white hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-all duration-300 cursor-help flex items-center gap-2 pr-8"
 							onmouseenter={() => handleMouseEnter(output.details)}
 							onmouseleave={handleMouseLeave}
 							onfocus={() => handleMouseEnter(output.details)}
 							onblur={handleMouseLeave}
 						>
-							<span class="text-success mr-2">✓</span>
-							{typeof output.text === 'function' ? output.text(appState) : output.text}
+							<span class="text-success">✓</span>
+							<span class="flex-grow">{typeof output.text === 'function' ? output.text(appState) : output.text}</span>
+							
+							<!-- Info Icon -->
+							<span class="absolute right-3 top-1/2 -translate-y-1/2 opacity-30 group-hover/btn:opacity-100 transition-opacity text-primary">
+								<Info size={14} />
+							</span>
 						</button>
 					</div>
 
