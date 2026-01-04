@@ -6,7 +6,7 @@
     import { fade } from 'svelte/transition';
 
 	/** @type {{ commandId: string, variant?: any, onComplete?: () => void, children?: import('svelte').Snippet }} */
-	let { commandId, variant, onComplete, children } = $props();
+	const { commandId, variant, onComplete, children } = $props();
 
 	let container = $state();
 	let commandTextElement = $state();
@@ -15,14 +15,14 @@
 	
 	let isCompleted = $state(false);
 
-	const commandData = getCommand(commandId) || {
+	let commandData = $derived(getCommand(commandId) || {
         id: 'error',
         label: 'Error',
         command: 'echo "Error: Command not found"',
         description: 'Error',
         baseOutputs: [{text: 'Error: Command not found'}],
         contextOutputs: []
-    };
+    });
 	
 	// Determine the display command string
 	let displayCommand = $derived.by(() => {
@@ -49,11 +49,9 @@
 		});
 
 		// 1. Type the command
-		// Model is long (~50 chars) so 1.5s = ~33 chars/sec (Fast).
-		// Others are short (~10-20 chars). 
-		// Old: 1.5s = ~6-12 chars/sec (Slow).
-		// New: 0.5s = ~20-40 chars/sec (Fast, similar to model).
-		const typeDuration = commandId === 'model' ? 1.5 : 0.5;
+		// Calculate duration based on length: ~30 chars/sec
+		// longer commands (like model) will take ~1.5s, shorter ones ~0.5s
+		const typeDuration = Math.max(0.5, displayCommand.length * 0.03);
 
 		tl.to(commandTextElement, {
 			duration: typeDuration,
@@ -99,7 +97,7 @@
 			<span class="ml-auto opacity-50">bash</span>
 		</div>
 		<div class="font-mono text-lg md:text-xl text-white min-h-[1.5em]">
-			<span class="text-primary mr-2">$</span><span bind:this={commandTextElement}></span><span class="animate-pulse bg-primary/50 inline-block w-2 h-5 ml-1 align-middle"></span>
+			<span class="text-primary mr-2">$</span><span bind:this={commandTextElement}></span><span class="animate-pulse bg-primary/50 inline-block w-2 h-5 ml-1 align-middle" class:hidden={isCompleted}></span>
 		</div>
 	</div>
 
@@ -119,7 +117,7 @@
 					<div class="absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-bg border-2 border-primary rounded-full z-20 shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
 					
 					<!-- Content Card -->
-					<div class={`flex-1 flex ${i % 2 === 0 ? 'justify-end pr-12' : 'justify-start pl-12 order-last'}`}>
+					<div class={`flex-1 flex ${i % 2 === 0 ? 'justify-end pr-4 md:pr-12' : 'justify-start pl-4 md:pl-12 order-last'}`}>
 						<div class="bg-surface/80 backdrop-blur border border-border/50 px-4 py-3 rounded-lg text-sm md:text-base text-gray-300 font-mono shadow-sm hover:border-primary/30 transition-colors">
 							<span class="text-success mr-2">✓</span>
 							{typeof output.text === 'function' ? output.text(appState) : output.text}
