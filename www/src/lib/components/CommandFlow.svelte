@@ -20,32 +20,44 @@
 	/** @type {import('$lib/data/commands.js').OutputDetails | null} */
 	let activeDetails = $state(null);
 
-	let commandData = $derived(
-		getCommand(commandId) || {
-			id: 'error',
-			label: 'Error',
-			command: 'echo "Error: Command not found"',
-			description: 'Error',
-			baseOutputs: [{ text: 'Error: Command not found' }],
-			contextOutputs: []
-		}
-	);
+	// Snapshot state at creation time to prevent retroactive updates (CLI history style)
+	const snapshotState = {
+		completed: new Set(appState.completed),
+		models: [...appState.models],
+		has: (id) => appState.completed.has(id),
+		hasModel: (name) => appState.models.includes(name),
+		// Mock getters to match appState interface if needed
+		get initialized() { return appState.initialized; } 
+	};
 
-	// Determine the display command string
-	let displayCommand = $derived.by(() => {
+	const commandData = getCommand(commandId) || {
+		id: 'error',
+		label: 'Error',
+		command: 'echo "Error: Command not found"',
+		description: 'Error',
+		baseOutputs: [{ text: 'Error: Command not found' }],
+		contextOutputs: []
+	};
+
+	// Determine the display command string (Static)
+	const displayCommand = (() => {
 		if (variant) return variant.command;
 		if (typeof commandData.command === 'function') return commandData.command();
 		return commandData.command || `gof ${commandId}`;
-	});
+	})();
 
-	// Compute outputs based on current state
-	let outputs = $derived.by(() => {
+	// Compute outputs based on SNAPSHOT state (Static)
+	const outputs = (() => {
 		const base = commandData.baseOutputs || [];
 		const context = (commandData.contextOutputs || []).filter(
-			(o) => !o.showIf || o.showIf(appState)
+			(o) => !o.showIf || o.showIf(snapshotState)
 		);
-		return [...base, ...context];
-	});
+		return [...base, ...context].map(o => ({
+			...o,
+			// Resolve function text immediately using snapshot
+			text: typeof o.text === 'function' ? o.text(snapshotState) : o.text
+		}));
+	})();
 
 	onMount(() => {
 		const tl = gsap.timeline({
@@ -227,55 +239,56 @@
 		></div>
 
 		<!-- Output Items -->
-		        <div bind:this={itemsContainer} class="w-full relative z-10 pt-4 pb-12 space-y-6">
-		            {#each outputs as output, i}
-		                <div class={`relative flex items-center w-full group ${output.dependency ? 'pt-12' : ''}`}>
-		                    
-		                    <!-- Dependency Badge (Vertical Node) -->
-		                    {#if output.dependency}
-		                        <div class="absolute top-2 left-0 md:left-1/2 -translate-x-1/2 z-20">
-		                            <div class="bg-surface border border-primary/30 rounded-full px-2 py-1 text-[10px] font-mono text-primary flex items-center gap-1 shadow-sm whitespace-nowrap">
-		                                <Zap size={10} class="text-primary fill-primary/20" />
-		                                {output.dependency}
-		                            </div>
-		                        </div>
-		                    {/if}
-		
-		                    <!-- Connector Dot -->
-		                    <!-- Mobile: Left aligned with line. Desktop: Centered -->
-		                    <div
-		                        class="absolute left-0 -translate-x-1/2 md:left-1/2 w-3 h-3 bg-bg border-2 border-primary rounded-full z-20 shadow-[0_0_8px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-125 duration-300"
-		                    ></div>
-		
-		                    <!-- Content Card -->
-		                    <!-- Mobile: Always right of line (pl-8). Desktop: Alternating -->
-		                    <div
-		                        class={`flex-1 flex w-full relative
-		                            pl-6 md:pl-0 
-		                            ${i % 2 === 0 ? 'md:justify-end md:pr-12' : 'md:justify-start md:pl-12 md:order-last'}`}
-		                    >
-		                        <!-- Interactive Item -->
-		                        <button
-		                            class="group/btn relative text-left bg-surface/80 backdrop-blur border border-border/50 px-4 py-3 rounded-lg text-sm md:text-base text-gray-300 font-mono shadow-sm hover:border-primary/50 hover:bg-surface-hover hover:text-white hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-all duration-300 cursor-pointer flex items-center gap-2 pr-8 w-full md:w-auto"
-		                            onmouseenter={() => handleMouseEnter(output.details)}
-		                            onmouseleave={handleMouseLeave}
-		                            onclick={() => handleTap(output.details)}
-		                        >
-		                            <span class="text-success">✓</span>
-		                            <span class="flex-grow truncate">{typeof output.text === 'function' ? output.text(appState) : output.text}</span>
-		                            
-		                            <!-- Info Icon (Mobile: Visible, Desktop: Hover) -->
-		                            <span class="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 md:opacity-0 md:group-hover/btn:opacity-100 transition-opacity text-primary">
-		                                <Info size={14} />
-		                            </span>
-		                        </button>
-		                    </div>
-		
-		                    <!-- Spacer (Desktop only) -->
-		                    <div class="hidden md:block flex-1"></div>
-		                </div>
-		            {/each}
-		        </div>	</div>
+		<div bind:this={itemsContainer} class="w-full relative z-10 pt-4 pb-12 space-y-6">
+			{#each outputs as output, i}
+				<div class={`relative flex items-center w-full group ${output.dependency ? 'pt-12' : ''}`}>
+					
+					<!-- Dependency Badge (Vertical Node) -->
+					{#if output.dependency}
+						<div class="absolute top-2 left-0 md:left-1/2 -translate-x-1/2 z-20">
+							<div class="bg-surface border border-primary/30 rounded-full px-2 py-1 text-[10px] font-mono text-primary flex items-center gap-1 shadow-sm whitespace-nowrap">
+								<Zap size={10} class="text-primary fill-primary/20" />
+								{output.dependency}
+							</div>
+						</div>
+					{/if}
+
+					<!-- Connector Dot -->
+					<!-- Mobile: Left aligned with line. Desktop: Centered -->
+					<div
+						class="absolute left-0 -translate-x-1/2 md:left-1/2 w-3 h-3 bg-bg border-2 border-primary rounded-full z-20 shadow-[0_0_8px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-125 duration-300"
+					></div>
+
+					<!-- Content Card -->
+					<!-- Mobile: Always right of line (pl-8). Desktop: Alternating -->
+					<div
+						class={`flex-1 flex w-full relative
+							pl-6 md:pl-0 
+							${i % 2 === 0 ? 'md:justify-end md:pr-12' : 'md:justify-start md:pl-12 md:order-last'}`}
+					>
+						<!-- Interactive Item -->
+						<button
+							class="group/btn relative text-left bg-surface/80 backdrop-blur border border-border/50 px-4 py-3 rounded-lg text-sm md:text-base text-gray-300 font-mono shadow-sm hover:border-primary/50 hover:bg-surface-hover hover:text-white hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-all duration-300 cursor-pointer flex items-center gap-2 pr-8 w-full md:w-auto"
+							onmouseenter={() => handleMouseEnter(output.details)}
+							onmouseleave={handleMouseLeave}
+							onclick={() => handleTap(output.details)}
+						>
+							<span class="text-success">✓</span>
+							<span class="flex-grow truncate">{output.text}</span>
+							
+							<!-- Info Icon (Mobile: Visible, Desktop: Hover) -->
+							<span class="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 md:opacity-0 md:group-hover/btn:opacity-100 transition-opacity text-primary">
+								<Info size={14} />
+							</span>
+						</button>
+					</div>
+
+					<!-- Spacer (Desktop only) -->
+					<div class="hidden md:block flex-1"></div>
+				</div>
+			{/each}
+		</div>
+	</div>
 
 	<!-- Next Step Picker (Slot) -->
 	<div class="w-full flex justify-center mt-auto min-h-[120px]">
