@@ -19,7 +19,7 @@
 		"enabled": true
 	},
     "build": {
-        "command": "npm run build"
+        "command": "bun run build"
     },
     "routes": [
         {
