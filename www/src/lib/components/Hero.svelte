@@ -74,10 +74,10 @@
                 >Go 1.25+</span
             >
             <span class="px-3 py-1 bg-surface border border-border rounded-full"
-                >ConnectRPC</span
+                >SvelteKit V5</span
             >
             <span class="px-3 py-1 bg-surface border border-border rounded-full"
-                >SvelteKit</span
+                >ConnectRPC</span
             >
             <span class="px-3 py-1 bg-surface border border-border rounded-full"
                 >PostgreSQL 18</span
