@@ -37,7 +37,7 @@
                 href="https://gofast.live"
                 target="_blank"
                 class="hover:text-white transition-colors"
-                >V1 (Next.js, Vue, HTMX...) →</a
+                >V1 <span class="hidden md:inline">(Next.js, Vue, HTMX...)</span> →</a
             >
         </div>
     </nav>

@@ -29,12 +29,12 @@
     }
 </script>
 
-<div class="w-full max-w-3xl mx-auto mt-8 bg-surface/50 border border-border rounded-xl p-6 backdrop-blur-sm" in:fade={{ duration: 400 }}>
+<div class="w-full max-w-3xl mx-auto mt-8 bg-surface/50 border border-border rounded-xl p-6 backdrop-blur-sm" in:fade={{ duration: 200 }}>
 	<div class="text-sm text-muted mb-4 font-mono">
 		{#if showModelVariants}
 			Select a data model:
 		{:else}
-			$ What's next?
+			$ What's next? (More options coming soon!)
 		{/if}
 	</div>
 

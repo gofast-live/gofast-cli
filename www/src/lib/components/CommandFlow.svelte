@@ -21,14 +21,17 @@
 	let activeDetails = $state(null);
 
 	// Snapshot state at creation time to prevent retroactive updates (CLI history style)
+	const snapshotCompleted = new Set(appState.completed);
+	const snapshotModels = [...appState.models];
+
 	/** @type {import('$lib/stores/state.svelte.js').State} */
 	const snapshotState = {
-		completed: new Set(appState.completed),
-		models: [...appState.models],
+		completed: snapshotCompleted,
+		models: snapshotModels,
 		/** @param {string} id */
-		has: (id) => appState.completed.has(id),
+		has: (id) => snapshotCompleted.has(id),
 		/** @param {string} name */
-		hasModel: (name) => appState.models.includes(name),
+		hasModel: (name) => snapshotModels.includes(name),
 		get initialized() { return appState.initialized; },
 		get finished() { return appState.finished; },
 		init: () => {},
