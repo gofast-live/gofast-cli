@@ -94,6 +94,12 @@ After running this command:
 		cmd.Println("     - STRIPE_WEBHOOK_SECRET")
 		cmd.Println("     - STRIPE_PRICE_ID_BASIC")
 		cmd.Println("     - STRIPE_PRICE_ID_PRO")
+		cmd.Println("")
+		cmd.Printf("  %s Add these to GitHub %s environment for e2e tests:\n",
+			config.ErrStyle.Render("Note:"),
+			config.SuccessStyle.Render("\"staging\""))
+		cmd.Println("     Secrets: STRIPE_API_KEY, STRIPE_WEBHOOK_SECRET")
+		cmd.Println("     Variables: STRIPE_PRICE_ID_BASIC, STRIPE_PRICE_ID_PRO")
 		if showInfraReqs {
 			printInfraRequirements(cmd, "stripe")
 		}
@@ -167,9 +173,16 @@ After running this command:
 		cmd.Printf("  2. Run %s to regenerate SQL queries\n", config.SuccessStyle.Render("'make sql'"))
 		cmd.Printf("  3. Run %s to apply migrations\n", config.SuccessStyle.Render("'make migrate'"))
 		cmd.Println("  4. Add R2 environment variables to your .env file:")
-		cmd.Println("     - R2_ACCESS_KEY")
-		cmd.Println("     - R2_SECRET_KEY")
+		cmd.Println("     - R2_ACCESS_KEY_ID")
+		cmd.Println("     - R2_SECRET_ACCESS_KEY")
 		cmd.Println("     - R2_ENDPOINT")
+		cmd.Println("     - BUCKET_NAME")
+		cmd.Println("")
+		cmd.Printf("  %s Add these to GitHub %s environment for e2e tests:\n",
+			config.ErrStyle.Render("Note:"),
+			config.SuccessStyle.Render("\"staging\""))
+		cmd.Println("     Secrets: R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY")
+		cmd.Println("     Variables: R2_ENDPOINT, BUCKET_NAME")
 		if showInfraReqs {
 			printInfraRequirements(cmd, "r2")
 		}
@@ -244,6 +257,13 @@ After running this command:
 		cmd.Printf("  3. Run %s to apply migrations\n", config.SuccessStyle.Render("'make migrate'"))
 		cmd.Println("  4. Add Postmark environment variables to your .env file:")
 		cmd.Println("     - POSTMARK_API_KEY")
+		cmd.Println("     - EMAIL_FROM")
+		cmd.Println("")
+		cmd.Printf("  %s Add these to GitHub %s environment for e2e tests:\n",
+			config.ErrStyle.Render("Note:"),
+			config.SuccessStyle.Render("\"staging\""))
+		cmd.Println("     Secrets: POSTMARK_API_KEY")
+		cmd.Println("     Variables: EMAIL_FROM")
 		if showInfraReqs {
 			printInfraRequirements(cmd, "postmark")
 		}
