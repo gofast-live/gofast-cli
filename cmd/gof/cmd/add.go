@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"os/exec"
-	"strings"
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
@@ -73,14 +72,6 @@ After running this command:
 			cmd.Printf("Error updating config: %v\n", err)
 			return
 		}
-		showInfraReqs := false
-		if cfg, err := config.ParseConfig(); err == nil && cfg.InfraPopulated {
-			if err := integrations.ApplyInfraIntegrations(".", cfg.Integrations); err != nil {
-				cmd.Printf("Error updating infra integrations: %v\n", err)
-				return
-			}
-			showInfraReqs = true
-		}
 
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Stripe integration added successfully!"))
@@ -95,14 +86,9 @@ After running this command:
 		cmd.Println("     - STRIPE_PRICE_ID_BASIC")
 		cmd.Println("     - STRIPE_PRICE_ID_PRO")
 		cmd.Println("")
-		cmd.Printf("  %s Add these to GitHub %s environment for e2e tests:\n",
-			config.ErrStyle.Render("Note:"),
-			config.SuccessStyle.Render("\"staging\""))
+		cmd.Printf("  %s Add to GitHub secrets/variables:\n", config.ErrStyle.Render("Note:"))
 		cmd.Println("     Secrets: STRIPE_API_KEY, STRIPE_WEBHOOK_SECRET")
 		cmd.Println("     Variables: STRIPE_PRICE_ID_BASIC, STRIPE_PRICE_ID_PRO")
-		if showInfraReqs {
-			printInfraRequirements(cmd, "stripe")
-		}
 		cmd.Println("")
 	},
 }
@@ -156,14 +142,6 @@ After running this command:
 			cmd.Printf("Error updating config: %v\n", err)
 			return
 		}
-		showInfraReqs := false
-		if cfg, err := config.ParseConfig(); err == nil && cfg.InfraPopulated {
-			if err := integrations.ApplyInfraIntegrations(".", cfg.Integrations); err != nil {
-				cmd.Printf("Error updating infra integrations: %v\n", err)
-				return
-			}
-			showInfraReqs = true
-		}
 
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("R2 integration added successfully!"))
@@ -178,14 +156,9 @@ After running this command:
 		cmd.Println("     - R2_ENDPOINT")
 		cmd.Println("     - BUCKET_NAME")
 		cmd.Println("")
-		cmd.Printf("  %s Add these to GitHub %s environment for e2e tests:\n",
-			config.ErrStyle.Render("Note:"),
-			config.SuccessStyle.Render("\"staging\""))
+		cmd.Printf("  %s Add to GitHub secrets/variables:\n", config.ErrStyle.Render("Note:"))
 		cmd.Println("     Secrets: R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY")
 		cmd.Println("     Variables: R2_ENDPOINT, BUCKET_NAME")
-		if showInfraReqs {
-			printInfraRequirements(cmd, "r2")
-		}
 		cmd.Println("")
 	},
 }
@@ -239,14 +212,6 @@ After running this command:
 			cmd.Printf("Error updating config: %v\n", err)
 			return
 		}
-		showInfraReqs := false
-		if cfg, err := config.ParseConfig(); err == nil && cfg.InfraPopulated {
-			if err := integrations.ApplyInfraIntegrations(".", cfg.Integrations); err != nil {
-				cmd.Printf("Error updating infra integrations: %v\n", err)
-				return
-			}
-			showInfraReqs = true
-		}
 
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Postmark integration added successfully!"))
@@ -259,36 +224,10 @@ After running this command:
 		cmd.Println("     - POSTMARK_API_KEY")
 		cmd.Println("     - EMAIL_FROM")
 		cmd.Println("")
-		cmd.Printf("  %s Add these to GitHub %s environment for e2e tests:\n",
-			config.ErrStyle.Render("Note:"),
-			config.SuccessStyle.Render("\"staging\""))
+		cmd.Printf("  %s Add to GitHub secrets/variables:\n", config.ErrStyle.Render("Note:"))
 		cmd.Println("     Secrets: POSTMARK_API_KEY")
 		cmd.Println("     Variables: EMAIL_FROM")
-		if showInfraReqs {
-			printInfraRequirements(cmd, "postmark")
-		}
 		cmd.Println("")
 	},
 }
 
-func printInfraRequirements(cmd *cobra.Command, name string) {
-	req, ok := integrations.InfraRequirementFor(name)
-	if !ok || (len(req.Secrets) == 0 && len(req.Vars) == 0) {
-		return
-	}
-
-	cmd.Println("")
-	cmd.Println("GitHub integration secrets/vars to add:")
-	if len(req.Secrets) > 0 {
-		cmd.Printf("  %s secrets:\n", strings.ToUpper(req.Name))
-		for _, value := range req.Secrets {
-			cmd.Printf("    - %s\n", value)
-		}
-	}
-	if len(req.Vars) > 0 {
-		cmd.Printf("  %s vars:\n", strings.ToUpper(req.Name))
-		for _, value := range req.Vars {
-			cmd.Printf("    - %s\n", value)
-		}
-	}
-}

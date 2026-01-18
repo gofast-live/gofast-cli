@@ -7,7 +7,6 @@ import (
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
-	"github.com/gofast-live/gofast-cli/v2/cmd/gof/integrations"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
 	"github.com/spf13/cobra"
 )
@@ -118,11 +117,6 @@ var infraCmd = &cobra.Command{
 			return
 		}
 
-		if err := integrations.ApplyInfraIntegrations(cwd, con.Integrations); err != nil {
-			cmd.Printf("Error updating infra integrations: %v\n", err)
-			return
-		}
-
 		err = config.MarkInfraPopulated()
 		if err != nil {
 			cmd.Printf("Error updating gofast config: %v\n", err)
@@ -139,24 +133,6 @@ var infraCmd = &cobra.Command{
 		cmd.Printf("  4. Run %s to launch your app with a local monitoring stack\n", config.SuccessStyle.Render("'make startm'"))
 		cmd.Println("")
 		cmd.Printf("See %s for the full workflow.\n", config.SuccessStyle.Render("'infra/README.md'"))
-		if reqs := integrations.InfraRequirements(con.Integrations); len(reqs) > 0 {
-			cmd.Println("")
-			cmd.Println("GitHub integration secrets/vars to add:")
-			for _, req := range reqs {
-				if len(req.Secrets) > 0 {
-					cmd.Printf("  %s secrets:\n", strings.ToUpper(req.Name))
-					for _, name := range req.Secrets {
-						cmd.Printf("    - %s\n", name)
-					}
-				}
-				if len(req.Vars) > 0 {
-					cmd.Printf("  %s vars:\n", strings.ToUpper(req.Name))
-					for _, name := range req.Vars {
-						cmd.Printf("    - %s\n", name)
-					}
-				}
-			}
-		}
 		cmd.Println("")
 	},
 }
