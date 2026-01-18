@@ -129,7 +129,7 @@ var infraCmd = &cobra.Command{
 		cmd.Println("Next steps:")
 		cmd.Printf("  1. Run %s\n", config.SuccessStyle.Render("'cd infra && cp .env.example .env'"))
 		cmd.Println("  2. Update infra/.env with your server details")
-		cmd.Println("  3. Review and run the setup scripts (setup_rke2.sh, setup_gh.sh, setup_gcp.sh, setup_cloudflare.sh)")
+		cmd.Println("  3. Review and run the setup scripts (setup_rke2.sh, setup_gh.sh, setup_cloudflare.sh)")
 		cmd.Printf("  4. Run %s to launch your app with a local monitoring stack\n", config.SuccessStyle.Render("'make startm'"))
 		cmd.Println("")
 		cmd.Printf("See %s for the full workflow.\n", config.SuccessStyle.Render("'infra/README.md'"))

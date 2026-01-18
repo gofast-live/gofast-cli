@@ -44,7 +44,7 @@ cmd/gof/
 │   ├── infra.go         # Infrastructure files
 │   └── version.go       # Version display
 ├── integrations/        # Optional integration handlers
-│   ├── integrations.go  # Shared helpers (strip, copy, migrate)
+│   ├── integrations.go  # Shared helpers (strip, copy, migrate, nav)
 │   ├── stripe.go        # Stripe payment integration
 │   ├── r2.go            # Cloudflare R2 file storage
 │   └── postmark.go      # Postmark email integration
@@ -65,10 +65,13 @@ Sets up a new Go project with:
 - Docker Compose (PostgreSQL, services)
 - OAuth authentication
 - Base project structure
+- Git repository with initial commit
 
-**Prerequisites:** buf, goose, sqlc, docker, docker-compose
+**Prerequisites:** buf, goose, sqlc, docker, docker-compose, gh (for repo creation)
 
 **Creates:** `gofast.json` config file with project metadata
+
+**Output:** Prints `gh repo create` command for easy GitHub repo setup
 
 ### `gof model [name] [columns...]`
 Generates a complete CRUD model with all layers.
@@ -108,11 +111,12 @@ Adds a Svelte frontend client service:
 
 ### `gof infra`
 Adds infrastructure/deployment files:
-- `docker-compose.otel.yml` - OpenTelemetry setup
-- `infra/` folder - Deployment configurations
-- `otel/` folder - Observability configs
-- Updates `start.sh` to include infrastructure services
+- `docker-compose.monitoring.yml` - Local monitoring stack
+- `infra/` folder - Terraform configs, setup scripts, PR environment manifests
+- `monitoring/` folder - Grafana/Alloy configs
 - Marks project as `infraPopulated: true` in config
+
+**Setup scripts:** `setup_rke2.sh`, `setup_gh.sh`, `setup_cloudflare.sh`
 
 ### `gof add <integration>`
 Adds optional integrations to the project. Available integrations:
@@ -555,58 +559,28 @@ Things that have broken before:
 - [ ] Proto field names (snake_case vs camelCase in TypeScript)
 - [ ] Permission flags not updated for new models
 
-## Infrastructure & Integrations Gap Analysis
+## Infrastructure & Integrations
 
-**Problem:**
-The `gof infra` command copies infrastructure files from the source template, but these files **do not** account for optional integrations (Stripe, R2, Postmark). This affects both the main Terraform-based deployment and the Kubernetes-manifest-based PR preview environment.
+**Approach: Static Configuration with Empty Defaults**
 
-**Affected Areas:**
+Infrastructure files in `gofast-app` come with **all integrations pre-configured**. Integration-specific variables default to empty strings, so users don't need to configure GitHub secrets/vars for integrations they don't use.
 
-1.  **Terraform Infrastructure (`infra/`)**:
-    -   `service-core.tf`: Missing environment variable mappings for integration secrets and vars.
-    -   `variables.tf`: Missing variable definitions (secrets + vars).
-    -   `secrets.tf`: Missing Kubernetes secret resources.
+**Key Files:**
 
-2.  **GitHub Workflows (`.github/workflows/`)**:
-    -   `terraform.yml`: The reusable workflow for `tf apply` is missing `TF_VAR_` environment variable mappings for integration secrets and vars.
-    -   `pr-deploy.yml`: The PR preview workflow is missing `export` statements to pass secrets and vars to `envsubst`.
+- `infra/integrations.tf` - All integration-specific variables (with `default = ""`) and Kubernetes secrets in one place
+- `infra/variables.tf` - Base infrastructure variables only
+- `infra/secrets.tf` - Base secrets only (regcred, cron, e2e, r2-credentials for DB backups, google-oauth)
+- `infra/service-core.tf` - Deployment with all integration env vars pre-wired
 
-3.  **PR Environment Manifests (`infra/pr-environment/`)**:
-    -   `secrets.yaml`: Missing `stringData` entries for integration secrets.
-    -   `service-core.yaml`: Missing `env` entries for integration secrets and vars.
+**Why No Dynamic Injection:**
 
-**Required Changes:**
+1. Empty env vars don't break the app (integration code is stripped if not enabled)
+2. Simpler CLI - no marker-based injection for infra files
+3. Users can manually delete unused env blocks from `service-core.tf` if desired
+4. Single source of truth in `gofast-app`
 
-The CLI must dynamically inject configuration into all above files based on enabled integrations. This should happen during `gof infra` (checking enabled integrations) and `gof add` (if infra exists).
+**User Workflow:**
 
-**1. Terraform Injection (`infra/`)**
-
-*   **Stripe:**
-    *   `variables.tf`: Add secrets `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET` and vars `STRIPE_PRICE_ID_BASIC`, `STRIPE_PRICE_ID_PRO`
-    *   `secrets.tf`: Add `kubernetes_secret` "stripe-secrets"
-    *   `service-core.tf`: Add `env` blocks mapping secrets + vars to container env
-
-*   **R2:**
-    *   `variables.tf`: Add secrets `R2_ACCESS_KEY`, `R2_SECRET_KEY` and vars `R2_ENDPOINT`, `BUCKET_NAME`
-    *   `secrets.tf`: Add `kubernetes_secret` "r2-secrets"
-    *   `service-core.tf`: Add `env` blocks
-
-*   **Postmark:**
-    *   `variables.tf`: Add secret `POSTMARK_API_KEY` and var `EMAIL_FROM`
-    *   `secrets.tf`: Add `kubernetes_secret` "postmark-secrets"
-    *   `service-core.tf`: Add `env` blocks
-
-**2. GitHub Workflow Injection (`.github/workflows/`)**
-
-*   `terraform.yml`: Inject `TF_VAR_` mappings for secrets and vars (use `secrets.*` for secrets, `vars.*` for vars).
-*   `pr-deploy.yml`: Inject `export` statements for secrets and vars into the "Deploy Other Secrets" step.
-
-**3. PR Environment Injection (`infra/pr-environment/`)**
-
-*   `secrets.yaml`: Inject `stringData` for secret values only.
-*   `service-core.yaml`: Inject `env` vars using secrets and direct values.
-
-**4. User Instructions**
-
-*   `gof infra` and `gof add` should print clear instructions telling the user which secrets and vars to add to their GitHub repository environment.
-*   Do not update `infra/setup_gh.sh` or `infra/README.md`; treat those as base setup. The CLI will prompt for integration-specific secrets/vars.
+1. Run `gof infra` - copies all infra files as-is
+2. Configure GitHub secrets/vars only for integrations they actually use
+3. Unused integration variables remain empty - no harm done

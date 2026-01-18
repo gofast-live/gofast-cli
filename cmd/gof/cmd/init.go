@@ -167,12 +167,32 @@ var initCmd = &cobra.Command{
 			cmd.Printf("Warning: go fmt failed: %v\nOutput: %s\n", err, output)
 		}
 
+		// Initialize git repo with initial commit
+		gitInitCmd := exec.Command("git", "init")
+		gitInitCmd.Dir = projectName
+		if output, err := gitInitCmd.CombinedOutput(); err != nil {
+			cmd.Printf("Warning: git init failed: %v\nOutput: %s\n", err, output)
+		}
+		gitAddCmd := exec.Command("git", "add", ".")
+		gitAddCmd.Dir = projectName
+		if output, err := gitAddCmd.CombinedOutput(); err != nil {
+			cmd.Printf("Warning: git add failed: %v\nOutput: %s\n", err, output)
+		}
+		gitCommitCmd := exec.Command("git", "commit", "-m", "Initial commit")
+		gitCommitCmd.Dir = projectName
+		if output, err := gitCommitCmd.CombinedOutput(); err != nil {
+			cmd.Printf("Warning: git commit failed: %v\nOutput: %s\n", err, output)
+		}
+
 		cmd.Printf(
 			"Project %s initialized successfully!\n\nCD into the %s directory and run %s.\n",
 			config.SuccessStyle.Render("'"+projectName+"'"),
 			config.SuccessStyle.Render("'"+projectName+"'"),
 			config.SuccessStyle.Render("'make start'"),
 		)
+		cmd.Println("")
+		cmd.Println("To create a GitHub repo:")
+		cmd.Printf("  %s\n", config.SuccessStyle.Render("gh repo create "+projectName+" --private --source="+projectName+" --push"))
 		cmd.Println("")
 	},
 }
