@@ -1,6 +1,7 @@
 # GoFast CLI
 
-The Ultimate Foundation for High-Performance, Scalable Web Applications.
+Building blocks for Go.
+Generate production-ready Go apps with ConnectRPC, SvelteKit, and PostgreSQL.
 
 This repository contains two CLI tools:
 - **`gofast`** - v1 CLI (legacy)
@@ -50,8 +51,9 @@ gof model note title:string content:string
 gof model task title:string done:bool due_date:date
 
 # 4. Run code generation
-make sql   # Generate SQLC queries
-make gen   # Generate proto code
+make sql       # Generate SQLC queries
+make gen       # Generate proto code
+make migrate   # Apply database migrations
 
 # 5. Start the app
 make start
@@ -101,11 +103,17 @@ gof client svelte
 # Add payments
 gof add stripe
 
+# Add infrastructure/monitoring
+gof infra
+
 # Generate code
-make sql && make gen && make format
+make sql && make gen && make format && make migrate
 
 # Run with client
 make startc
+
+# Run with client + monitoring (Grafana, Alloy, Loki, Tempo, Prometheus)
+make startcm
 ```
 
 ### Generated Project Commands
