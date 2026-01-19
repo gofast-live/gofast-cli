@@ -22,6 +22,8 @@ The v2 CLI generates full-stack Go applications with:
 - Optional Svelte frontend
 - Optional integrations (Stripe, R2, Postmark)
 
+Visit [gofast.live](https://gofast.live) for more details and features.
+
 ### Installation
 
 #### Using Go (Recommended)
@@ -137,7 +139,7 @@ make startcm
 
 ## GoFast CLI v1 (`gofast`)
 
-Legacy CLI. See [docs.gofast.live](https://docs.gofast.live) for v1 documentation.
+Legacy CLI. Visit [v1.gofast.live](https://v1.gofast.live) for more info and [docs.gofast.live](https://docs.gofast.live) for documentation.
 
 ### Installation
 
