@@ -168,6 +168,10 @@ Example:
 				Type: col.Type,
 			}
 		}
+
+		cmd.Println("")
+		cmd.Printf("Generating model '%s'...\n", modelName)
+
 		err = config.AddModel(modelName, configColumns)
 		if err != nil {
 			cmd.Printf("Error adding model: %v.\n", err)
@@ -242,32 +246,31 @@ Example:
 		}
 
 		cmd.Println("")
-		cmd.Print("Model created successfully!\n")
+		cmd.Println(config.SuccessStyle.Render("Model '" + modelName + "' created successfully!"))
 		cmd.Println("")
-		cmd.Printf("Model Name: %s\n", config.SuccessStyle.Render(modelName))
-		cmd.Printf("Columns:\n")
+		cmd.Println("Columns:")
 		for _, col := range columns {
-			cmd.Printf("  - Name: %s, Type: %v\n", col.Name, typeMap[col.Type])
+			cmd.Printf("  - %s: %s\n", col.Name, typeMap[col.Type])
 		}
-
+		cmd.Println("")
+		cmd.Println("Generated files:")
 		goPackageName := toGoPackageName(modelName)
-		cmd.Printf("\nProtobuf definitions generated in: %s\n", config.SuccessStyle.Render("proto/v1/"+modelName+".proto"))
-		cmd.Printf("Migration generated in: %s\n", config.SuccessStyle.Render(migrationPath))
-		cmd.Printf("Queries generated in: %s\n", config.SuccessStyle.Render("app/service-core/storage/query.sql"))
-		cmd.Printf("Service layer generated in: %s\n", config.SuccessStyle.Render("app/service-core/domain/"+goPackageName))
-		cmd.Printf("Transport layer generated in: %s\n", config.SuccessStyle.Render("app/service-core/transport/"+goPackageName))
+		cmd.Printf("  - Proto:     %s\n", config.SuccessStyle.Render("proto/v1/"+modelName+".proto"))
+		cmd.Printf("  - Migration: %s\n", config.SuccessStyle.Render(migrationPath))
+		cmd.Printf("  - Queries:   %s\n", config.SuccessStyle.Render("app/service-core/storage/query.sql"))
+		cmd.Printf("  - Service:   %s\n", config.SuccessStyle.Render("app/service-core/domain/"+goPackageName))
+		cmd.Printf("  - Transport: %s\n", config.SuccessStyle.Render("app/service-core/transport/"+goPackageName))
 		if config.IsSvelte() {
-			cmd.Printf("Client pages generated in: %s\n", config.SuccessStyle.Render("app/service-client/src/routes/(app)/models/"+pluralizeClient.Plural(modelName)))
+			cmd.Printf("  - Client:    %s\n", config.SuccessStyle.Render("app/service-client/src/routes/(app)/models/"+pluralizeClient.Plural(modelName)))
 		}
-
 		cmd.Println("")
 		cmd.Println("Next steps:")
 		cmd.Printf("  1. Run %s to regenerate SQL queries\n", config.SuccessStyle.Render("'make sql'"))
 		cmd.Printf("  2. Run %s to regenerate proto code\n", config.SuccessStyle.Render("'make gen'"))
 		cmd.Printf("  3. Run %s to apply migrations\n", config.SuccessStyle.Render("'make migrate'"))
-
-		cmd.Printf("\nIf you already created a user, remember to update permissions for the new model (check %s).\n", config.SuccessStyle.Render("pkg/auth/auth.go"))
-		cmd.Printf("You can also run %s to update all users with admin permissions.\n\n", config.SuccessStyle.Render("'scripts/update_permissions.sh'"))
+		cmd.Println("")
+		cmd.Printf("If you already created a user, run %s to update permissions.\n", config.SuccessStyle.Render("'scripts/update_permissions.sh'"))
+		cmd.Println("")
 	},
 }
 

@@ -124,6 +124,8 @@ var infraCmd = &cobra.Command{
 		}
 
 		cmd.Println("")
+		cmd.Println("Adding infrastructure files...")
+		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Infrastructure files added successfully!"))
 		cmd.Println("")
 		cmd.Println("Next steps:")

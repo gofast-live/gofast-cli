@@ -221,12 +221,14 @@ var clientCmd = &cobra.Command{
 		}
 
 		cmd.Println("")
-		cmd.Printf("Generating client pages for existing models...\n")
+		cmd.Println("Adding Svelte client service...")
 
 		for _, m := range con.Models {
 			if m.Name == "skeleton" {
 				continue
 			}
+
+			cmd.Printf("Generating pages for '%s'...\n", m.Name)
 
 			svelteColumns := make([]svelte.Column, len(m.Columns))
 			for i, col := range m.Columns {
@@ -238,15 +240,11 @@ var clientCmd = &cobra.Command{
 
 			if err := svelte.GenerateSvelteScaffolding(m.Name, svelteColumns); err != nil {
 				cmd.Printf("Error generating '%s' client pages: %v\n", m.Name, err)
-			} else {
-				cmd.Printf("Successfully generated client pages for model '%s'.\n", m.Name)
 			}
 		}
 
-		cmd.Printf("Setup complete at %s.\n",
-			config.SuccessStyle.Render("'app/service-client'"),
-		)
-
+		cmd.Println("")
+		cmd.Println(config.SuccessStyle.Render("Svelte client added successfully!"))
 		cmd.Println("")
 		cmd.Println("Next steps:")
 		cmd.Printf("  1. Run %s to regenerate proto code\n", config.SuccessStyle.Render("'make gen'"))

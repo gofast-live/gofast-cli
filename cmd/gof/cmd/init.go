@@ -131,7 +131,7 @@ var initCmd = &cobra.Command{
 
 		// run scripts to set up the project
 		cmd.Println("")
-		cmd.Printf("Running initialization scripts for project '%s'...\n", projectName)
+		cmd.Printf("Initializing project '%s'...\n", projectName)
 		scripts := []string{
 			"make keys",
 			"make sql",
@@ -184,12 +184,12 @@ var initCmd = &cobra.Command{
 			cmd.Printf("Warning: git commit failed: %v\nOutput: %s\n", err, output)
 		}
 
-		cmd.Printf(
-			"Project %s initialized successfully!\n\nCD into the %s directory and run %s.\n",
-			config.SuccessStyle.Render("'"+projectName+"'"),
-			config.SuccessStyle.Render("'"+projectName+"'"),
-			config.SuccessStyle.Render("'make start'"),
-		)
+		cmd.Println("")
+		cmd.Println(config.SuccessStyle.Render("Project '" + projectName + "' initialized successfully!"))
+		cmd.Println("")
+		cmd.Println("Next steps:")
+		cmd.Printf("  1. Run %s\n", config.SuccessStyle.Render("'cd "+projectName+"'"))
+		cmd.Printf("  2. Run %s to start the server\n", config.SuccessStyle.Render("'make start'"))
 		cmd.Println("")
 		cmd.Println("To create a GitHub repo:")
 		cmd.Printf("  %s\n", config.SuccessStyle.Render("gh repo create "+projectName+" --private --source="+projectName+" --push"))
