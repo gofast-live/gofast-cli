@@ -2,51 +2,155 @@
 
 The Ultimate Foundation for High-Performance, Scalable Web Applications.
 
-## Build
+This repository contains two CLI tools:
+- **`gofast`** - v1 CLI (legacy)
+- **`gof`** - v2 CLI (current)
+
+---
+
+## GoFast CLI v2 (`gof`)
+
+The v2 CLI generates full-stack Go applications with:
+- Go backend with ConnectRPC transport
+- PostgreSQL database with SQLC
+- OAuth authentication (GitHub, Google, Phone)
+- Optional Svelte frontend
+- Optional integrations (Stripe, R2, Postmark)
+
+### Installation
+
+#### Using Go (Recommended)
 
 ```bash
-GOOS=linux GOARCH=amd64 go build -o gofast-linux-amd64
-GOOS=darwin GOARCH=amd64 go build -o gofast-darwin-amd64
-GOOS=windows GOARCH=amd64 go build -o gofast-windows-amd64.exe
+go install github.com/gofast-live/gofast-cli/v2/cmd/gof@latest
 ```
 
-## Installation
+Make sure your `PATH` includes the Go bin directory:
 
-### Using Go
-
-```sh
-go install github.com/gofast-live/gofast-cli/v2/cmd/gofast@v2.2.0
-```
-
-Make sure that your `PATH` includes the Go bin directory. You can add it to your `~/.bashrc` or `~/.zshrc` file.
-
-```sh
+```bash
 export PATH=$PATH:$(go env GOPATH)/bin
 ```
 
-### Download the binary
+#### Download Binary
 
-Go to the [Releases](https://github.com/gofast-live/gofast-cli/releases) page and download the appropriate binary for your operating system.
+Go to the [Releases](https://github.com/gofast-live/gofast-cli/releases) page and download the `gof` binary for your OS.
 
-### Install the binary
-
-#### Linux
+### Quick Start
 
 ```bash
-wget https://github.com/gofast-live/gofast-cli/releases/download/v2.2.0/gofast-linux-amd64 -O /usr/local/bin/gofast
-chmod +x /usr/local/bin/gofast
+# 1. Authenticate (one-time)
+gof auth
+
+# 2. Create a new project
+gof init myapp
+cd myapp
+
+# 3. Add models
+gof model note title:string content:string
+gof model task title:string done:bool due_date:date
+
+# 4. Run code generation
+make sql   # Generate SQLC queries
+make gen   # Generate proto code
+
+# 5. Start the app
+make start
 ```
 
-#### macOS
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `gof auth` | Authenticate with GoFast |
+| `gof init <name>` | Create new project |
+| `gof model <name> [cols...]` | Generate CRUD model |
+| `gof client svelte` | Add Svelte frontend |
+| `gof add stripe` | Add Stripe payments |
+| `gof add r2` | Add Cloudflare R2 storage |
+| `gof add postmark` | Add Postmark email |
+| `gof infra` | Add Terraform/deployment files |
+| `gof version` | Show CLI version |
+
+### Model Column Types
 
 ```bash
-wget https://github.com/gofast-live/gofast-cli/releases/download/v2.2.0/gofast-darwin-amd64 -O /usr/local/bin/gofast
-chmod +x /usr/local/bin/gofast
+gof model post title:string views:number published_at:date is_active:bool
 ```
 
-#### Windows
+| Type | SQL | Example |
+|------|-----|---------|
+| `string` | text | `title:string` |
+| `number` | numeric | `views:number` |
+| `date` | timestamptz | `published_at:date` |
+| `bool` | boolean | `is_active:bool` |
+
+### Example Workflow
 
 ```bash
-curl -L -o gofast.exe https://github.com/gofast-live/gofast-cli/releases/download/v2.2.0/gofast-windows-amd64.exe
-move gofast.exe C:\Windows\System32
+# Create project
+gof init blog
+cd blog
+
+# Add models
+gof model post title:string body:string published:bool
+gof model comment content:string
+
+# Add frontend
+gof client svelte
+
+# Add payments
+gof add stripe
+
+# Generate code
+make sql && make gen && make format
+
+# Run with client
+make startc
 ```
+
+### Generated Project Commands
+
+| Command | Description |
+|---------|-------------|
+| `make start` | Start backend services |
+| `make startc` | Start with Svelte client |
+| `make sql` | Regenerate SQLC queries |
+| `make gen` | Regenerate proto code |
+| `make migrate` | Apply database migrations |
+| `make format` | Format all code |
+
+---
+
+## GoFast CLI v1 (`gofast`)
+
+Legacy CLI. See v1 documentation for usage.
+
+### Installation
+
+```bash
+go install github.com/gofast-live/gofast-cli/v2/cmd/gofast@latest
+```
+
+---
+
+## Building from Source
+
+```bash
+git clone https://github.com/gofast-live/gofast-cli.git
+cd gofast-cli
+
+# Build v2 (gof)
+go build -o gof ./cmd/gof/...
+
+# Build v1 (gofast)
+go build -o gofast ./cmd/gofast/...
+
+# Cross-compile v2
+GOOS=linux GOARCH=amd64 go build -o gof-linux-amd64 ./cmd/gof/...
+GOOS=darwin GOARCH=amd64 go build -o gof-darwin-amd64 ./cmd/gof/...
+GOOS=windows GOARCH=amd64 go build -o gof-windows-amd64.exe ./cmd/gof/...
+```
+
+## License
+
+See [LICENSE](LICENSE) for details.
