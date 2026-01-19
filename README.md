@@ -4,8 +4,12 @@ Building blocks for Go.
 Generate production-ready Go apps with ConnectRPC, SvelteKit, and PostgreSQL.
 
 This repository contains two CLI tools:
-- **`gofast`** - v1 CLI (legacy)
 - **`gof`** - v2 CLI (current)
+- **`gofast`** - v1 CLI (legacy)
+
+## Prerequisites
+
+Get your API key at [admin.gofast.live](https://admin.gofast.live) ($40 one-time purchase).
 
 ---
 
@@ -35,10 +39,6 @@ export PATH=$PATH:$(go env GOPATH)/bin
 #### Download Binary
 
 Go to the [Releases](https://github.com/gofast-live/gofast-cli/releases) page and download the `gof` binary for your OS.
-
-### Prerequisites
-
-Get your API key at [admin.gofast.live](https://admin.gofast.live) ($40 one-time purchase).
 
 ### Quick Start
 
@@ -74,7 +74,7 @@ make start
 | `gof add stripe` | Add Stripe payments |
 | `gof add r2` | Add Cloudflare R2 storage |
 | `gof add postmark` | Add Postmark email |
-| `gof infra` | Add Terraform/deployment files |
+| `gof infra` | Add local monitoring stack + Terraform deployment/monitoring |
 | `gof version` | Show CLI version |
 
 ### Model Column Types
