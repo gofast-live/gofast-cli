@@ -36,10 +36,14 @@ export PATH=$PATH:$(go env GOPATH)/bin
 
 Go to the [Releases](https://github.com/gofast-live/gofast-cli/releases) page and download the `gof` binary for your OS.
 
+### Prerequisites
+
+Get your API key at [admin.gofast.live](https://admin.gofast.live) ($40 one-time purchase).
+
 ### Quick Start
 
 ```bash
-# 1. Authenticate (one-time)
+# 1. Authenticate (one-time - requires API key)
 gof auth
 
 # 2. Create a new project
@@ -122,6 +126,8 @@ make startcm
 |---------|-------------|
 | `make start` | Start backend services |
 | `make startc` | Start with Svelte client |
+| `make startm` | Start with monitoring (Grafana, Alloy, Loki, Tempo, Prometheus) |
+| `make startcm` | Start with client + monitoring |
 | `make sql` | Regenerate SQLC queries |
 | `make gen` | Regenerate proto code |
 | `make migrate` | Apply database migrations |
@@ -131,7 +137,7 @@ make startcm
 
 ## GoFast CLI v1 (`gofast`)
 
-Legacy CLI. See v1 documentation for usage.
+Legacy CLI. See [docs.gofast.live](https://docs.gofast.live) for v1 documentation.
 
 ### Installation
 
@@ -161,4 +167,4 @@ GOOS=windows GOARCH=amd64 go build -o gof-windows-amd64.exe ./cmd/gof/...
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+MIT License - see [LICENSE](LICENSE) for details.
