@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
@@ -40,77 +38,23 @@ func R2Strip(projectPath string) error {
 // R2StripClient removes R2-related content from the Svelte client.
 // Called by 'gof client svelte' command after copying the client folder.
 func R2StripClient(clientPath string) error {
-	// 1. Remove files route folder
+	// Remove files route folder
 	filesPath := filepath.Join(clientPath, "src", "routes", "(app)", "files")
 	if err := os.RemoveAll(filesPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("removing files folder: %w", err)
 	}
-
-	// 2. Strip Files nav entry from layout
-	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
-	content, err := os.ReadFile(layoutPath)
-	if err != nil {
-		return fmt.Errorf("reading layout: %w", err)
-	}
-
-	s := string(content)
-
-	// Remove Files icon from import
-	s = strings.Replace(s, ", FileUp", "", 1)
-
-	// Remove Files nav entry
-	s = regexp.MustCompile(`(?s)\s*\{\s*name:\s*['"]Files['"],\s*href:\s*['"][^'"]+['"],\s*icon:\s*FileUp,?\s*\},?`).ReplaceAllString(s, "")
-
-	if err := os.WriteFile(layoutPath, []byte(s), 0644); err != nil {
-		return fmt.Errorf("writing layout: %w", err)
-	}
-
 	return nil
 }
 
 // R2AddClient adds R2-related content to an existing Svelte client.
 // Called by 'gof add r2' when client already exists.
 func R2AddClient(tmpProject, clientPath string) error {
-	// 1. Copy files route folder
+	// Copy files route folder
 	srcFiles := filepath.Join(tmpProject, "app", "service-client", "src", "routes", "(app)", "files")
 	dstFiles := filepath.Join(clientPath, "src", "routes", "(app)", "files")
 	if err := CopyDir(srcFiles, dstFiles); err != nil {
 		return fmt.Errorf("copying files folder: %w", err)
 	}
-
-	// 2. Add Files nav entry and icon import to layout
-	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
-	content, err := os.ReadFile(layoutPath)
-	if err != nil {
-		return fmt.Errorf("reading layout: %w", err)
-	}
-
-	s := string(content)
-
-	// Add FileUp to import
-	if !strings.Contains(s, "FileUp") {
-		s = regexp.MustCompile(`(from "@lucide[^"]*";)`).ReplaceAllString(s, `from "@lucide/svelte";
-    import { FileUp } from "@lucide/svelte";`)
-		s = strings.Replace(s, `} from "@lucide/svelte";
-    import { FileUp } from "@lucide/svelte";`, `, FileUp } from "@lucide/svelte";`, 1)
-	}
-
-	// Add Files nav entry before Payments
-	if !strings.Contains(s, `href: "/files"`) {
-		s = strings.Replace(s, `{
-            name: "Payments",`, `{
-            name: "Files",
-            href: "/files",
-            icon: FileUp
-        },
-        {
-            name: "Payments",`, 1)
-	}
-
-	if err := os.WriteFile(layoutPath, []byte(s), 0644); err != nil {
-		return fmt.Errorf("writing layout: %w", err)
-	}
-
 	return nil
 }
 

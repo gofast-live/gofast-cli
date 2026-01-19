@@ -38,37 +38,23 @@ func PostmarkStrip(projectPath string) error {
 // PostmarkStripClient removes Postmark-related content from the Svelte client.
 // Called by 'gof client svelte' command after copying the client folder.
 func PostmarkStripClient(clientPath string) error {
-	// 1. Remove emails route folder
+	// Remove emails route folder
 	emailsPath := filepath.Join(clientPath, "src", "routes", "(app)", "emails")
 	if err := os.RemoveAll(emailsPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("removing emails folder: %w", err)
 	}
-
-	// 2. Strip Emails nav entry from layout
-	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
-	if err := RemoveNavEntry(layoutPath, "/emails", "Mail"); err != nil {
-		return fmt.Errorf("removing emails nav entry: %w", err)
-	}
-
 	return nil
 }
 
 // PostmarkAddClient adds Postmark-related content to an existing Svelte client.
 // Called by 'gof add postmark' when client already exists.
 func PostmarkAddClient(tmpProject, clientPath string) error {
-	// 1. Copy emails route folder
+	// Copy emails route folder
 	srcEmails := filepath.Join(tmpProject, "app", "service-client", "src", "routes", "(app)", "emails")
 	dstEmails := filepath.Join(clientPath, "src", "routes", "(app)", "emails")
 	if err := CopyDir(srcEmails, dstEmails); err != nil {
 		return fmt.Errorf("copying emails folder: %w", err)
 	}
-
-	// 2. Add Emails nav entry and icon import to layout
-	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
-	if err := AddNavEntry(layoutPath, "Emails", "/emails", "Mail"); err != nil {
-		return fmt.Errorf("adding emails nav entry: %w", err)
-	}
-
 	return nil
 }
 

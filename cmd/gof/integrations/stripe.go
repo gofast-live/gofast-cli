@@ -73,37 +73,23 @@ func stripeReplaceCheckUserAccess(projectPath string) error {
 // StripeStripClient removes Stripe-related content from the Svelte client.
 // Called by 'gof client svelte' command after copying the client folder.
 func StripeStripClient(clientPath string) error {
-	// 1. Remove payments route folder
+	// Remove payments route folder
 	paymentsPath := filepath.Join(clientPath, "src", "routes", "(app)", "payments")
 	if err := os.RemoveAll(paymentsPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("removing payments folder: %w", err)
 	}
-
-	// 2. Strip Payments nav entry and Coins import from layout
-	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
-	if err := RemoveNavEntry(layoutPath, "/payments", "Coins"); err != nil {
-		return fmt.Errorf("removing payments nav entry: %w", err)
-	}
-
 	return nil
 }
 
 // StripeAddClient adds Stripe-related content to an existing Svelte client.
 // Called by 'gof add stripe' when client already exists.
 func StripeAddClient(tmpProject, clientPath string) error {
-	// 1. Copy payments route folder
+	// Copy payments route folder
 	srcPayments := filepath.Join(tmpProject, "app", "service-client", "src", "routes", "(app)", "payments")
 	dstPayments := filepath.Join(clientPath, "src", "routes", "(app)", "payments")
 	if err := CopyDir(srcPayments, dstPayments); err != nil {
 		return fmt.Errorf("copying payments folder: %w", err)
 	}
-
-	// 2. Add Payments nav entry and Coins import to layout
-	layoutPath := filepath.Join(clientPath, "src", "routes", "(app)", "+layout.svelte")
-	if err := AddNavEntry(layoutPath, "Payments", "/payments", "Coins"); err != nil {
-		return fmt.Errorf("adding payments nav entry: %w", err)
-	}
-
 	return nil
 }
 

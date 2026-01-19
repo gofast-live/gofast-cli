@@ -76,6 +76,11 @@ After running this command:
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Stripe integration added successfully!"))
 		cmd.Println("")
+		if config.IsSvelte() {
+			cmd.Println("Add this route to your navigation:")
+			cmd.Printf("  %s\n", config.SuccessStyle.Render("/payments"))
+			cmd.Println("")
+		}
 		cmd.Println("Next steps:")
 		cmd.Printf("  1. Run %s to regenerate proto code\n", config.SuccessStyle.Render("'make gen'"))
 		cmd.Printf("  2. Run %s to regenerate SQL queries\n", config.SuccessStyle.Render("'make sql'"))
@@ -146,6 +151,11 @@ After running this command:
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("R2 integration added successfully!"))
 		cmd.Println("")
+		if config.IsSvelte() {
+			cmd.Println("Add this route to your navigation:")
+			cmd.Printf("  %s\n", config.SuccessStyle.Render("/files"))
+			cmd.Println("")
+		}
 		cmd.Println("Next steps:")
 		cmd.Printf("  1. Run %s to regenerate proto code\n", config.SuccessStyle.Render("'make gen'"))
 		cmd.Printf("  2. Run %s to regenerate SQL queries\n", config.SuccessStyle.Render("'make sql'"))
@@ -216,6 +226,11 @@ After running this command:
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Postmark integration added successfully!"))
 		cmd.Println("")
+		if config.IsSvelte() {
+			cmd.Println("Add this route to your navigation:")
+			cmd.Printf("  %s\n", config.SuccessStyle.Render("/emails"))
+			cmd.Println("")
+		}
 		cmd.Println("Next steps:")
 		cmd.Printf("  1. Run %s to regenerate proto code\n", config.SuccessStyle.Render("'make gen'"))
 		cmd.Printf("  2. Run %s to regenerate SQL queries\n", config.SuccessStyle.Render("'make sql'"))

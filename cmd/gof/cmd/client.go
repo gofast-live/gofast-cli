@@ -246,6 +246,32 @@ var clientCmd = &cobra.Command{
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Svelte client added successfully!"))
 		cmd.Println("")
+
+		// Print routes to add to navigation
+		var routes []string
+		for _, m := range con.Models {
+			if m.Name != "skeleton" {
+				routes = append(routes, svelte.GetModelPath(m.Name))
+			}
+		}
+		// Add integration routes if enabled
+		if enabledIntegrations["stripe"] {
+			routes = append(routes, "/payments")
+		}
+		if enabledIntegrations["r2"] {
+			routes = append(routes, "/files")
+		}
+		if enabledIntegrations["postmark"] {
+			routes = append(routes, "/emails")
+		}
+		if len(routes) > 0 {
+			cmd.Println("Add these routes to your navigation:")
+			for _, route := range routes {
+				cmd.Printf("  %s\n", config.SuccessStyle.Render(route))
+			}
+			cmd.Println("")
+		}
+
 		cmd.Println("Next steps:")
 		cmd.Printf("  1. Run %s to regenerate proto code\n", config.SuccessStyle.Render("'make gen'"))
 		cmd.Printf("  2. Run %s to launch your app with your new client service\n", config.SuccessStyle.Render("'make startc'"))

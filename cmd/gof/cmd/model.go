@@ -272,6 +272,11 @@ Example:
 		cmd.Println("")
 		cmd.Printf("If you already created a user, run %s to update permissions.\n", config.SuccessStyle.Render("'scripts/update_permissions.sh'"))
 		cmd.Println("")
+		if config.IsSvelte() {
+			cmd.Println("Add this route to your navigation:")
+			cmd.Printf("  %s\n", config.SuccessStyle.Render(svelte.GetModelPath(modelName)))
+			cmd.Println("")
+		}
 	},
 }
 

@@ -18,11 +18,9 @@ type Column struct {
 
 var pluralizeClient = pluralize.NewClient()
 
-func capitalize(s string) string {
-	if len(s) == 0 {
-		return ""
-	}
-	return strings.ToUpper(string(s[0])) + s[1:]
+// GetModelPath returns the client-side path for a model (e.g., "/models/notes" for "note")
+func GetModelPath(modelName string) string {
+	return "/models/" + pluralizeClient.Plural(modelName)
 }
 
 // toCamelCase converts snake_case to camelCase (e.g., "published_at" -> "publishedAt")
@@ -58,9 +56,6 @@ func toPascalCase(s string) string {
 }
 
 func GenerateSvelteScaffolding(modelName string, columns []Column) error {
-	if err := addModelToNavigation(modelName); err != nil {
-		return fmt.Errorf("adding model to navigation: %w", err)
-	}
 	if err := generateClientConnect(modelName); err != nil {
 		return fmt.Errorf("generating client connect.ts: %w", err)
 	}
@@ -89,59 +84,6 @@ func GenerateSvelteScaffolding(modelName string, columns []Column) error {
 		return fmt.Errorf("running npm commands: %w\nOutput: %s", err, string(out))
 	}
 	return nil
-}
-
-// addModelToNavigation adds a new navigation item for the generated model
-// to the main Svelte layout file.
-func addModelToNavigation(modelName string) error {
-	layoutPath := "./app/service-client/src/routes/(app)/+layout.svelte"
-	contentBytes, err := os.ReadFile(layoutPath)
-	if err != nil {
-		return fmt.Errorf("reading layout file %s: %w", layoutPath, err)
-	}
-	content := string(contentBytes)
-
-	pluralLower := pluralizeClient.Plural(modelName)
-	pluralCap := capitalize(pluralLower)
-
-	// Check if entry already exists to ensure idempotency.
-	if strings.Contains(content, fmt.Sprintf(`href: "/models/%s"`, pluralLower)) {
-		return nil
-	}
-
-	navEntry := fmt.Sprintf(`        {
-            name: "%s",
-            href: "/models/%s",
-            icon: Bone,
-        },`, pluralCap, pluralLower)
-
-	// Insert the new nav item before the closing bracket of the nav array.
-	// Support both `];` and `] as const;` patterns
-	navArrayEndMarker := `    ] as const;`
-	if !strings.Contains(content, navArrayEndMarker) {
-		navArrayEndMarker = `    ];`
-	}
-
-	// Ensure the previous entry has a trailing comma (handles case where last entry was added without one)
-	// Look for pattern: }followed by whitespace/newlines then ];
-	idx := strings.Index(content, navArrayEndMarker)
-	if idx > 0 {
-		// Find the last non-whitespace character before ];
-		beforeMarker := content[:idx]
-		trimmed := strings.TrimRight(beforeMarker, " \t\n")
-		if strings.HasSuffix(trimmed, "}") && !strings.HasSuffix(trimmed, "},") {
-			// Add comma after the closing brace
-			content = trimmed + "," + content[len(trimmed):idx] + content[idx:]
-		}
-	}
-
-	newContent := strings.Replace(content, navArrayEndMarker, navEntry+"\n"+navArrayEndMarker, 1)
-
-	if newContent == content {
-		return fmt.Errorf("failed to add model to navigation: insertion point '%s' not found in %s", navArrayEndMarker, layoutPath)
-	}
-
-	return os.WriteFile(layoutPath, []byte(newContent), 0644)
 }
 
 // generateClientConnect updates the client-side ConnectRPC wiring by adding the
