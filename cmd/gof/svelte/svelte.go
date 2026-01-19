@@ -372,7 +372,7 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 	// Replace protobuf field access patterns with camelCase BEFORE the blanket replacement
 	// Be specific to avoid matching partial strings like params.skeleton_id
 	camelName := toCamelCase(modelName)
-	s = strings.ReplaceAll(s, "!s.skeleton)", "!s."+camelName+")")  // null check: if (!s.skeleton)
+	s = strings.ReplaceAll(s, "!s.skeleton)", "!s."+camelName+")") // null check: if (!s.skeleton)
 	s = strings.ReplaceAll(s, " s.skeleton;", " s."+camelName+";") // return s.skeleton;
 	s = strings.ReplaceAll(s, "skeleton: {", camelName+": {")
 	s = strings.ReplaceAll(s, "skeleton", modelName)

@@ -18,15 +18,15 @@ type Config struct {
 
 func checkConfig(email string, apiKey string) tea.Cmd {
 	return func() tea.Msg {
-        if email == "" {
-            return errMsg(fmt.Errorf("email is required"))
-        }
-        if _, err := mail.ParseAddress(email); err != nil {
-            return errMsg(fmt.Errorf("invalid email address"))
-        }
-        if apiKey == "" {
-            return errMsg(fmt.Errorf("api key is required"))
-        }
+		if email == "" {
+			return errMsg(fmt.Errorf("email is required"))
+		}
+		if _, err := mail.ParseAddress(email); err != nil {
+			return errMsg(fmt.Errorf("invalid email address"))
+		}
+		if apiKey == "" {
+			return errMsg(fmt.Errorf("api key is required"))
+		}
 		err := saveToConfig(email, apiKey)
 		if err != nil {
 			return errMsg(err)
@@ -42,14 +42,14 @@ func checkConfig(email string, apiKey string) tea.Cmd {
 func readConfig() (email string, apiKey string, err error) {
 	path, err := os.UserConfigDir()
 	if err != nil {
-        panic(err)
+		panic(err)
 	}
 	config := path + "/gofast.json"
-    jsonFile, err := os.OpenFile(config, os.O_CREATE|os.O_RDWR, 0666)
-    if err != nil {
-        panic(err)
-    }
-    defer func() { _ = jsonFile.Close() }()
+	jsonFile, err := os.OpenFile(config, os.O_CREATE|os.O_RDWR, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer func() { _ = jsonFile.Close() }()
 	data, err := io.ReadAll(jsonFile)
 	if err != nil {
 		panic(err)
@@ -68,20 +68,20 @@ func readConfig() (email string, apiKey string, err error) {
 }
 
 func saveToConfig(email string, apiKey string) error {
-    path, err := os.UserConfigDir()
-    if err != nil {
-        return fmt.Errorf("could not get user config dir")
-    }
-    config := path + "/gofast.json"
-    jsonFile, err := os.OpenFile(config, os.O_RDWR, 0666)
-    if err != nil {
-        return fmt.Errorf("could not open config file")
-    }
-    defer func() { _ = jsonFile.Close() }()
-    data, err := io.ReadAll(jsonFile)
-    if err != nil {
-        return fmt.Errorf("could not read config file")
-    }
+	path, err := os.UserConfigDir()
+	if err != nil {
+		return fmt.Errorf("could not get user config dir")
+	}
+	config := path + "/gofast.json"
+	jsonFile, err := os.OpenFile(config, os.O_RDWR, 0666)
+	if err != nil {
+		return fmt.Errorf("could not open config file")
+	}
+	defer func() { _ = jsonFile.Close() }()
+	data, err := io.ReadAll(jsonFile)
+	if err != nil {
+		return fmt.Errorf("could not read config file")
+	}
 	var c Config
 	err = json.Unmarshal(data, &c)
 	if err != nil {
@@ -91,35 +91,35 @@ func saveToConfig(email string, apiKey string) error {
 	}
 	c.Email = email
 	c.ApiKey = apiKey
-    data, err = json.Marshal(c)
-    if err != nil {
-        return fmt.Errorf("could not marshal config data")
-    }
+	data, err = json.Marshal(c)
+	if err != nil {
+		return fmt.Errorf("could not marshal config data")
+	}
 	_ = jsonFile.Truncate(0)
-    _, err = jsonFile.WriteAt(data, 0)
-    if err != nil {
-        return fmt.Errorf("could not write to config file")
-    }
+	_, err = jsonFile.WriteAt(data, 0)
+	if err != nil {
+		return fmt.Errorf("could not write to config file")
+	}
 	return nil
 }
 
 func validateConfig(email string, apiKey string) error {
 	client := &http.Client{}
-    req, err := http.NewRequest("GET", SERVER_URL+"/repo", nil)
-    if err != nil {
-        return fmt.Errorf("could not create request")
-    }
+	req, err := http.NewRequest("GET", SERVER_URL+"/repo", nil)
+	if err != nil {
+		return fmt.Errorf("could not create request")
+	}
 	req.Header.Add("Authorization", "Bearer "+apiKey)
 	q := req.URL.Query()
 	q.Add("email", email)
 	req.URL.RawQuery = q.Encode()
-    resp, err := client.Do(req)
-    if err != nil {
-        return fmt.Errorf("could not make request")
-    }
-    defer func() { _ = resp.Body.Close() }()
-    if resp.StatusCode != 200 {
-        return fmt.Errorf("invalid credentials")
-    }
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("could not make request")
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("invalid credentials")
+	}
 	return nil
 }

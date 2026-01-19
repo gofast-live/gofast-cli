@@ -17,4 +17,3 @@ var authCmd = &cobra.Command{
 		auth.Run()
 	},
 }
-

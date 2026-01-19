@@ -18,41 +18,41 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 	docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "  container_name: gofast-", "  container_name: "+projectName+"-")
 	docker_compose_lines := strings.Split(docker_compose_file_str, "\n")
 
-    // Client
-    switch client {
-    case "None":
-        _ = os.RemoveAll(projectName + "/service-client")
-        _ = os.RemoveAll(projectName + "/service-next")
-        _ = os.RemoveAll(projectName + "/service-vue")
-        docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  client:", "  postgres:", false)
-    case "SvelteKit":
-        _ = os.RemoveAll(projectName + "/service-next")
-        _ = os.RemoveAll(projectName + "/service-vue")
-        docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  next:", "  postgres:", false)
-    case "Next.js":
-        _ = os.RemoveAll(projectName + "/service-client")
-        _ = os.RemoveAll(projectName + "/service-vue")
-        _ = os.Rename(projectName+"/service-next", projectName+"/service-client")
-        docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  client:", "  next:", false)
-        docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  vue:", "  postgres:", false)
-        docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "  next:", "  client:")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "service-next", "service-client")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "demo-next", "demo-client")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3003", "3000")
-        docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
-    case "Vue.js":
-        _ = os.RemoveAll(projectName + "/service-client")
-        _ = os.RemoveAll(projectName + "/service-next")
-        _ = os.Rename(projectName+"/service-vue", projectName+"/service-client")
-        docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  client:", "  vue:", false)
-        docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "  vue:", "  client:")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "service-vue", "service-client")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "demo-vue", "demo-client")
-        docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3004", "3000")
-        docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
-    }
+	// Client
+	switch client {
+	case "None":
+		_ = os.RemoveAll(projectName + "/service-client")
+		_ = os.RemoveAll(projectName + "/service-next")
+		_ = os.RemoveAll(projectName + "/service-vue")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  client:", "  postgres:", false)
+	case "SvelteKit":
+		_ = os.RemoveAll(projectName + "/service-next")
+		_ = os.RemoveAll(projectName + "/service-vue")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  next:", "  postgres:", false)
+	case "Next.js":
+		_ = os.RemoveAll(projectName + "/service-client")
+		_ = os.RemoveAll(projectName + "/service-vue")
+		_ = os.Rename(projectName+"/service-next", projectName+"/service-client")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  client:", "  next:", false)
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  vue:", "  postgres:", false)
+		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "  next:", "  client:")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "service-next", "service-client")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "demo-next", "demo-client")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3003", "3000")
+		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
+	case "Vue.js":
+		_ = os.RemoveAll(projectName + "/service-client")
+		_ = os.RemoveAll(projectName + "/service-next")
+		_ = os.Rename(projectName+"/service-vue", projectName+"/service-client")
+		docker_compose_lines = remove_lines_from_to(docker_compose_lines, "  client:", "  vue:", false)
+		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "  vue:", "  client:")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "service-vue", "service-client")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "demo-vue", "demo-client")
+		docker_compose_file_str = strings.ReplaceAll(docker_compose_file_str, "3004", "3000")
+		docker_compose_lines = strings.Split(docker_compose_file_str, "\n")
+	}
 
 	docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
 
@@ -124,22 +124,22 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 		run_cmd = append(run_cmd, "GOOGLE_CLIENT_SECRET=__CHANGE_ME__ \\")
 	}
 
-    // Database
-    switch databaseProvider {
-    case "PostgreSQL":
-        run_cmd = append(run_cmd, "DATABASE_PROVIDER=postgres \\")
-        run_cmd = append(run_cmd, "POSTGRES_HOST=postgres \\")
-        run_cmd = append(run_cmd, "POSTGRES_PORT=5432 \\")
-        run_cmd = append(run_cmd, "POSTGRES_DB=postgres \\")
-        run_cmd = append(run_cmd, "POSTGRES_USER=postgres \\")
-        run_cmd = append(run_cmd, "POSTGRES_PASSWORD=postgres \\")
-    case "SQLite":
-        run_cmd = append(run_cmd, "DATABASE_PROVIDER=sqlite \\")
-    case "Turso":
-        run_cmd = append(run_cmd, "DATABASE_PROVIDER=turso \\")
-        run_cmd = append(run_cmd, "TURSO_URL=__CHANGE_ME__ \\")
-        run_cmd = append(run_cmd, "TURSO_TOKEN=__CHANGE_ME__ \\")
-    }
+	// Database
+	switch databaseProvider {
+	case "PostgreSQL":
+		run_cmd = append(run_cmd, "DATABASE_PROVIDER=postgres \\")
+		run_cmd = append(run_cmd, "POSTGRES_HOST=postgres \\")
+		run_cmd = append(run_cmd, "POSTGRES_PORT=5432 \\")
+		run_cmd = append(run_cmd, "POSTGRES_DB=postgres \\")
+		run_cmd = append(run_cmd, "POSTGRES_USER=postgres \\")
+		run_cmd = append(run_cmd, "POSTGRES_PASSWORD=postgres \\")
+	case "SQLite":
+		run_cmd = append(run_cmd, "DATABASE_PROVIDER=sqlite \\")
+	case "Turso":
+		run_cmd = append(run_cmd, "DATABASE_PROVIDER=turso \\")
+		run_cmd = append(run_cmd, "TURSO_URL=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "TURSO_TOKEN=__CHANGE_ME__ \\")
+	}
 
 	if databaseProvider == "SQLite" || databaseProvider == "Turso" {
 		// Modify scripts/sqlc.sh
@@ -191,62 +191,62 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 		docker_compose_file_str = strings.Join(docker_compose_lines, "\n")
 	}
 
-    // Payments
-    switch paymentsProvider {
-    case "Local (mock)":
-        run_cmd = append(run_cmd, "PAYMENT_PROVIDER=local \\")
-    case "Stripe":
-        run_cmd = append(run_cmd, "PAYMENT_PROVIDER=stripe \\")
-        run_cmd = append(run_cmd, "STRIPE_API_KEY=__CHANGE_ME__ \\")
-        run_cmd = append(run_cmd, "STRIPE_PRICE_ID_BASIC=__CHANGE_ME__ \\")
-        run_cmd = append(run_cmd, "STRIPE_PRICE_ID_PREMIUM=__CHANGE_ME__ \\")
-        run_cmd = append(run_cmd, "STRIPE_WEBHOOK_SECRET=__CHANGE_ME__ \\")
-    }
+	// Payments
+	switch paymentsProvider {
+	case "Local (mock)":
+		run_cmd = append(run_cmd, "PAYMENT_PROVIDER=local \\")
+	case "Stripe":
+		run_cmd = append(run_cmd, "PAYMENT_PROVIDER=stripe \\")
+		run_cmd = append(run_cmd, "STRIPE_API_KEY=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "STRIPE_PRICE_ID_BASIC=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "STRIPE_PRICE_ID_PREMIUM=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "STRIPE_WEBHOOK_SECRET=__CHANGE_ME__ \\")
+	}
 
-    // Emails
-    switch emailProvider {
-    case "Local (log)":
-        run_cmd = append(run_cmd, "EMAIL_PROVIDER=local \\")
-    case "Postmark":
-        run_cmd = append(run_cmd, "EMAIL_PROVIDER=postmark \\")
-        run_cmd = append(run_cmd, "POSTMARK_API_KEY=__CHANGE_ME__ \\")
-    case "Sendgrid":
-        run_cmd = append(run_cmd, "EMAIL_PROVIDER=sendgrid \\")
-        run_cmd = append(run_cmd, "SENDGRID_API_KEY=__CHANGE_ME__ \\")
-    case "Resend":
-        run_cmd = append(run_cmd, "EMAIL_PROVIDER=resend \\")
-        run_cmd = append(run_cmd, "RESEND_API_KEY=__CHANGE_ME__ \\")
-    case "AWS SES":
-        run_cmd = append(run_cmd, "EMAIL_PROVIDER=ses \\")
-        run_cmd = append(run_cmd, "SES_REGION=__CHANGE_ME__ \\")
-        run_cmd = append(run_cmd, "SES_ACCESS_KEY=__CHANGE_ME__ \\")
-        run_cmd = append(run_cmd, "SES_SECRET_KEY=__CHANGE_ME__ \\")
-    }
-    run_cmd = append(run_cmd, "EMAIL_FROM=__CHANGE_ME__ \\")
+	// Emails
+	switch emailProvider {
+	case "Local (log)":
+		run_cmd = append(run_cmd, "EMAIL_PROVIDER=local \\")
+	case "Postmark":
+		run_cmd = append(run_cmd, "EMAIL_PROVIDER=postmark \\")
+		run_cmd = append(run_cmd, "POSTMARK_API_KEY=__CHANGE_ME__ \\")
+	case "Sendgrid":
+		run_cmd = append(run_cmd, "EMAIL_PROVIDER=sendgrid \\")
+		run_cmd = append(run_cmd, "SENDGRID_API_KEY=__CHANGE_ME__ \\")
+	case "Resend":
+		run_cmd = append(run_cmd, "EMAIL_PROVIDER=resend \\")
+		run_cmd = append(run_cmd, "RESEND_API_KEY=__CHANGE_ME__ \\")
+	case "AWS SES":
+		run_cmd = append(run_cmd, "EMAIL_PROVIDER=ses \\")
+		run_cmd = append(run_cmd, "SES_REGION=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "SES_ACCESS_KEY=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "SES_SECRET_KEY=__CHANGE_ME__ \\")
+	}
+	run_cmd = append(run_cmd, "EMAIL_FROM=__CHANGE_ME__ \\")
 
-    // Files
-    switch filesProvider {
-    case "Local (folder)":
-        run_cmd = append(run_cmd, "FILE_PROVIDER=local \\")
-        run_cmd = append(run_cmd, "LOCAL_FILE_DIR=/file \\")
-    case "AWS S3":
-        run_cmd = append(run_cmd, "FILE_PROVIDER=s3 \\")
-        run_cmd = append(run_cmd, "S3_REGION=__CHANGE_ME__ \\")
-        run_cmd = append(run_cmd, "S3_ACCESS_KEY=__CHANGE_ME__ \\")
-        run_cmd = append(run_cmd, "S3_SECRET_KEY=__CHANGE_ME__ \\")
-    case "Cloudflare R2":
-        run_cmd = append(run_cmd, "FILE_PROVIDER=r2 \\")
-        run_cmd = append(run_cmd, "R2_ENDPOINT=__CHANGE_ME__ \\")
-        run_cmd = append(run_cmd, "R2_ACCESS_KEY=__CHANGE_ME__ \\")
-        run_cmd = append(run_cmd, "R2_SECRET_KEY=__CHANGE_ME__ \\")
-    case "Google Cloud Storage":
-        run_cmd = append(run_cmd, "FILE_PROVIDER=gcs \\")
-        run_cmd = append(run_cmd, "GOOGLE_APPLICATION_CREDENTIALS=__CHANGE_ME__ \\")
-    case "Azure Blob Storage":
-        run_cmd = append(run_cmd, "FILE_PROVIDER=azblob \\")
-        run_cmd = append(run_cmd, "AZBLOB_ACCOUNT_NAME=__CHANGE_ME__ \\")
-        run_cmd = append(run_cmd, "AZBLOB_ACCOUNT_KEY=__CHANGE_ME__ \\")
-    }
+	// Files
+	switch filesProvider {
+	case "Local (folder)":
+		run_cmd = append(run_cmd, "FILE_PROVIDER=local \\")
+		run_cmd = append(run_cmd, "LOCAL_FILE_DIR=/file \\")
+	case "AWS S3":
+		run_cmd = append(run_cmd, "FILE_PROVIDER=s3 \\")
+		run_cmd = append(run_cmd, "S3_REGION=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "S3_ACCESS_KEY=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "S3_SECRET_KEY=__CHANGE_ME__ \\")
+	case "Cloudflare R2":
+		run_cmd = append(run_cmd, "FILE_PROVIDER=r2 \\")
+		run_cmd = append(run_cmd, "R2_ENDPOINT=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "R2_ACCESS_KEY=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "R2_SECRET_KEY=__CHANGE_ME__ \\")
+	case "Google Cloud Storage":
+		run_cmd = append(run_cmd, "FILE_PROVIDER=gcs \\")
+		run_cmd = append(run_cmd, "GOOGLE_APPLICATION_CREDENTIALS=__CHANGE_ME__ \\")
+	case "Azure Blob Storage":
+		run_cmd = append(run_cmd, "FILE_PROVIDER=azblob \\")
+		run_cmd = append(run_cmd, "AZBLOB_ACCOUNT_NAME=__CHANGE_ME__ \\")
+		run_cmd = append(run_cmd, "AZBLOB_ACCOUNT_KEY=__CHANGE_ME__ \\")
+	}
 	if filesProvider != "Local" {
 		run_cmd = append(run_cmd, "BUCKET_NAME=__CHANGE_ME__ \\")
 	}
@@ -256,16 +256,16 @@ func cleaning(projectName string, client string, start string, databaseProvider 
 		return nil, err
 	}
 
-    // Monitoring
-    switch selectedMonitoring {
-    case "Kubernetes + VictoriaMetrics Monitoring":
-        _ = os.RemoveAll(projectName + "/grafana")
-    case "Grafana + Loki + Prometheus Monitoring using Docker":
-        _ = os.RemoveAll(projectName + "/kube")
-    default:
-        _ = os.RemoveAll(projectName + "/kube")
-        _ = os.RemoveAll(projectName + "/grafana")
-    }
+	// Monitoring
+	switch selectedMonitoring {
+	case "Kubernetes + VictoriaMetrics Monitoring":
+		_ = os.RemoveAll(projectName + "/grafana")
+	case "Grafana + Loki + Prometheus Monitoring using Docker":
+		_ = os.RemoveAll(projectName + "/kube")
+	default:
+		_ = os.RemoveAll(projectName + "/kube")
+		_ = os.RemoveAll(projectName + "/grafana")
+	}
 
 	// Append the cmd to Readme
 	run_cmd = append(run_cmd, "docker compose up --build")
