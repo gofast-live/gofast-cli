@@ -243,6 +243,12 @@ Example:
 				cmd.Printf("Error generating Svelte client pages: %v.\n", err)
 				return
 			}
+			// Update user management page with new model permissions
+			err = svelte.UpdateUserPermissions(modelName)
+			if err != nil {
+				cmd.Printf("Error updating user permissions page: %v.\n", err)
+				return
+			}
 		}
 
 		cmd.Println("")
@@ -405,111 +411,62 @@ func generateAuthAccessFlags(modelName string) error {
 	modelPlural := pluralizeClient.Plural(modelName)
 	modelPluralCap := capitalize(modelPlural)
 
-	flagsSnippet := fmt.Sprintf("\n\tGet%[1]s   int64 = 1 << iota\n\tCreate%[2]s int64 = 1 << iota\n\tEdit%[2]s   int64 = 1 << iota\n\tRemove%[2]s int64 = 1 << iota\n", modelPluralCap, modelCap)
+	flagsSnippet := fmt.Sprintf("\tGet%[1]s   int64 = 1 << iota\n\tCreate%[2]s int64 = 1 << iota\n\tEdit%[2]s   int64 = 1 << iota\n\tRemove%[2]s int64 = 1 << iota\n", modelPluralCap, modelCap)
 	userListSnippet := fmt.Sprintf("Get%[1]s | Create%[2]s | Edit%[2]s | Remove%[2]s", modelPluralCap, modelCap)
 
-	// Insert flags inside GF_ACCESS_FLAGS markers (before END) unless already present
-	const flagsStart = "GF_ACCESS_FLAGS_START"
-	const flagsEnd = "GF_ACCESS_FLAGS_END"
+	// Insert flags before GF_ACCESS_FLAGS_END marker unless already present
+	const flagsEnd = "// GF_ACCESS_FLAGS_END"
 	{
-		s := strings.Index(content, flagsStart)
 		e := strings.Index(content, flagsEnd)
-		if s == -1 || e == -1 || e <= s {
-			return fmt.Errorf("auth markers for access flags not found")
+		if e == -1 {
+			return fmt.Errorf("auth marker %s not found", flagsEnd)
 		}
-		// Compute exact region bounds between end of START line and start of END line
-		startLineEndRel := strings.Index(content[s:], "\n")
-		if startLineEndRel == -1 {
-			return fmt.Errorf("cannot locate end of start marker line")
-		}
-		regionStart := s + startLineEndRel + 1
-		endLineStart := strings.LastIndex(content[:e], "\n") + 1
 
-		region := content[regionStart:endLineStart]
-		// Clean out stray blank comment-only lines
-		cleanedLines := make([]string, 0)
-		for ln := range strings.SplitSeq(region, "\n") {
-			t := strings.TrimSpace(ln)
-			if t == "" || t == "//" {
-				continue
-			}
-			cleanedLines = append(cleanedLines, ln)
+		// Check if already present
+		if !strings.Contains(content, "Create"+modelCap) && !strings.Contains(content, "Get"+modelPluralCap) {
+			// Find the start of the END marker line
+			endLineStart := strings.LastIndex(content[:e], "\n") + 1
+			// Insert the flags snippet before the END marker line
+			content = content[:endLineStart] + flagsSnippet + content[endLineStart:]
 		}
-		region = strings.Join(cleanedLines, "\n")
-
-		// Append flags only if not present already
-		if !strings.Contains(region, "Create"+modelCap) && !strings.Contains(region, "Get"+modelPluralCap) {
-			// Ensure region ends with a newline if not empty
-			if region != "" && !strings.HasSuffix(region, "\n") {
-				region += "\n"
-			}
-			region += strings.TrimPrefix(flagsSnippet, "\n")
-		}
-		content = content[:regionStart] + region + content[endLineStart:]
 	}
 
-	// Helper to append to a list region while ignoring commented placeholders
-	appendToRegion := func(c, startMarker, endMarker, addition string) (string, error) {
-		s := strings.Index(c, startMarker)
-		e := strings.Index(c, endMarker)
-		if s == -1 || e == -1 || e <= s {
-			return c, fmt.Errorf("auth markers %s/%s not found", startMarker, endMarker)
-		}
-		// Compute region bounds: after START line to start of END line
-		startLineEndRel := strings.Index(c[s:], "\n")
-		if startLineEndRel == -1 {
-			return c, fmt.Errorf("cannot locate end of start marker line for %s", startMarker)
-		}
-		regionStart := s + startLineEndRel + 1
-		endLineStart := strings.LastIndex(c[:e], "\n") + 1
-		region := c[regionStart:endLineStart]
-
-		// Parse existing non-comment lines (each line is a group for a model)
-		tokens := []string{}
-		for ln := range strings.SplitSeq(region, "\n") {
-			t := strings.TrimSpace(ln)
-			if t == "" || strings.HasPrefix(t, "//") {
-				continue
-			}
-			t = strings.TrimSuffix(t, "|")
-			t = strings.TrimSpace(t)
-			if after, ok := strings.CutPrefix(t, "|"); ok {
-				t = strings.TrimSpace(after)
-			}
-			if t != "" {
-				tokens = append(tokens, t)
-			}
-		}
-		// Add the new addition if not already present
-		joined := strings.Join(tokens, " ")
-		if !strings.Contains(joined, addition) {
-			tokens = append(tokens, addition)
+	// Insert into UserAccess before GF_USER_ACCESS_END marker
+	const userAccessEnd = "// GF_USER_ACCESS_END"
+	{
+		e := strings.Index(content, userAccessEnd)
+		if e == -1 {
+			return fmt.Errorf("auth marker %s not found", userAccessEnd)
 		}
 
-		// One model group per line; each line except the last ends with a trailing '|'
-		rebuilt := ""
-		if len(tokens) > 0 {
-			for i, t := range tokens {
-				line := "\t" + t
-				if i < len(tokens)-1 {
-					line += " |"
+		// Check if already present
+		if !strings.Contains(content, userListSnippet) {
+			// Find the last non-empty line before the END marker
+			// Start from the marker and scan backwards
+			searchEnd := e
+			for searchEnd > 0 {
+				lineEnd := strings.LastIndex(content[:searchEnd], "\n")
+				if lineEnd == -1 {
+					break
 				}
-				rebuilt += line + "\n"
+				lineStart := strings.LastIndex(content[:lineEnd], "\n") + 1
+				line := strings.TrimSpace(content[lineStart:lineEnd])
+				if line != "" && !strings.HasPrefix(line, "//") {
+					// Found the last content line - append to it
+					if !strings.HasSuffix(line, "|") {
+						content = content[:lineEnd] + " |\n\t" + userListSnippet + content[lineEnd:]
+					}
+					break
+				}
+				searchEnd = lineEnd
 			}
 		}
-		return c[:regionStart] + rebuilt + c[endLineStart:], nil
 	}
 
-	var uErr error
-	content, uErr = appendToRegion(content, "GF_USER_ACCESS_START", "GF_USER_ACCESS_END", userListSnippet)
-	if uErr != nil {
-		return uErr
-	}
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		return fmt.Errorf("writing auth file: %w", err)
 	}
 	return nil
-
 }
 
 // wireCoreMain injects imports, deps initialization, and route mounting for

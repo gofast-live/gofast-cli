@@ -139,7 +139,7 @@ make startcm
 
 ## GoFast CLI v1 (`gofast`)
 
-Legacy CLI. Visit [v1.gofast.live](https://v1.gofast.live) for more info and [docs.gofast.live](https://docs.gofast.live) for documentation.
+Legacy CLI. Visit [v1.gofast.live](https://v1.gofast.live) for more details and [docs.gofast.live](https://docs.gofast.live) for documentation.
 
 ### Installation
 
