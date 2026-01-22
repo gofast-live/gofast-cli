@@ -510,13 +510,6 @@ export const commands = [
                 }
             },
             {
-                text: 'OpenTelemetry setup',
-                details: {
-                    files: ['internal/telemetry/tracing.go'],
-                    features: ['Distributed tracing', 'Metrics export', 'Log correlation']
-                }
-            },
-            {
                 text: 'GitHub Actions deploy',
                 details: {
                     files: ['.github/workflows/deploy-prod.yml'],
@@ -559,6 +552,97 @@ export const commands = [
                 details: {
                     files: ['k8s/configmap.yaml'],
                     features: ['API token management', 'Sender signature ID']
+                }
+            },
+            {
+                text: 'Cluster monitoring resources',
+                showIf: (s) => s.has('mon'),
+                dependency: 'Monitoring',
+                details: {
+                    files: ['infra/monitoring.tf'],
+                    features: [
+                        'Grafana/Loki/Tempo/Prometheus on K8s',
+                        'Helm chart deployments',
+                        'ConfigMap injection'
+                    ]
+                }
+            }
+        ]
+    },
+    {
+        id: 'mon',
+        label: 'monitoring',
+        command: () => 'gof mon',
+        description: 'Adding monitoring stack...',
+        baseOutputs: [
+            {
+                text: 'Grafana dashboards',
+                details: {
+                    files: ['monitoring/dashboards/', 'monitoring/grafana-datasources.yaml'],
+                    features: [
+                        'Pre-configured service dashboard',
+                        'Request latency & throughput',
+                        'Error rate tracking'
+                    ]
+                }
+            },
+            {
+                text: 'Loki log aggregation',
+                details: {
+                    files: ['monitoring/loki-config.yaml', 'monitoring/alloy-config.alloy'],
+                    features: [
+                        'Centralized log collection',
+                        'Label-based filtering',
+                        'LogQL queries'
+                    ]
+                }
+            },
+            {
+                text: 'Tempo distributed tracing',
+                details: {
+                    files: ['monitoring/tempo.yaml'],
+                    features: [
+                        'End-to-end request tracing',
+                        'Span visualization',
+                        'Trace-to-logs correlation'
+                    ]
+                }
+            },
+            {
+                text: 'Prometheus metrics',
+                details: {
+                    files: ['monitoring/prometheus.yml'],
+                    features: [
+                        'Service metrics scraping',
+                        'Custom metric definitions',
+                        'Alerting rules support'
+                    ]
+                }
+            },
+            {
+                text: 'Docker Compose monitoring',
+                details: {
+                    files: ['docker-compose.monitoring.yml'],
+                    features: [
+                        'One-command local stack',
+                        'Grafana at localhost:3001',
+                        'OpenTelemetry collector'
+                    ]
+                }
+            }
+        ],
+        contextOutputs: [
+            {
+                text: 'Kubernetes monitoring resources',
+                showIf: (s) => s.has('infra'),
+                dependency: 'Infrastructure',
+                details: {
+                    files: ['infra/monitoring.tf'],
+                    features: [
+                        'Helm chart deployments',
+                        'ConfigMap injection',
+                        'Service discovery'
+                    ]
                 }
             }
         ]

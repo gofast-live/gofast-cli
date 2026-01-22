@@ -3,7 +3,6 @@ package cmd
 import (
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
@@ -63,32 +62,6 @@ var infraCmd = &cobra.Command{
 
 		srcRoot := filepath.Join(tmpDir, srcRepoName)
 
-		projMonitoringCompose := filepath.Join(cwd, "docker-compose.monitoring.yml")
-		srcMonitoringCompose := filepath.Join(srcRoot, "docker-compose.monitoring.yml")
-		if _, err := os.Stat(projMonitoringCompose); err == nil {
-			cmd.Printf("File '%s' already exists. Skipping copy.\n", projMonitoringCompose)
-		} else {
-			if err := copyFile(srcMonitoringCompose, projMonitoringCompose); err != nil {
-				cmd.Printf("Error copying %s: %v\n", projMonitoringCompose, err)
-				return
-			}
-			composeContent, err := os.ReadFile(projMonitoringCompose)
-			if err != nil {
-				cmd.Printf("Error reading %s: %v\n", projMonitoringCompose, err)
-				return
-			}
-			newComposeContent := strings.ReplaceAll(string(composeContent), "gofast", con.ProjectName)
-			info, err := os.Stat(projMonitoringCompose)
-			if err != nil {
-				cmd.Printf("Error getting file info for %s: %v\n", projMonitoringCompose, err)
-				return
-			}
-			if err := os.WriteFile(projMonitoringCompose, []byte(newComposeContent), info.Mode()); err != nil {
-				cmd.Printf("Error updating %s: %v\n", projMonitoringCompose, err)
-				return
-			}
-		}
-
 		srcInfraDir := filepath.Join(srcRoot, "infra")
 		dstInfraDir := filepath.Join(cwd, "infra")
 		if _, err := os.Stat(dstInfraDir); err == nil {
@@ -98,17 +71,13 @@ var infraCmd = &cobra.Command{
 			return
 		}
 
-		srcMonitoringDir := filepath.Join(srcRoot, "monitoring")
-		dstMonitoringDir := filepath.Join(cwd, "monitoring")
-		if _, err := os.Stat(srcMonitoringDir); err == nil {
-			if _, err := os.Stat(dstMonitoringDir); err == nil {
-				cmd.Printf("Directory '%s' already exists. Skipping copy.\n", dstMonitoringDir)
-			} else if err := copyDir(srcMonitoringDir, dstMonitoringDir); err != nil {
-				cmd.Printf("Error copying monitoring directory: %v\n", err)
-				return
+		// If monitoring hasn't been added yet, remove monitoring.tf from infra
+		// It will be added when user runs 'gof mon'
+		if !con.MonitoringPopulated {
+			monitoringTf := filepath.Join(dstInfraDir, "monitoring.tf")
+			if err := os.Remove(monitoringTf); err != nil && !os.IsNotExist(err) {
+				cmd.Printf("Warning: could not remove monitoring.tf: %v\n", err)
 			}
-		} else {
-			cmd.Printf("Warning: monitoring directory not found in template, skipping copy.\n")
 		}
 
 		err = os.Chdir(cwd)
@@ -132,9 +101,12 @@ var infraCmd = &cobra.Command{
 		cmd.Printf("  1. Run %s\n", config.SuccessStyle.Render("'cd infra && cp .env.example .env'"))
 		cmd.Println("  2. Update infra/.env with your server details")
 		cmd.Println("  3. Review and run the setup scripts (setup_rke2.sh, setup_gh.sh, setup_cloudflare.sh)")
-		cmd.Printf("  4. Run %s to launch your app with a local monitoring stack\n", config.SuccessStyle.Render("'make startm'"))
 		cmd.Println("")
 		cmd.Printf("See %s for the full workflow.\n", config.SuccessStyle.Render("'infra/README.md'"))
 		cmd.Println("")
+		if !con.MonitoringPopulated {
+			cmd.Printf("Run %s to add local development monitoring stack.\n", config.SuccessStyle.Render("'gof mon'"))
+			cmd.Println("")
+		}
 	},
 }
