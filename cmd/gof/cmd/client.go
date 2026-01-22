@@ -241,6 +241,11 @@ var clientCmd = &cobra.Command{
 			if err := svelte.GenerateSvelteScaffolding(m.Name, svelteColumns); err != nil {
 				cmd.Printf("Error generating '%s' client pages: %v\n", m.Name, err)
 			}
+
+			// Add permissions to user management page
+			if err := svelte.UpdateUserPermissions(m.Name); err != nil {
+				cmd.Printf("Error updating user permissions for '%s': %v\n", m.Name, err)
+			}
 		}
 
 		cmd.Println("")

@@ -276,8 +276,10 @@ Example:
 		cmd.Printf("  3. Run %s to format generated code\n", config.SuccessStyle.Render("'make format'"))
 		cmd.Printf("  4. Run %s to apply migrations\n", config.SuccessStyle.Render("'make migrate'"))
 		cmd.Println("")
-		cmd.Printf("If you already created a user, run %s to update permissions.\n", config.SuccessStyle.Render("'scripts/update_permissions.sh'"))
-		cmd.Println("")
+		if config.IsSvelte() {
+			cmd.Printf("If you have existing users, update their permissions at %s\n", config.SuccessStyle.Render("/users"))
+			cmd.Println("")
+		}
 		if config.IsSvelte() {
 			cmd.Println("Add this route to your navigation:")
 			cmd.Printf("  %s\n", config.SuccessStyle.Render(svelte.GetModelPath(modelName)))
