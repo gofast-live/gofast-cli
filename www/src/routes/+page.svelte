@@ -9,9 +9,12 @@
 
 	/** @type {{ id: string, variant?: any }[]} */
 	let history = $state([]);
-	
+
 	/** @type {HTMLElement} */
 	let mainContainer;
+
+	/** @type {HTMLElement} */
+	let infraSection;
 
 	async function scrollToBottom() {
 		await tick();
@@ -26,6 +29,13 @@
 		}
 	}
 
+	async function scrollToInfra() {
+		await tick();
+		if (infraSection) {
+			infraSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		}
+	}
+
 	function handleStart() {
 		history = [{ id: 'init' }];
 		scrollToBottom();
@@ -37,8 +47,8 @@
 	async function handleSelect(cmd) {
 		if (cmd.id === 'finish') {
 			// appState.finish() is called in CommandPicker
-			// Just scroll to summary
-			scrollToBottom();
+			// Scroll to infra showcase first
+			scrollToInfra();
 			return;
 		}
 
@@ -47,7 +57,7 @@
 		} else {
 			appState.add(cmd.id);
 		}
-		
+
 		history = [...history, cmd];
 		scrollToBottom();
 	}
@@ -72,7 +82,9 @@
 	{/each}
 
 	{#if appState.finished}
-		<InfraShowcase />
+		<div bind:this={infraSection}>
+			<InfraShowcase />
+		</div>
 		<Summary />
 	{/if}
 </main>

@@ -43,12 +43,12 @@
 
     const setupScripts = [
         {
-            name: "./setup_gh.sh",
-            desc: "GitHub secrets & variables"
-        },
-        {
             name: "./setup_rke2.sh",
             desc: "K8s cluster bootstrap"
+        },
+        {
+            name: "./setup_gh.sh",
+            desc: "GitHub secrets & variables"
         },
         {
             name: "./setup_cloudflare.sh",

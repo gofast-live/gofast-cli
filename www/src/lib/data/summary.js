@@ -1,22 +1,29 @@
 /**
+ * @typedef {Object} WallItem
+ * @property {string} text
+ * @property {string} [source] - Command that added this item (e.g., 'stripe', 'model')
+ */
+
+/**
  * @typedef {Object} WallSection
  * @property {string} category
- * @property {string[]} items
+ * @property {WallItem[]} items
  * @property {(state: import('../stores/state.svelte.js').State) => boolean} [showIf]
  */
 
 /**
  * @typedef {Object} DynamicItem
- * @property {(state: import('../stores/state.svelte.js').State) => string[]} items
+ * @property {(state: import('../stores/state.svelte.js').State) => WallItem[]} items
  * @property {(state: import('../stores/state.svelte.js').State) => boolean} [showIf]
  */
 
 /**
  * @typedef {Object} WallSectionConfig
  * @property {string} category
- * @property {string[]} items
+ * @property {(string | WallItem)[]} items
  * @property {DynamicItem[]} [dynamicItems]
  * @property {(state: import('../stores/state.svelte.js').State) => boolean} [showIf]
+ * @property {string} [source] - Default source for all items in this section
  */
 
 /** @type {WallSectionConfig[]} */
@@ -46,7 +53,7 @@ export const wallSections = [
         dynamicItems: [
             {
                 showIf: (s) => s.has('stripe'),
-                items: () => ['Plan-based access (Basic, Pro)']
+                items: () => [{ text: 'Plan-based access (Basic, Pro)', source: 'stripe' }]
             }
         ]
     },
@@ -62,19 +69,19 @@ export const wallSections = [
         dynamicItems: [
             {
                 showIf: (s) => s.models.length > 0,
-                items: (s) => s.models.map((m) => `${m} table + queries`)
+                items: (s) => s.models.map((m) => ({ text: `${m} table + queries`, source: 'model' }))
             },
             {
                 showIf: (s) => s.has('stripe'),
-                items: () => ['Subscriptions table']
+                items: () => [{ text: 'Subscriptions table', source: 'stripe' }]
             },
             {
                 showIf: (s) => s.has('r2'),
-                items: () => ['Files table']
+                items: () => [{ text: 'Files table', source: 'r2' }]
             },
             {
                 showIf: (s) => s.has('postmark'),
-                items: () => ['Emails + attachments tables']
+                items: () => [{ text: 'Emails + attachments tables', source: 'postmark' }]
             }
         ]
     },
@@ -91,11 +98,11 @@ export const wallSections = [
         dynamicItems: [
             {
                 showIf: (s) => s.has('client'),
-                items: () => ['TypeScript generated code']
+                items: () => [{ text: 'TypeScript generated code', source: 'client' }]
             },
             {
                 showIf: (s) => s.models.length > 0,
-                items: (s) => s.models.map((m) => `${m} service (CRUD)`)
+                items: (s) => s.models.map((m) => ({ text: `${m} service (CRUD)`, source: 'model' }))
             }
         ]
     },
@@ -112,17 +119,22 @@ export const wallSections = [
         dynamicItems: [
             {
                 showIf: (s) => s.has('infra'),
-                items: () => ['Terraform K8s configs', 'CloudNativePG setup', 'Setup scripts (rke2, gh, cloudflare)']
+                items: () => [
+                    { text: 'Terraform K8s configs', source: 'infra' },
+                    { text: 'CloudNativePG setup', source: 'infra' },
+                    { text: 'Setup scripts (rke2, gh, cloudflare)', source: 'infra' }
+                ]
             },
             {
                 showIf: (s) => s.has('mon'),
-                items: () => ['docker-compose.monitoring.yml']
+                items: () => [{ text: 'docker-compose.monitoring.yml', source: 'mon' }]
             }
         ]
     },
     {
         category: 'Frontend (SvelteKit)',
         showIf: (s) => s.has('client'),
+        source: 'client',
         items: [
             'SvelteKit 2 + Vite',
             'Tailwind CSS 4 + DaisyUI',
@@ -134,25 +146,26 @@ export const wallSections = [
         dynamicItems: [
             {
                 showIf: (s) => s.models.length > 0,
-                items: (s) => s.models.map((m) => `${m} CRUD pages`)
+                items: (s) => s.models.map((m) => ({ text: `${m} CRUD pages`, source: 'model' }))
             },
             {
                 showIf: (s) => s.has('stripe'),
-                items: () => ['Billing UI']
+                items: () => [{ text: 'Billing UI', source: 'stripe' }]
             },
             {
                 showIf: (s) => s.has('r2'),
-                items: () => ['File manager']
+                items: () => [{ text: 'File manager', source: 'r2' }]
             },
             {
                 showIf: (s) => s.has('postmark'),
-                items: () => ['Email dashboard']
+                items: () => [{ text: 'Email dashboard', source: 'postmark' }]
             }
         ]
     },
     {
         category: 'Payments (Stripe)',
         showIf: (s) => s.has('stripe'),
+        source: 'stripe',
         items: [
             'Checkout session creation',
             'Webhook handler (invoice.paid)',
@@ -164,6 +177,7 @@ export const wallSections = [
     {
         category: 'File Storage (R2)',
         showIf: (s) => s.has('r2'),
+        source: 'r2',
         items: [
             'S3-compatible client',
             'Presigned URLs',
@@ -175,6 +189,7 @@ export const wallSections = [
     {
         category: 'Email (Postmark)',
         showIf: (s) => s.has('postmark'),
+        source: 'postmark',
         items: [
             'Postmark API client',
             'Template email support',
@@ -185,6 +200,7 @@ export const wallSections = [
     {
         category: 'Monitoring',
         showIf: (s) => s.has('mon'),
+        source: 'mon',
         items: [
             'Grafana Alloy (OTLP)',
             'Tempo (traces)',
@@ -197,6 +213,7 @@ export const wallSections = [
     {
         category: 'Infrastructure',
         showIf: (s) => s.has('infra'),
+        source: 'infra',
         items: [
             'Terraform K8s deployment',
             'CloudNativePG database',
@@ -208,6 +225,30 @@ export const wallSections = [
     }
 ];
 
+/** @type {Record<string, string>} */
+export const sourceLabels = {
+    init: 'init',
+    model: 'model',
+    client: 'client',
+    stripe: 'stripe',
+    r2: 'r2',
+    postmark: 'postmark',
+    infra: 'infra',
+    mon: 'mon'
+};
+
+/** @type {Record<string, string>} */
+export const sourceColors = {
+    init: 'bg-blue-500/20 text-blue-400',
+    model: 'bg-purple-500/20 text-purple-400',
+    client: 'bg-orange-500/20 text-orange-400',
+    stripe: 'bg-violet-500/20 text-violet-400',
+    r2: 'bg-amber-500/20 text-amber-400',
+    postmark: 'bg-rose-500/20 text-rose-400',
+    infra: 'bg-emerald-500/20 text-emerald-400',
+    mon: 'bg-cyan-500/20 text-cyan-400'
+};
+
 /**
  * Build wall data based on current state
  * @param {import('../stores/state.svelte.js').State} state
@@ -217,7 +258,13 @@ export function buildWallData(state) {
     return wallSections
         .filter((section) => !section.showIf || section.showIf(state))
         .map((section) => {
-            const items = [...section.items];
+            /** @type {WallItem[]} */
+            const items = section.items.map((item) => {
+                if (typeof item === 'string') {
+                    return { text: item, source: section.source };
+                }
+                return item;
+            });
 
             if (section.dynamicItems) {
                 for (const dynamic of section.dynamicItems) {

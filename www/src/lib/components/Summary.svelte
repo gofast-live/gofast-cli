@@ -1,6 +1,6 @@
 <script>
     import { state as appState } from "$lib/stores/state.svelte.js";
-    import { buildWallData } from "$lib/data/summary.js";
+    import { buildWallData, sourceLabels, sourceColors } from "$lib/data/summary.js";
     import { fade, fly } from "svelte/transition";
     import { onMount } from "svelte";
 
@@ -43,8 +43,13 @@
                             <li
                                 class="text-sm text-gray-300 flex items-start gap-2"
                             >
-                                <span class="text-success mt-0.5">✓</span>
-                                {item}
+                                <span class="text-success mt-0.5 shrink-0">✓</span>
+                                <span class="flex-1">{item.text}</span>
+                                {#if item.source}
+                                    <span class="shrink-0 text-[10px] px-1.5 py-0.5 rounded font-mono {sourceColors[item.source] || 'bg-gray-500/20 text-gray-400'}">
+                                        {sourceLabels[item.source] || item.source}
+                                    </span>
+                                {/if}
                             </li>
                         {/each}
                     </ul>

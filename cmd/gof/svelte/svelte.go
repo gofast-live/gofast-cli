@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/gertd/go-pluralize"
@@ -98,9 +99,7 @@ func UpdateUserPermissions(modelName string) error {
 				numEnd++
 			}
 			if numEnd > numStart {
-				var n int
-				fmt.Sscanf(beforeMarker[numStart:numEnd], "%d", &n)
-				if n > lastBit {
+				if n, err := strconv.Atoi(beforeMarker[numStart:numEnd]); err == nil && n > lastBit {
 					lastBit = n
 				}
 			}
@@ -138,7 +137,6 @@ func UpdateUserPermissions(modelName string) error {
 		bracePos := prevLineStart + strings.LastIndex(prevLine, "}")
 		content = content[:bracePos+1] + "," + content[bracePos+1:]
 		// Update marker position since we added a character
-		e++
 		markerLineStart++
 	}
 
