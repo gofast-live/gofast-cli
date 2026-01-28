@@ -72,7 +72,7 @@
                 class="px-5 py-3 bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary rounded-lg font-mono text-sm transition-all ml-auto flex items-center gap-2"
                 onclick={handleFinish}
             >
-                Finish <ArrowRight size={16} />
+                Deploy <ArrowRight size={16} />
             </button>
 		{/if}
 	</div>

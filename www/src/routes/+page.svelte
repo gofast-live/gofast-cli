@@ -3,6 +3,7 @@
 	import Hero from '$lib/components/Hero.svelte';
 	import CommandFlow from '$lib/components/CommandFlow.svelte';
 	import CommandPicker from '$lib/components/CommandPicker.svelte';
+	import InfraShowcase from '$lib/components/InfraShowcase.svelte';
 	import Summary from '$lib/components/Summary.svelte';
 	import { state as appState } from '$lib/stores/state.svelte.js';
 
@@ -71,6 +72,7 @@
 	{/each}
 
 	{#if appState.finished}
+		<InfraShowcase />
 		<Summary />
 	{/if}
 </main>

@@ -1,5 +1,6 @@
 <script>
     import { state as appState } from "$lib/stores/state.svelte.js";
+    import { buildWallData } from "$lib/data/summary.js";
     import { fade, fly } from "svelte/transition";
     import { onMount } from "svelte";
 
@@ -9,103 +10,7 @@
         mounted = true;
     });
 
-    /**
-     * @typedef {Object} WallSection
-     * @property {string} category
-     * @property {string[]} items
-     */
-
-    // Helper to generate the "wall" data based on state
-    function getWallData() {
-        /** @type {WallSection[]} */
-        const sections = [
-            {
-                category: "Backend (Go)",
-                items: [
-                    "main.go entrypoint",
-                    "Graceful shutdown",
-                    "Structured Logging (slog)",
-                    "CORS middleware",
-                    "Rate limiting interceptor",
-                    "Health check endpoints",
-                    "Config management (env)",
-                ],
-            },
-            {
-                category: "Data & Auth",
-                items: [
-                    "User SQL schema",
-                    "Session management",
-                    "Password hashing (Argon2)",
-                    "RBAC (Bitwise)",
-                    "Data validation layer",
-                    "PostgreSQL connection pool",
-                    "Redis caching (optional)",
-                ],
-            },
-            {
-                category: "API (ConnectRPC)",
-                items: /** @type {string[]} */ (
-                    [
-                        "Proto definitions (.proto)",
-                        "Go generated code",
-                        appState.has("client")
-                            ? "TypeScript generated code"
-                            : null,
-                        "gRPC-Web support",
-                        "JSON fallback support",
-                        "Error handling interceptors",
-                    ].filter(Boolean)
-                ),
-            },
-            {
-                category: "DevOps",
-                items: /** @type {string[]} */ (
-                    [
-                        "Dockerfile (Multi-stage)",
-                        "docker-compose.yml",
-                        ".github/workflows/ci.yml",
-                        ".github/workflows/deploy.yml",
-                        "Database migration container",
-                        appState.has("infra")
-                            ? "Terraform configurations"
-                            : null,
-                        appState.has("infra") ? "Kubernetes manifests" : null,
-                    ].filter(Boolean)
-                ),
-            },
-        ];
-
-        if (appState.has("client")) {
-            sections.push({
-                category: "Frontend (Svelte)",
-                items: [
-                    "Auth context/stores",
-                    "Typed API client",
-                    "Form components",
-                    "Toast notifications",
-                    "layout.svelte (Protected)",
-                    ...appState.models.map((m) => `CRUD pages for ${m}`),
-                ],
-            });
-        }
-
-        if (appState.has("stripe")) {
-            sections.push({
-                category: "Payments",
-                items: [
-                    "Stripe webhook handler",
-                    "Subscription sync logic",
-                    "Customer portal integration",
-                    "Pricing table UI",
-                ],
-            });
-        }
-
-        return sections;
-    }
-
-    let wallData = $derived(getWallData());
+    let wallData = $derived(buildWallData(appState));
 </script>
 
 <section
@@ -246,4 +151,3 @@
         </div>
     </div>
 </section>
-
