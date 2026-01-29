@@ -35,8 +35,8 @@
                 // Reset after pause
                 setTimeout(() => {
                     animating = false;
-                    setTimeout(startAnimation, 2000);
-                }, 3000);
+                    setTimeout(startAnimation, 1000);
+                }, 1500);
             }
         }, 600);
     }

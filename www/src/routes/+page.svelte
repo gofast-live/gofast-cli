@@ -5,17 +5,18 @@
 	import CommandPicker from '$lib/components/CommandPicker.svelte';
 	import ModelShowcase from '$lib/components/ModelShowcase.svelte';
 	import InfraShowcase from '$lib/components/InfraShowcase.svelte';
+	import MonitoringShowcase from '$lib/components/MonitoringShowcase.svelte';
 	import Summary from '$lib/components/Summary.svelte';
 	import { state as appState } from '$lib/stores/state.svelte.js';
 
 	/** @type {{ id: string, variant?: any }[]} */
 	let history = $state([]);
 
-	/** @type {HTMLElement} */
-	let mainContainer;
+	/** @type {HTMLElement | undefined} */
+	let mainContainer = $state();
 
-	/** @type {HTMLElement} */
-	let showcaseSection;
+	/** @type {HTMLElement | undefined} */
+	let showcaseSection = $state();
 
 	async function scrollToBottom() {
 		await tick();
@@ -86,6 +87,7 @@
 		<div bind:this={showcaseSection}>
 			<ModelShowcase />
 		</div>
+		<MonitoringShowcase />
 		<InfraShowcase />
 		<Summary />
 	{/if}
