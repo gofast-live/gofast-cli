@@ -144,6 +144,32 @@
             </div>
         </div>
 
+        <!-- Install CLI -->
+        <div class="mt-12 p-6 bg-surface/30 border border-border rounded-xl max-w-2xl mx-auto">
+            <div class="flex items-center justify-center gap-3 mb-3">
+                <svg
+                    class="w-5 h-5 text-primary"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                </svg>
+                <span class="text-white font-medium">Install the CLI</span>
+            </div>
+            <code class="block bg-bg px-4 py-3 rounded-lg font-mono text-sm text-primary overflow-x-auto">
+                go install github.com/gofast-live/gofast-cli/v2/cmd/gof@latest
+            </code>
+            <p class="text-xs text-muted mt-3">
+                Requires <a href="https://admin.gofast.live" class="text-primary hover:underline">GoFast account</a> to generate projects
+            </p>
+        </div>
+
         <div class="mt-16 pt-8 border-t border-border/30 text-sm text-muted">
             <p>
                 Need a different stack? <a
