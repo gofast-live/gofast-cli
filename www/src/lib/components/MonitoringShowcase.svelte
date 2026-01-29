@@ -332,32 +332,29 @@
                 </div>
 
                 <!-- Correlation callout -->
-                {#if step >= 4}
+                <div
+                    class="mt-8 pt-6 border-t border-border transition-all duration-300 {step >= 4 ? 'opacity-100 blur-0' : 'opacity-50 blur-sm'}"
+                >
                     <div
-                        class="mt-8 pt-6 border-t border-border"
-                        in:fly={{ y: 10, duration: 300 }}
+                        class="flex flex-wrap justify-center gap-6 text-sm"
                     >
-                        <div
-                            class="flex flex-wrap justify-center gap-6 text-sm"
-                        >
-                            <div class="flex items-center gap-2">
-                                <span class="text-red-400">Trace</span>
-                                <span class="text-muted">→</span>
-                                <span class="text-amber-400">Logs</span>
-                                <span class="text-success text-xs"
-                                    >(1-click)</span
-                                >
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-orange-400">Metric</span>
-                                <span class="text-muted">→</span>
-                                <span class="text-red-400">Exemplar</span>
-                                <span class="text-muted">→</span>
-                                <span class="text-red-400">Trace</span>
-                            </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-red-400">Trace</span>
+                            <span class="text-muted">→</span>
+                            <span class="text-amber-400">Logs</span>
+                            <span class="text-success text-xs"
+                                >(1-click)</span
+                            >
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-orange-400">Metric</span>
+                            <span class="text-muted">→</span>
+                            <span class="text-red-400">Exemplar</span>
+                            <span class="text-muted">→</span>
+                            <span class="text-red-400">Trace</span>
                         </div>
                     </div>
-                {/if}
+                </div>
             </div>
 
             <!-- What's included -->

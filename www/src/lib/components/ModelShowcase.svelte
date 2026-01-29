@@ -6,6 +6,7 @@
     let mounted = $state(false);
     let step = $state(0);
     let animating = $state(false);
+    let revealed = $state(false);
 
     const hasModel = $derived(appState.models.length > 0);
     const modelName = $derived(appState.models[0] || "task");
@@ -232,25 +233,22 @@
                 </div>
 
                 <!-- Summary when complete -->
-                {#if step >= allGroups.length}
-                    <div
-                        class="mt-6 pt-4 border-t border-border flex items-center justify-center gap-4 text-sm"
-                        in:fly={{ y: 10, duration: 300 }}
+                <div
+                    class="mt-6 pt-4 border-t border-border flex items-center justify-center gap-4 text-sm transition-all duration-300 {step >= allGroups.length ? 'opacity-100 blur-0' : 'opacity-50 blur-sm'}"
+                >
+                    <span class="text-muted"
+                        >{allGroups.reduce(
+                            (acc, g) => acc + g.files.length,
+                            0
+                        )} files</span
                     >
-                        <span class="text-muted"
-                            >{allGroups.reduce(
-                                (acc, g) => acc + g.files.length,
-                                0
-                            )} files</span
-                        >
-                        <span class="text-border">|</span>
-                        <span class="text-muted"
-                            >{allGroups.length} layers</span
-                        >
-                        <span class="text-border">|</span>
-                        <span class="text-success">Type-safe end-to-end</span>
-                    </div>
-                {/if}
+                    <span class="text-border">|</span>
+                    <span class="text-muted"
+                        >{allGroups.length} layers</span
+                    >
+                    <span class="text-border">|</span>
+                    <span class="text-success">Type-safe end-to-end</span>
+                </div>
             </div>
 
             <!-- Type safety callout -->

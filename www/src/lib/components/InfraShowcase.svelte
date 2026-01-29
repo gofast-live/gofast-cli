@@ -240,24 +240,21 @@
                 </div>
 
                 <!-- URL Result -->
-                {#if step >= steps.length}
-                    <div
-                        class="mt-8 pt-6 border-t border-border"
-                        in:fly={{ y: 10, duration: 300 }}
-                    >
-                        <div class="flex items-center justify-center gap-3">
-                            <span class="text-success text-lg">Live:</span>
-                            <code
-                                class="text-primary bg-primary/10 px-4 py-2 rounded-lg font-mono"
-                            >
-                                https://pr-42.yourapp.com
-                            </code>
-                        </div>
-                        <p class="text-muted text-sm mt-2">
-                            Auto-deleted when PR is merged or closed
-                        </p>
+                <div
+                    class="mt-8 pt-6 border-t border-border transition-all duration-300 {step >= steps.length ? 'opacity-100 blur-0' : 'opacity-50 blur-sm'}"
+                >
+                    <div class="flex items-center justify-center gap-3">
+                        <span class="text-success text-lg">Live:</span>
+                        <code
+                            class="text-primary bg-primary/10 px-4 py-2 rounded-lg font-mono"
+                        >
+                            https://pr-42.yourapp.com
+                        </code>
                     </div>
-                {/if}
+                    <p class="text-muted text-sm mt-2">
+                        Auto-deleted when PR is merged or closed
+                    </p>
+                </div>
             </div>
 
             <!-- Setup Scripts -->
