@@ -240,9 +240,7 @@
                 </div>
 
                 <!-- URL Result -->
-                <div
-                    class="mt-8 pt-6 border-t border-border transition-all duration-300 {step >= steps.length ? 'opacity-100 blur-0' : 'opacity-50 blur-sm'}"
-                >
+                <div class="mt-8 pt-6 border-t border-border">
                     <div class="flex items-center justify-center gap-3">
                         <span class="text-success text-lg">Live:</span>
                         <code

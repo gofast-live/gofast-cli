@@ -6,7 +6,6 @@
     let mounted = $state(false);
     let step = $state(0);
     let animating = $state(false);
-    let revealed = $state(false);
 
     const hasModel = $derived(appState.models.length > 0);
     const modelName = $derived(appState.models[0] || "task");
@@ -232,9 +231,9 @@
                     {/each}
                 </div>
 
-                <!-- Summary when complete -->
+                <!-- Summary -->
                 <div
-                    class="mt-6 pt-4 border-t border-border flex items-center justify-center gap-4 text-sm transition-all duration-300 {step >= allGroups.length ? 'opacity-100 blur-0' : 'opacity-50 blur-sm'}"
+                    class="mt-6 pt-4 border-t border-border flex items-center justify-center gap-4 text-sm"
                 >
                     <span class="text-muted"
                         >{allGroups.reduce(

@@ -332,9 +332,7 @@
                 </div>
 
                 <!-- Correlation callout -->
-                <div
-                    class="mt-8 pt-6 border-t border-border transition-all duration-300 {step >= 4 ? 'opacity-100 blur-0' : 'opacity-50 blur-sm'}"
-                >
+                <div class="mt-8 pt-6 border-t border-border">
                     <div
                         class="flex flex-wrap justify-center gap-6 text-sm"
                     >
