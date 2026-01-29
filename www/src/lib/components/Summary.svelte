@@ -1,5 +1,6 @@
 <script>
     import { state as appState } from "$lib/stores/state.svelte.js";
+    import { buildWallData, sourceLabels, sourceColors } from "$lib/data/summary.js";
     import { fade, fly } from "svelte/transition";
     import { onMount } from "svelte";
 
@@ -9,103 +10,7 @@
         mounted = true;
     });
 
-    /**
-     * @typedef {Object} WallSection
-     * @property {string} category
-     * @property {string[]} items
-     */
-
-    // Helper to generate the "wall" data based on state
-    function getWallData() {
-        /** @type {WallSection[]} */
-        const sections = [
-            {
-                category: "Backend (Go)",
-                items: [
-                    "main.go entrypoint",
-                    "Graceful shutdown",
-                    "Structured Logging (slog)",
-                    "CORS middleware",
-                    "Rate limiting interceptor",
-                    "Health check endpoints",
-                    "Config management (env)",
-                ],
-            },
-            {
-                category: "Data & Auth",
-                items: [
-                    "User SQL schema",
-                    "Session management",
-                    "Password hashing (Argon2)",
-                    "RBAC (Bitwise)",
-                    "Data validation layer",
-                    "PostgreSQL connection pool",
-                    "Redis caching (optional)",
-                ],
-            },
-            {
-                category: "API (ConnectRPC)",
-                items: /** @type {string[]} */ (
-                    [
-                        "Proto definitions (.proto)",
-                        "Go generated code",
-                        appState.has("client")
-                            ? "TypeScript generated code"
-                            : null,
-                        "gRPC-Web support",
-                        "JSON fallback support",
-                        "Error handling interceptors",
-                    ].filter(Boolean)
-                ),
-            },
-            {
-                category: "DevOps",
-                items: /** @type {string[]} */ (
-                    [
-                        "Dockerfile (Multi-stage)",
-                        "docker-compose.yml",
-                        ".github/workflows/ci.yml",
-                        ".github/workflows/deploy.yml",
-                        "Database migration container",
-                        appState.has("infra")
-                            ? "Terraform configurations"
-                            : null,
-                        appState.has("infra") ? "Kubernetes manifests" : null,
-                    ].filter(Boolean)
-                ),
-            },
-        ];
-
-        if (appState.has("client")) {
-            sections.push({
-                category: "Frontend (Svelte)",
-                items: [
-                    "Auth context/stores",
-                    "Typed API client",
-                    "Form components",
-                    "Toast notifications",
-                    "layout.svelte (Protected)",
-                    ...appState.models.map((m) => `CRUD pages for ${m}`),
-                ],
-            });
-        }
-
-        if (appState.has("stripe")) {
-            sections.push({
-                category: "Payments",
-                items: [
-                    "Stripe webhook handler",
-                    "Subscription sync logic",
-                    "Customer portal integration",
-                    "Pricing table UI",
-                ],
-            });
-        }
-
-        return sections;
-    }
-
-    let wallData = $derived(getWallData());
+    let wallData = $derived(buildWallData(appState));
 </script>
 
 <section
@@ -138,8 +43,13 @@
                             <li
                                 class="text-sm text-gray-300 flex items-start gap-2"
                             >
-                                <span class="text-success mt-0.5">✓</span>
-                                {item}
+                                <span class="text-success mt-0.5 shrink-0">✓</span>
+                                <span class="flex-1">{item.text}</span>
+                                {#if item.source}
+                                    <span class="shrink-0 text-[10px] px-1.5 py-0.5 rounded font-mono {sourceColors[item.source] || 'bg-gray-500/20 text-gray-400'}">
+                                        {sourceLabels[item.source] || item.source}
+                                    </span>
+                                {/if}
                             </li>
                         {/each}
                     </ul>
@@ -234,6 +144,32 @@
             </div>
         </div>
 
+        <!-- Install CLI -->
+        <div class="mt-12 p-6 bg-surface/30 border border-border rounded-xl max-w-2xl mx-auto">
+            <div class="flex items-center justify-center gap-3 mb-3">
+                <svg
+                    class="w-5 h-5 text-primary"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                </svg>
+                <span class="text-white font-medium">Install the CLI</span>
+            </div>
+            <code class="block bg-bg px-4 py-3 rounded-lg font-mono text-sm text-primary overflow-x-auto">
+                go install github.com/gofast-live/gofast-cli/v2/cmd/gof@latest
+            </code>
+            <p class="text-xs text-muted mt-3">
+                Requires <a href="https://admin.gofast.live" class="text-primary hover:underline">GoFast account</a> to generate projects
+            </p>
+        </div>
+
         <div class="mt-16 pt-8 border-t border-border/30 text-sm text-muted">
             <p>
                 Need a different stack? <a
@@ -246,4 +182,3 @@
         </div>
     </div>
 </section>
-

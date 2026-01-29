@@ -3,14 +3,20 @@
 	import Hero from '$lib/components/Hero.svelte';
 	import CommandFlow from '$lib/components/CommandFlow.svelte';
 	import CommandPicker from '$lib/components/CommandPicker.svelte';
+	import ModelShowcase from '$lib/components/ModelShowcase.svelte';
+	import InfraShowcase from '$lib/components/InfraShowcase.svelte';
+	import MonitoringShowcase from '$lib/components/MonitoringShowcase.svelte';
 	import Summary from '$lib/components/Summary.svelte';
 	import { state as appState } from '$lib/stores/state.svelte.js';
 
 	/** @type {{ id: string, variant?: any }[]} */
 	let history = $state([]);
-	
-	/** @type {HTMLElement} */
-	let mainContainer;
+
+	/** @type {HTMLElement | undefined} */
+	let mainContainer = $state();
+
+	/** @type {HTMLElement | undefined} */
+	let showcaseSection = $state();
 
 	async function scrollToBottom() {
 		await tick();
@@ -25,6 +31,13 @@
 		}
 	}
 
+	async function scrollToShowcase() {
+		await tick();
+		if (showcaseSection) {
+			showcaseSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		}
+	}
+
 	function handleStart() {
 		history = [{ id: 'init' }];
 		scrollToBottom();
@@ -36,8 +49,8 @@
 	async function handleSelect(cmd) {
 		if (cmd.id === 'finish') {
 			// appState.finish() is called in CommandPicker
-			// Just scroll to summary
-			scrollToBottom();
+			// Scroll to showcase section
+			scrollToShowcase();
 			return;
 		}
 
@@ -46,7 +59,7 @@
 		} else {
 			appState.add(cmd.id);
 		}
-		
+
 		history = [...history, cmd];
 		scrollToBottom();
 	}
@@ -71,6 +84,11 @@
 	{/each}
 
 	{#if appState.finished}
+		<div bind:this={showcaseSection}>
+			<ModelShowcase />
+		</div>
+		<MonitoringShowcase />
+		<InfraShowcase />
 		<Summary />
 	{/if}
 </main>
