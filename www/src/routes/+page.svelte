@@ -3,6 +3,7 @@
 	import Hero from '$lib/components/Hero.svelte';
 	import CommandFlow from '$lib/components/CommandFlow.svelte';
 	import CommandPicker from '$lib/components/CommandPicker.svelte';
+	import ModelShowcase from '$lib/components/ModelShowcase.svelte';
 	import InfraShowcase from '$lib/components/InfraShowcase.svelte';
 	import Summary from '$lib/components/Summary.svelte';
 	import { state as appState } from '$lib/stores/state.svelte.js';
@@ -14,7 +15,7 @@
 	let mainContainer;
 
 	/** @type {HTMLElement} */
-	let infraSection;
+	let showcaseSection;
 
 	async function scrollToBottom() {
 		await tick();
@@ -29,10 +30,10 @@
 		}
 	}
 
-	async function scrollToInfra() {
+	async function scrollToShowcase() {
 		await tick();
-		if (infraSection) {
-			infraSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		if (showcaseSection) {
+			showcaseSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 		}
 	}
 
@@ -47,8 +48,8 @@
 	async function handleSelect(cmd) {
 		if (cmd.id === 'finish') {
 			// appState.finish() is called in CommandPicker
-			// Scroll to infra showcase first
-			scrollToInfra();
+			// Scroll to showcase section
+			scrollToShowcase();
 			return;
 		}
 
@@ -82,9 +83,10 @@
 	{/each}
 
 	{#if appState.finished}
-		<div bind:this={infraSection}>
-			<InfraShowcase />
+		<div bind:this={showcaseSection}>
+			<ModelShowcase />
 		</div>
+		<InfraShowcase />
 		<Summary />
 	{/if}
 </main>
