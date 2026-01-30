@@ -23,7 +23,7 @@
     },
     "routes": [
         {
-            "pattern": "v2.gofast.live",
+            "pattern": "gofast.live",
             "custom_domain": true
         }
     ]

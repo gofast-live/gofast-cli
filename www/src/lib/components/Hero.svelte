@@ -34,7 +34,7 @@
                 class="hover:text-white transition-colors">Discord</a
             >
             <a
-                href="https://gofast.live"
+                href="https://v1.gofast.live"
                 target="_blank"
                 class="hover:text-white transition-colors"
                 >V1 <span class="hidden md:inline">(Next.js, Vue, HTMX...)</span> →</a
