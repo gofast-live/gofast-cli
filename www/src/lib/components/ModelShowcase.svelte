@@ -201,27 +201,26 @@
                             <!-- Files in this layer -->
                             <div class="ml-7 space-y-1">
                                 {#each group.files as file}
-                                    <div
-                                        class="flex items-center gap-2 text-sm font-mono"
-                                    >
-                                        <span class="text-muted"
-                                            >{replaceName(
-                                                file.path,
-                                                modelName
-                                            )}</span
-                                        >
-                                        <span
-                                            class="text-white {step >= i
-                                                ? ''
-                                                : 'opacity-50'}"
-                                        >
-                                            {replaceName(file.file, modelName)}
-                                        </span>
-                                        {#if file.note && step > i}
+                                    <div class="text-sm font-mono">
+                                        <div class="flex items-center gap-1 flex-wrap">
+                                            <span class="text-muted truncate max-w-[140px] sm:max-w-none"
+                                                >{replaceName(
+                                                    file.path,
+                                                    modelName
+                                                )}</span
+                                            >
                                             <span
-                                                class="text-xs text-success"
-                                                in:fade={{ duration: 200 }}
-                                                >{file.note}</span
+                                                class="text-white {step >= i
+                                                    ? ''
+                                                    : 'opacity-50'}"
+                                            >
+                                                {replaceName(file.file, modelName)}
+                                            </span>
+                                        </div>
+                                        {#if file.note}
+                                            <div
+                                                class="text-xs text-success ml-0 mt-0.5 transition-all duration-300 {step > i ? 'blur-0 opacity-100' : 'blur-sm opacity-50'}"
+                                                >{file.note}</div
                                             >
                                         {/if}
                                     </div>
@@ -233,19 +232,20 @@
 
                 <!-- Summary -->
                 <div
-                    class="mt-6 pt-4 border-t border-border flex items-center justify-center gap-4 text-sm"
+                    class="mt-6 pt-4 border-t border-border flex flex-col items-center gap-2 text-sm"
                 >
-                    <span class="text-muted"
-                        >{allGroups.reduce(
-                            (acc, g) => acc + g.files.length,
-                            0
-                        )} files</span
-                    >
-                    <span class="text-border">|</span>
-                    <span class="text-muted"
-                        >{allGroups.length} layers</span
-                    >
-                    <span class="text-border">|</span>
+                    <div class="flex items-center gap-4">
+                        <span class="text-muted"
+                            >{allGroups.reduce(
+                                (acc, g) => acc + g.files.length,
+                                0
+                            )} files</span
+                        >
+                        <span class="text-border">|</span>
+                        <span class="text-muted"
+                            >{allGroups.length} layers</span
+                        >
+                    </div>
                     <span class="text-success">Type-safe end-to-end</span>
                 </div>
             </div>

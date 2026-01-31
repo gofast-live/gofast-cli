@@ -97,7 +97,7 @@
 
             <!-- Pipeline visualization -->
             <div
-                class="relative bg-surface/30 border border-border rounded-2xl p-8 mb-8 overflow-hidden"
+                class="relative bg-surface/30 border border-border rounded-2xl p-4 sm:p-8 mb-8 overflow-hidden"
             >
                 {#if !hasMon}
                     <div
@@ -130,9 +130,9 @@
                 {/if}
 
                 <!-- Top row: Request → OTEL → Alloy -->
-                <div class="flex items-center justify-center gap-4 mb-8">
+                <div class="flex items-center justify-center gap-2 sm:gap-4 mb-6 sm:mb-8">
                     {#each pipeline as node, i}
-                        <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-2 sm:gap-4">
                             <div
                                 class="flex flex-col items-center transition-all duration-300 {step >
                                 i
@@ -142,7 +142,7 @@
                                       : 'opacity-30'}"
                             >
                                 <div
-                                    class="w-16 h-16 rounded-full border-2 flex items-center justify-center transition-all duration-300 {step >
+                                    class="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 flex items-center justify-center transition-all duration-300 {step >
                                     i
                                         ? 'border-success bg-success/20'
                                         : step === i
@@ -151,7 +151,7 @@
                                 >
                                     {#if node.icon === "arrow-right"}
                                         <svg
-                                            class="w-6 h-6"
+                                            class="w-5 h-5 sm:w-6 sm:h-6"
                                             fill="none"
                                             stroke="currentColor"
                                             viewBox="0 0 24 24"
@@ -165,7 +165,7 @@
                                         </svg>
                                     {:else if node.icon === "code"}
                                         <svg
-                                            class="w-6 h-6"
+                                            class="w-5 h-5 sm:w-6 sm:h-6"
                                             fill="none"
                                             stroke="currentColor"
                                             viewBox="0 0 24 24"
@@ -179,7 +179,7 @@
                                         </svg>
                                     {:else if node.icon === "funnel"}
                                         <svg
-                                            class="w-6 h-6"
+                                            class="w-5 h-5 sm:w-6 sm:h-6"
                                             fill="none"
                                             stroke="currentColor"
                                             viewBox="0 0 24 24"
@@ -194,14 +194,14 @@
                                     {/if}
                                 </div>
                                 <span
-                                    class="text-xs font-medium mt-2 {node.color}"
+                                    class="text-xs font-medium mt-1 sm:mt-2 {node.color}"
                                     >{node.label}</span
                                 >
                             </div>
 
                             {#if i < pipeline.length - 1}
                                 <div
-                                    class="w-8 h-0.5 transition-all duration-300 {step >
+                                    class="w-4 sm:w-8 h-0.5 transition-all duration-300 {step >
                                     i
                                         ? 'bg-success'
                                         : 'bg-border'}"
@@ -213,12 +213,12 @@
 
                 <!-- Fan out lines -->
                 <div
-                    class="flex justify-center mb-4 transition-opacity duration-300 {step >=
+                    class="flex justify-center mb-3 sm:mb-4 transition-opacity duration-300 {step >=
                     3
                         ? 'opacity-100'
                         : 'opacity-0'}"
                 >
-                    <svg class="w-64 h-8" viewBox="0 0 256 32">
+                    <svg class="w-48 sm:w-64 h-6 sm:h-8" viewBox="0 0 256 32">
                         <path
                             d="M128 0 L64 32"
                             stroke="currentColor"
@@ -244,16 +244,16 @@
                 </div>
 
                 <!-- Backend row: Tempo | Loki | Prometheus -->
-                <div class="flex justify-center gap-6 mb-8">
+                <div class="flex justify-center gap-2 sm:gap-6 mb-6 sm:mb-8">
                     {#each backends as backend, i}
                         <div
-                            class="flex flex-col items-center p-4 rounded-xl border transition-all duration-300 {step >=
+                            class="flex flex-col items-center px-2 py-2 sm:p-4 rounded-xl border transition-all duration-300 {step >=
                             3
                                 ? backend.bg + ' opacity-100'
                                 : 'border-border bg-surface opacity-30'}"
                             in:fly={{ y: 10, duration: 300, delay: i * 100 }}
                         >
-                            <span class="font-bold {backend.color}"
+                            <span class="font-bold text-sm sm:text-base {backend.color}"
                                 >{backend.label}</span
                             >
                             <span class="text-xs text-muted">{backend.type}</span
@@ -264,12 +264,12 @@
 
                 <!-- Converge to Grafana -->
                 <div
-                    class="flex justify-center mb-4 transition-opacity duration-300 {step >=
+                    class="flex justify-center mb-3 sm:mb-4 transition-opacity duration-300 {step >=
                     4
                         ? 'opacity-100'
                         : 'opacity-0'}"
                 >
-                    <svg class="w-64 h-8" viewBox="0 0 256 32">
+                    <svg class="w-48 sm:w-64 h-6 sm:h-8" viewBox="0 0 256 32">
                         <path
                             d="M64 0 L128 32"
                             stroke="currentColor"
@@ -302,14 +302,14 @@
                         : 'opacity-30 scale-95'}"
                 >
                     <div
-                        class="flex flex-col items-center p-6 rounded-xl border transition-all duration-300 {step >=
+                        class="flex flex-col items-center p-4 sm:p-6 rounded-xl border transition-all duration-300 {step >=
                         4
                             ? 'bg-green-400/10 border-green-400/30'
                             : 'border-border bg-surface'}"
                     >
-                        <div class="flex items-center gap-2 mb-2">
+                        <div class="flex items-center gap-2 mb-1 sm:mb-2">
                             <svg
-                                class="w-8 h-8 text-green-400"
+                                class="w-6 h-6 sm:w-8 sm:h-8 text-green-400"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -321,7 +321,7 @@
                                     d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                                 />
                             </svg>
-                            <span class="font-bold text-lg text-green-400"
+                            <span class="font-bold text-base sm:text-lg text-green-400"
                                 >Grafana</span
                             >
                         </div>
@@ -332,9 +332,9 @@
                 </div>
 
                 <!-- Correlation callout -->
-                <div class="mt-8 pt-6 border-t border-border">
+                <div class="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-border">
                     <div
-                        class="flex flex-wrap justify-center gap-6 text-sm"
+                        class="flex flex-wrap justify-center gap-4 sm:gap-6 text-sm"
                     >
                         <div class="flex items-center gap-2">
                             <span class="text-red-400">Trace</span>
