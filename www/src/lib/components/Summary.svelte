@@ -1,6 +1,10 @@
 <script>
     import { state as appState } from "$lib/stores/state.svelte.js";
-    import { buildWallData, sourceLabels, sourceColors } from "$lib/data/summary.js";
+    import {
+        buildWallData,
+        sourceLabels,
+        sourceColors,
+    } from "$lib/data/summary.js";
     import { fade, fly } from "svelte/transition";
     import { onMount } from "svelte";
 
@@ -43,11 +47,18 @@
                             <li
                                 class="text-sm text-gray-300 flex items-start gap-2"
                             >
-                                <span class="text-success mt-0.5 shrink-0">✓</span>
+                                <span class="text-success mt-0.5 shrink-0"
+                                    >✓</span
+                                >
                                 <span class="flex-1">{item.text}</span>
                                 {#if item.source}
-                                    <span class="shrink-0 text-[10px] px-1.5 py-0.5 rounded font-mono {sourceColors[item.source] || 'bg-gray-500/20 text-gray-400'}">
-                                        {sourceLabels[item.source] || item.source}
+                                    <span
+                                        class="shrink-0 text-[10px] px-1.5 py-0.5 rounded font-mono {sourceColors[
+                                            item.source
+                                        ] || 'bg-gray-500/20 text-gray-400'}"
+                                    >
+                                        {sourceLabels[item.source] ||
+                                            item.source}
                                     </span>
                                 {/if}
                             </li>
@@ -117,7 +128,7 @@
             >
                 <div class="text-2xl font-bold text-white mb-2">Community</div>
                 <p class="text-sm text-muted mb-8 text-center">
-                    Join 100+ developers building with GoFast. <br />Open source
+                    Join 200+ developers building modern apps. <br />Open source
                     discussion & support.
                 </p>
                 <a
@@ -145,7 +156,9 @@
         </div>
 
         <!-- Install CLI -->
-        <div class="mt-12 p-6 bg-surface/30 border border-border rounded-xl max-w-2xl mx-auto">
+        <div
+            class="mt-12 p-6 bg-surface/30 border border-border rounded-xl max-w-2xl mx-auto"
+        >
             <div class="flex items-center justify-center gap-3 mb-3">
                 <svg
                     class="w-5 h-5 text-primary"
@@ -162,11 +175,16 @@
                 </svg>
                 <span class="text-white font-medium">Install the CLI</span>
             </div>
-            <code class="block bg-bg px-4 py-3 rounded-lg font-mono text-sm text-primary overflow-x-auto">
+            <code
+                class="block bg-bg px-4 py-3 rounded-lg font-mono text-sm text-primary overflow-x-auto"
+            >
                 go install github.com/gofast-live/gofast-cli/v2/cmd/gof@latest
             </code>
             <p class="text-xs text-muted mt-3">
-                Requires <a href="https://admin.gofast.live" class="text-primary hover:underline">GoFast account</a> to generate projects
+                Requires <a
+                    href="https://admin.gofast.live"
+                    class="text-primary hover:underline">GoFast account</a
+                > to generate projects
             </p>
         </div>
 

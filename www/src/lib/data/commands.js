@@ -596,7 +596,7 @@ export const commands = [
     },
     {
         id: 'infra',
-        label: 'infra',
+        label: 'infrastructure',
         command: () => 'gof infra',
         description: 'Adding production infrastructure...',
         baseOutputs: [
