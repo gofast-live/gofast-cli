@@ -219,7 +219,7 @@
                                         </div>
                                         {#if file.note}
                                             <div
-                                                class="text-xs text-success ml-0 mt-0.5 transition-all duration-300 {step > i ? 'blur-0 opacity-100' : 'blur-sm opacity-50'}"
+                                                class="text-xs text-success ml-0 mt-0.5 transition-all duration-300 {step >= i ? 'blur-0 opacity-100' : 'blur-sm opacity-50'}"
                                                 >{file.note}</div
                                             >
                                         {/if}
