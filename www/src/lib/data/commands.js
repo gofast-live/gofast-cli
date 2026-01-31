@@ -288,7 +288,7 @@ export const commands = [
     },
     {
         id: 'client',
-        label: 'client',
+        label: 'svelte',
         command: () => 'gof client svelte',
         description: 'Adding Svelte frontend...',
         baseOutputs: [
