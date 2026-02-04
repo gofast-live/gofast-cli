@@ -7,6 +7,7 @@
 	import InfraShowcase from '$lib/components/InfraShowcase.svelte';
 	import MonitoringShowcase from '$lib/components/MonitoringShowcase.svelte';
 	import Summary from '$lib/components/Summary.svelte';
+	import Testimonials from '$lib/components/Testimonials.svelte';
 	import { state as appState } from '$lib/stores/state.svelte.js';
 
 	/** @type {{ id: string, variant?: any }[]} */
@@ -90,6 +91,7 @@
 		<MonitoringShowcase />
 		<InfraShowcase />
 		<Summary />
+		<Testimonials />
 	{/if}
 </main>
 
