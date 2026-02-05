@@ -7,6 +7,7 @@
 	import InfraShowcase from '$lib/components/InfraShowcase.svelte';
 	import MonitoringShowcase from '$lib/components/MonitoringShowcase.svelte';
 	import CodeShowcase from '$lib/components/CodeShowcase.svelte';
+	import ProjectShowcase from '$lib/components/ProjectShowcase.svelte';
 	import Summary from '$lib/components/Summary.svelte';
 	import Testimonials from '$lib/components/Testimonials.svelte';
 	import Footer from '$lib/components/Footer.svelte';
@@ -94,6 +95,7 @@
 		<InfraShowcase />
 		<CodeShowcase />
 		<Summary />
+		<ProjectShowcase />
 		<Testimonials />
         <Footer />
 	{/if}
