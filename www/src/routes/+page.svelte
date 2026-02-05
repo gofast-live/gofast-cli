@@ -89,14 +89,14 @@
 
 	{#if appState.finished}
 		<div bind:this={showcaseSection}>
-			<ModelShowcase />
+			<CodeShowcase />
 		</div>
+		<ModelShowcase />
 		<MonitoringShowcase />
 		<InfraShowcase />
-		<CodeShowcase />
-		<Summary />
 		<ProjectShowcase />
 		<Testimonials />
+		<Summary />
         <Footer />
 	{/if}
 </main>

@@ -1,4 +1,4 @@
-<section class="px-6 border-t border-border/50 bg-bg/50 pt-12 text-center">
+<section class="px-6 border-t border-border/50 bg-bg/50 pt-8 text-center">
     <div class="text-sm text-muted">
         <p>
             Need a different stack? <a
