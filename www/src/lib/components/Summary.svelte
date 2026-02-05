@@ -187,16 +187,5 @@
                 > to generate projects
             </p>
         </div>
-
-        <div class="mt-16 pt-8 border-t border-border/30 text-sm text-muted">
-            <p>
-                Need a different stack? <a
-                    href="https://v1.gofast.live"
-                    target="_blank"
-                    class="text-gray-400 hover:text-white underline decoration-gray-700 underline-offset-4"
-                    >V1 includes Next.js, Vue, HTMX, AWS & GCP support.</a
-                >
-            </p>
-        </div>
     </div>
 </section>

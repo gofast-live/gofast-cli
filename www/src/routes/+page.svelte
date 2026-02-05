@@ -6,8 +6,10 @@
 	import ModelShowcase from '$lib/components/ModelShowcase.svelte';
 	import InfraShowcase from '$lib/components/InfraShowcase.svelte';
 	import MonitoringShowcase from '$lib/components/MonitoringShowcase.svelte';
+	import CodeShowcase from '$lib/components/CodeShowcase.svelte';
 	import Summary from '$lib/components/Summary.svelte';
 	import Testimonials from '$lib/components/Testimonials.svelte';
+	import Footer from '$lib/components/Footer.svelte';
 	import { state as appState } from '$lib/stores/state.svelte.js';
 
 	/** @type {{ id: string, variant?: any }[]} */
@@ -90,8 +92,10 @@
 		</div>
 		<MonitoringShowcase />
 		<InfraShowcase />
+		<CodeShowcase />
 		<Summary />
 		<Testimonials />
+        <Footer />
 	{/if}
 </main>
 
