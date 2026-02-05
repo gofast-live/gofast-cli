@@ -16,7 +16,7 @@
                 It's just Go.
             </h2>
             <p class="text-xl text-muted max-w-2xl mx-auto">
-                No hidden runtimes or complex abstractions. Just a solid foundation of idiomatic code using the standard library, ConnectRPC, and SQLC.
+                No hidden runtimes or complex abstractions. Just a solid foundation of idiomatic code using the standard library, ConnectRPC, SQLC, and Goose.
             </p>
         </div>
 
