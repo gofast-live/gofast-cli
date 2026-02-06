@@ -28,18 +28,11 @@ const FILES_TO_SHOWCASE = [
         description: 'Responsive CRUD table with loading states and error handling.'
     },
     {
-        id: 'payment_service',
-        title: 'Payment Service (Stripe)',
-        path: 'app/service-core/domain/payment/service.go',
-        lang: 'go',
-        description: 'Complex integration logic with Stripe webhooks and subscription management.'
-    },
-    {
-        id: 'payment_ui',
-        title: 'Payment UI',
-        path: 'app/service-client/src/routes/(app)/payments/+page.svelte',
-        lang: 'svelte',
-        description: 'Subscription management UI with dynamic plan selection.'
+        id: 'model_e2e',
+        title: 'Generated E2E Tests',
+        path: 'e2e/skeletons.test.ts',
+        lang: 'typescript',
+        description: 'Full-stack Playwright tests generated for every model to ensure reliability.'
     },
     {
         id: 'otel',
