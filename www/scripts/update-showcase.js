@@ -21,6 +21,13 @@ const FILES_TO_SHOWCASE = [
         description: 'Clean business logic layer with validation, auth, and tracing hooks.'
     },
     {
+        id: 'model_service_test',
+        title: 'Generated Service Tests',
+        path: 'app/service-core/domain/skeleton/service_test.go',
+        lang: 'go',
+        description: 'Comprehensive unit tests covering auth, validation, and data isolation.'
+    },
+    {
         id: 'model_ui',
         title: 'Generated UI Page',
         path: 'app/service-client/src/routes/(app)/models/skeletons/+page.svelte',
