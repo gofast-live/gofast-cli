@@ -152,6 +152,26 @@ func buildEditProtoFields(columns []Column) string {
 	return strings.Join(lines, "\n\t\t\t\t")
 }
 
+// buildEditAssertFields generates assertion lines for the edit transport test
+func buildEditAssertFields(columns []Column, modelName string) string {
+	var lines []string
+	for _, c := range columns {
+		field := toCamelCase(c.Name)
+		getter := "Get" + field + "()"
+		switch c.Type {
+		case "string":
+			lines = append(lines, fmt.Sprintf("assert.Equal(t, \"Updated %s\", res.Msg.Get%s().%s)", capitalize(c.Name), modelName, getter))
+		case "number":
+			lines = append(lines, fmt.Sprintf("assert.Equal(t, \"200\", res.Msg.Get%s().%s)", modelName, getter))
+		case "date":
+			lines = append(lines, fmt.Sprintf("assert.NotEmpty(t, res.Msg.Get%s().%s)", modelName, getter))
+		case "bool":
+			lines = append(lines, fmt.Sprintf("assert.Equal(t, false, res.Msg.Get%s().%s)", modelName, getter))
+		}
+	}
+	return strings.Join(lines, "\n\t\t")
+}
+
 // replaceMarkerRegion replaces content between START and END markers (removes markers)
 func replaceMarkerRegion(content, startMarker, endMarker, replacement string) string {
 	for {

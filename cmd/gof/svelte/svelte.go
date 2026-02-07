@@ -116,7 +116,7 @@ func UpdateUserPermissions(modelName string) error {
 	newPerms := fmt.Sprintf(`        { name: "Get%[1]s", bit: %[3]d },
         { name: "Create%[2]s", bit: %[4]d },
         { name: "Edit%[2]s", bit: %[5]d },
-        { name: "Remove%[2]s", bit: %[6]d },
+        { name: "Remove%[2]s", bit: %[6]d }
 `, modelPluralCap, modelCap, nextBit, nextBit+1, nextBit+2, nextBit+3)
 
 	// Find the last permission entry line and ensure it has a trailing comma

@@ -376,10 +376,14 @@ func generateTransportTestContent(modelName, capitalizedModelName string, column
 	createFields := buildCreateProtoFields(columns, capitalizedModelName)
 	editFields := buildEditProtoFields(columns)
 
+	// Build edit assertion based on first string column
+	editAssert := buildEditAssertFields(columns, capitalizedModelName)
+
 	// Replace marker regions
 	content = replaceMarkerRegion(content, "GF_TP_TEST_ENTITY_FIELDS_START", "GF_TP_TEST_ENTITY_FIELDS_END", entityFields)
 	content = replaceMarkerRegion(content, "GF_TP_TEST_CREATE_FIELDS_START", "GF_TP_TEST_CREATE_FIELDS_END", createFields)
 	content = replaceMarkerRegion(content, "GF_TP_TEST_EDIT_FIELDS_START", "GF_TP_TEST_EDIT_FIELDS_END", editFields)
+	content = replaceMarkerRegion(content, "GF_TP_TEST_EDIT_ASSERT_START", "GF_TP_TEST_EDIT_ASSERT_END", editAssert)
 
 	// Go naming conversions
 	goPackageName := toGoPackageName(modelName)
