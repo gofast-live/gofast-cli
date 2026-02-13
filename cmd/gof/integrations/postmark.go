@@ -46,6 +46,15 @@ func PostmarkStripClient(clientPath string) error {
 	return nil
 }
 
+// PostmarkStripTanstackClient removes Postmark-related content from the TanStack client.
+func PostmarkStripTanstackClient(clientPath string) error {
+	emailsPath := filepath.Join(clientPath, "src", "routes", "_layout", "emails.tsx")
+	if err := os.Remove(emailsPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("removing tanstack emails route: %w", err)
+	}
+	return nil
+}
+
 // PostmarkAddClient adds Postmark-related content to an existing Svelte client.
 // Called by 'gof add postmark' when client already exists.
 func PostmarkAddClient(tmpProject, clientPath string) error {
@@ -54,6 +63,16 @@ func PostmarkAddClient(tmpProject, clientPath string) error {
 	dstEmails := filepath.Join(clientPath, "src", "routes", "(app)", "emails")
 	if err := CopyDir(srcEmails, dstEmails); err != nil {
 		return fmt.Errorf("copying emails folder: %w", err)
+	}
+	return nil
+}
+
+// PostmarkAddTanstackClient adds Postmark-related content to an existing TanStack client.
+func PostmarkAddTanstackClient(tmpProject, clientPath string) error {
+	srcEmails := filepath.Join(tmpProject, "app", "service-tanstack", "src", "routes", "_layout", "emails.tsx")
+	dstEmails := filepath.Join(clientPath, "src", "routes", "_layout", "emails.tsx")
+	if err := CopyFile(srcEmails, dstEmails); err != nil {
+		return fmt.Errorf("copying tanstack emails route: %w", err)
 	}
 	return nil
 }
@@ -133,7 +152,7 @@ func PostmarkAdd(email, apiKey string) error {
 		return fmt.Errorf("copying files with EMAIL markers: %w", err)
 	}
 
-	// 6. Add client-side Email content if Svelte client is configured
+	// 6. Add client-side Email content for configured clients
 	if config.IsSvelte() {
 		clientPath := filepath.Join("app", "service-client")
 		if err := PostmarkAddClient(tmpProject, clientPath); err != nil {
@@ -145,6 +164,12 @@ func PostmarkAdd(email, apiKey string) error {
 			if err := PostmarkAddE2E(tmpProject, e2ePath); err != nil {
 				return fmt.Errorf("adding postmark e2e tests: %w", err)
 			}
+		}
+	}
+	if config.IsTanstack() {
+		clientPath := filepath.Join("app", "service-tanstack")
+		if err := PostmarkAddTanstackClient(tmpProject, clientPath); err != nil {
+			return fmt.Errorf("adding email to tanstack client: %w", err)
 		}
 	}
 

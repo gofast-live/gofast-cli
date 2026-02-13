@@ -73,6 +73,7 @@ make start
 | `gof init <name>` | Create new project |
 | `gof model <name> [cols...]` | Generate CRUD model |
 | `gof client svelte` | Add Svelte frontend |
+| `gof client tanstack` | Add TanStack frontend |
 | `gof add stripe` | Add Stripe payments |
 | `gof add r2` | Add Cloudflare R2 storage |
 | `gof add postmark` | Add Postmark email |
@@ -106,6 +107,9 @@ gof model comment content:string
 # Add frontend
 gof client svelte
 
+# Add TanStack frontend
+gof client tanstack
+
 # Add payments
 gof add stripe
 
@@ -120,6 +124,9 @@ make startc
 
 # Run with client + monitoring (Grafana, Alloy, Loki, Tempo, Prometheus)
 make startcm
+
+# Run with TanStack client
+make startt
 ```
 
 ### Generated Project Commands
@@ -128,6 +135,7 @@ make startcm
 |---------|-------------|
 | `make start` | Start backend services |
 | `make startc` | Start with Svelte client |
+| `make startt` | Start with TanStack client |
 | `make startm` | Start with monitoring (Grafana, Alloy, Loki, Tempo, Prometheus) |
 | `make startcm` | Start with client + monitoring |
 | `make sql` | Regenerate SQLC queries |

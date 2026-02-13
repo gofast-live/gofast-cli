@@ -81,6 +81,15 @@ func StripeStripClient(clientPath string) error {
 	return nil
 }
 
+// StripeStripTanstackClient removes Stripe-related content from the TanStack client.
+func StripeStripTanstackClient(clientPath string) error {
+	paymentsPath := filepath.Join(clientPath, "src", "routes", "_layout", "payments")
+	if err := os.RemoveAll(paymentsPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("removing tanstack payments folder: %w", err)
+	}
+	return nil
+}
+
 // StripeAddClient adds Stripe-related content to an existing Svelte client.
 // Called by 'gof add stripe' when client already exists.
 func StripeAddClient(tmpProject, clientPath string) error {
@@ -89,6 +98,16 @@ func StripeAddClient(tmpProject, clientPath string) error {
 	dstPayments := filepath.Join(clientPath, "src", "routes", "(app)", "payments")
 	if err := CopyDir(srcPayments, dstPayments); err != nil {
 		return fmt.Errorf("copying payments folder: %w", err)
+	}
+	return nil
+}
+
+// StripeAddTanstackClient adds Stripe-related content to an existing TanStack client.
+func StripeAddTanstackClient(tmpProject, clientPath string) error {
+	srcPayments := filepath.Join(tmpProject, "app", "service-tanstack", "src", "routes", "_layout", "payments")
+	dstPayments := filepath.Join(clientPath, "src", "routes", "_layout", "payments")
+	if err := CopyDir(srcPayments, dstPayments); err != nil {
+		return fmt.Errorf("copying tanstack payments folder: %w", err)
 	}
 	return nil
 }
@@ -168,7 +187,7 @@ func StripeAdd(email, apiKey string) error {
 		return fmt.Errorf("copying files with stripe markers: %w", err)
 	}
 
-	// 6. Add client-side Stripe content if Svelte client is configured
+	// 6. Add client-side Stripe content for configured clients
 	if config.IsSvelte() {
 		clientPath := filepath.Join("app", "service-client")
 		if err := StripeAddClient(tmpProject, clientPath); err != nil {
@@ -180,6 +199,12 @@ func StripeAdd(email, apiKey string) error {
 			if err := StripeAddE2E(tmpProject, e2ePath); err != nil {
 				return fmt.Errorf("adding stripe e2e tests: %w", err)
 			}
+		}
+	}
+	if config.IsTanstack() {
+		clientPath := filepath.Join("app", "service-tanstack")
+		if err := StripeAddTanstackClient(tmpProject, clientPath); err != nil {
+			return fmt.Errorf("adding stripe to tanstack client: %w", err)
 		}
 	}
 

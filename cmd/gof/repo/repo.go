@@ -14,7 +14,14 @@ import (
 
 func DownloadRepo(email string, apiKey string, projectName string) error {
 	if os.Getenv("TEST") == "true" {
-		cmd := exec.Command("cp", "-r", "/home/mat/projects/gofast-app", projectName)
+		templatePath := os.Getenv("GOFAST_APP_PATH")
+		if templatePath == "" {
+			templatePath = "/Users/temi/codebase/oss/gofast-app"
+		}
+		if _, err := os.Stat(templatePath); err != nil {
+			return fmt.Errorf("local template path not found: %s (set GOFAST_APP_PATH to override)", templatePath)
+		}
+		cmd := exec.Command("cp", "-r", templatePath, projectName)
 		err := cmd.Run()
 		if err != nil {
 			return fmt.Errorf("error copying test app: %w", err)
