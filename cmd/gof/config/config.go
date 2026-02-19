@@ -36,12 +36,12 @@ type Model struct {
 }
 
 type Config struct {
-	ProjectName          string    `json:"project_name"`
-	Services             []Service `json:"services"`
-	Models               []Model   `json:"models"`
-	Integrations         []string  `json:"integrations"`
-	InfraPopulated       bool      `json:"infra_populated"`
-	MonitoringPopulated  bool      `json:"monitoring_populated"`
+	ProjectName         string    `json:"project_name"`
+	Services            []Service `json:"services"`
+	Models              []Model   `json:"models"`
+	Integrations        []string  `json:"integrations"`
+	InfraPopulated      bool      `json:"infra_populated"`
+	MonitoringPopulated bool      `json:"monitoring_populated"`
 }
 
 type Service struct {
@@ -121,12 +121,20 @@ func Initialize(projectName string) error {
 }
 
 func IsSvelte() bool {
-	config, err := ParseConfig()
+	return HasService("svelte")
+}
+
+func IsTanstack() bool {
+	return HasService("tanstack")
+}
+
+func HasService(name string) bool {
+	cfg, err := ParseConfig()
 	if err != nil {
 		return false
 	}
-	for _, service := range config.Services {
-		if service.Name == "svelte" {
+	for _, service := range cfg.Services {
+		if service.Name == name {
 			return true
 		}
 	}

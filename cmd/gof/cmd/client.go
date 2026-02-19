@@ -13,6 +13,7 @@ import (
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/integrations"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/svelte"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/tanstack"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +24,7 @@ func init() {
 var clientCmd = &cobra.Command{
 	Use:   "client [client_type]",
 	Short: "Create a new client service",
-	Long:  "Create a new client service (e.g., Svelte/Next/Vue) connected to your Go service",
+	Long:  "Create a new client service (e.g., Svelte/TanStack/Next/Vue) connected to your Go service",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		email, apiKey, err := auth.CheckAuthentication()
@@ -31,7 +32,7 @@ var clientCmd = &cobra.Command{
 			cmd.Printf("Authentication failed: %v.\n", err)
 			return
 		}
-		// Ensure we are inside a valid gofast project (has gofast.json)
+
 		con, err := config.ParseConfig()
 		if err != nil {
 			cmd.Printf("%v\n", err)
@@ -40,43 +41,43 @@ var clientCmd = &cobra.Command{
 
 		serviceType := args[0]
 		validServiceTypes := map[string]bool{
-			"svelte": true,
-			"next":   true,
-			"vue":    true,
+			"svelte":   true,
+			"tanstack": true,
+			"next":     true,
+			"vue":      true,
 		}
 		if !validServiceTypes[serviceType] {
-			cmd.Println("Invalid service type. Valid types are: svelte, next, vue")
+			cmd.Println("Invalid service type. Valid types are: svelte, tanstack, next, vue")
 			return
 		}
 		if serviceType == "vue" || serviceType == "next" {
-			cmd.Println("Vue and Next clients are not implemented yet. Please use 'svelte' for now.")
+			cmd.Println("Vue and Next clients are not implemented yet. Please use 'svelte' or 'tanstack' for now.")
 			return
 		}
 
-		// Ensure gofast.json includes the svelte service on port 3000
-		if serviceType == "svelte" {
-			hasSvelte := false
-			for _, svc := range con.Services {
-				if svc.Name == "svelte" {
-					hasSvelte = true
-					break
-				}
+		targetPort := "3000"
+		if serviceType == "tanstack" {
+			targetPort = "3010"
+		}
+		if config.HasService(serviceType) {
+			label := "Svelte"
+			if serviceType == "tanstack" {
+				label = "TanStack"
 			}
-			if !hasSvelte {
-				con.Services = append(con.Services, config.Service{Name: "svelte", Port: "3000"})
-				data, jerr := json.MarshalIndent(con, "", "  ")
-				if jerr != nil {
-					cmd.Printf("Error serializing config with svelte service: %v\n", jerr)
-				} else if werr := os.WriteFile(config.ConfigFileName, data, 0644); werr != nil {
-					cmd.Printf("Error writing %s: %v\n", config.ConfigFileName, werr)
-				}
-			} else {
-				cmd.Println("Svelte service already exists.")
-				return
-			}
+			cmd.Printf("%s service already exists.\n", label)
+			return
+		}
+		con.Services = append(con.Services, config.Service{Name: serviceType, Port: targetPort})
+		data, jErr := json.MarshalIndent(con, "", "  ")
+		if jErr != nil {
+			cmd.Printf("Error serializing config with %s service: %v\n", serviceType, jErr)
+			return
+		}
+		if wErr := os.WriteFile(config.ConfigFileName, data, 0644); wErr != nil {
+			cmd.Printf("Error writing %s: %v\n", config.ConfigFileName, wErr)
+			return
 		}
 
-		// Prepare a temp workspace and download the template repo into it
 		tmpDir, err := os.MkdirTemp("", "gofast-app-*")
 		if err != nil {
 			cmd.Printf("Error creating temp directory: %v\n", err)
@@ -84,7 +85,6 @@ var clientCmd = &cobra.Command{
 		}
 		defer func() { _ = os.RemoveAll(tmpDir) }()
 
-		// Work within the temp directory
 		cwd, err := os.Getwd()
 		if err != nil {
 			cmd.Printf("Error getting working directory: %v\n", err)
@@ -96,16 +96,18 @@ var clientCmd = &cobra.Command{
 		}
 		defer func() { _ = os.Chdir(cwd) }()
 
-		// Download the full repo into the temp dir (no removal of client here)
 		srcRepoName := "gofast-app-src"
 		if err := repo.DownloadRepo(email, apiKey, srcRepoName); err != nil {
 			cmd.Printf("Error downloading repository to temp directory: %v\n", err)
 			return
 		}
 
-		// Ensure the client compose file is present and matches the project name.
-		projClientCompose := filepath.Join(cwd, "docker-compose.client.yml")
-		srcClientCompose := filepath.Join(tmpDir, srcRepoName, "docker-compose.client.yml")
+		composeFileName := "docker-compose.client.yml"
+		if serviceType == "tanstack" {
+			composeFileName = "docker-compose.tanstack.yml"
+		}
+		projClientCompose := filepath.Join(cwd, composeFileName)
+		srcClientCompose := filepath.Join(tmpDir, srcRepoName, composeFileName)
 		if err := copyFile(srcClientCompose, projClientCompose); err != nil {
 			cmd.Printf("Error copying %s: %v\n", projClientCompose, err)
 			return
@@ -121,19 +123,22 @@ var clientCmd = &cobra.Command{
 			return
 		}
 
-		// Determine source client folder based on requested type
 		var srcClientPath string
 		switch serviceType {
 		case "svelte":
 			srcClientPath = filepath.Join(tmpDir, srcRepoName, "app", "service-client")
+		case "tanstack":
+			srcClientPath = filepath.Join(tmpDir, srcRepoName, "app", "service-tanstack")
 		case "next":
 			srcClientPath = filepath.Join(tmpDir, srcRepoName, "app", "service-next")
 		case "vue":
 			srcClientPath = filepath.Join(tmpDir, srcRepoName, "app", "service-vue")
 		}
 
-		// Destination is always app/service-client inside the project
 		dstClientPath := filepath.Join(cwd, "app", "service-client")
+		if serviceType == "tanstack" {
+			dstClientPath = filepath.Join(cwd, "app", "service-tanstack")
+		}
 
 		if _, err := os.Stat(srcClientPath); err != nil {
 			cmd.Printf("Source client folder not found in template: %v\n", err)
@@ -145,13 +150,10 @@ var clientCmd = &cobra.Command{
 				return
 			}
 		}
-		// Ensure destination parent exists
 		if err := os.MkdirAll(filepath.Dir(dstClientPath), 0o755); err != nil {
 			cmd.Printf("Error creating destination directory: %v\n", err)
 			return
 		}
-
-		// Try moving first. If cross-device rename fails, fall back to copy.
 		if err := os.Rename(srcClientPath, dstClientPath); err != nil {
 			if copyErr := copyDir(srcClientPath, dstClientPath); copyErr != nil {
 				cmd.Printf("Error copying client folder: %v (original move error: %v)\n", copyErr, err)
@@ -159,69 +161,91 @@ var clientCmd = &cobra.Command{
 			}
 		}
 
-		// Strip integration-related content from client if not enabled
-		// Note: Use con.Integrations directly since we're in tmpDir and can't read gofast.json
 		enabledIntegrations := make(map[string]bool)
 		for _, integration := range con.Integrations {
 			enabledIntegrations[integration] = true
 		}
 
-		if !enabledIntegrations["stripe"] {
-			if err := integrations.StripeStripClient(dstClientPath); err != nil {
-				cmd.Printf("Error stripping stripe from client: %v\n", err)
-				return
-			}
-		}
-		if !enabledIntegrations["r2"] {
-			if err := integrations.R2StripClient(dstClientPath); err != nil {
-				cmd.Printf("Error stripping r2 from client: %v\n", err)
-				return
-			}
-		}
-		if !enabledIntegrations["postmark"] {
-			if err := integrations.PostmarkStripClient(dstClientPath); err != nil {
-				cmd.Printf("Error stripping postmark from client: %v\n", err)
-				return
-			}
-		}
-
-		// Copy e2e folder and strip integration-specific tests
-		srcE2E := filepath.Join(tmpDir, srcRepoName, "e2e")
-		dstE2E := filepath.Join(cwd, "e2e")
-		if _, err := os.Stat(srcE2E); err == nil {
-			if err := copyDir(srcE2E, dstE2E); err != nil {
-				cmd.Printf("Error copying e2e folder: %v\n", err)
-				return
-			}
-			// Strip integration-specific e2e tests
+		if serviceType == "svelte" {
 			if !enabledIntegrations["stripe"] {
-				if err := integrations.StripeStripE2E(dstE2E); err != nil {
-					cmd.Printf("Error stripping stripe from e2e: %v\n", err)
+				if err := integrations.StripeStripClient(dstClientPath); err != nil {
+					cmd.Printf("Error stripping stripe from client: %v\n", err)
 					return
 				}
 			}
 			if !enabledIntegrations["r2"] {
-				if err := integrations.R2StripE2E(dstE2E); err != nil {
-					cmd.Printf("Error stripping r2 from e2e: %v\n", err)
+				if err := integrations.R2StripClient(dstClientPath); err != nil {
+					cmd.Printf("Error stripping r2 from client: %v\n", err)
 					return
 				}
 			}
 			if !enabledIntegrations["postmark"] {
-				if err := integrations.PostmarkStripE2E(dstE2E); err != nil {
-					cmd.Printf("Error stripping postmark from e2e: %v\n", err)
+				if err := integrations.PostmarkStripClient(dstClientPath); err != nil {
+					cmd.Printf("Error stripping postmark from client: %v\n", err)
+					return
+				}
+			}
+
+			srcE2E := filepath.Join(tmpDir, srcRepoName, "e2e")
+			dstE2E := filepath.Join(cwd, "e2e")
+			if _, err := os.Stat(srcE2E); err == nil {
+				if err := copyDir(srcE2E, dstE2E); err != nil {
+					cmd.Printf("Error copying e2e folder: %v\n", err)
+					return
+				}
+				if !enabledIntegrations["stripe"] {
+					if err := integrations.StripeStripE2E(dstE2E); err != nil {
+						cmd.Printf("Error stripping stripe from e2e: %v\n", err)
+						return
+					}
+				}
+				if !enabledIntegrations["r2"] {
+					if err := integrations.R2StripE2E(dstE2E); err != nil {
+						cmd.Printf("Error stripping r2 from e2e: %v\n", err)
+						return
+					}
+				}
+				if !enabledIntegrations["postmark"] {
+					if err := integrations.PostmarkStripE2E(dstE2E); err != nil {
+						cmd.Printf("Error stripping postmark from e2e: %v\n", err)
+						return
+					}
+				}
+			}
+		}
+
+		if serviceType == "tanstack" {
+			if !enabledIntegrations["stripe"] {
+				if err := integrations.StripeStripTanstackClient(dstClientPath); err != nil {
+					cmd.Printf("Error stripping stripe from tanstack client: %v\n", err)
+					return
+				}
+			}
+			if !enabledIntegrations["r2"] {
+				if err := integrations.R2StripTanstackClient(dstClientPath); err != nil {
+					cmd.Printf("Error stripping r2 from tanstack client: %v\n", err)
+					return
+				}
+			}
+			if !enabledIntegrations["postmark"] {
+				if err := integrations.PostmarkStripTanstackClient(dstClientPath); err != nil {
+					cmd.Printf("Error stripping postmark from tanstack client: %v\n", err)
 					return
 				}
 			}
 		}
 
-		// Change back to the original directory before generating svelte files.
 		if err := os.Chdir(cwd); err != nil {
 			cmd.Printf("Error changing back to original directory: %v\n", err)
 			return
 		}
 
 		cmd.Println("")
-		cmd.Println("Adding Svelte client service...")
+		if serviceType == "svelte" {
+			cmd.Println("Adding Svelte client service...")
+		} else {
+			cmd.Println("Adding TanStack client service...")
+		}
 
 		for _, m := range con.Models {
 			if m.Name == "skeleton" {
@@ -229,37 +253,52 @@ var clientCmd = &cobra.Command{
 			}
 
 			cmd.Printf("Generating pages for '%s'...\n", m.Name)
-
-			svelteColumns := make([]svelte.Column, len(m.Columns))
-			for i, col := range m.Columns {
-				svelteColumns[i] = svelte.Column{
-					Name: col.Name,
-					Type: col.Type,
+			if serviceType == "svelte" {
+				svelteColumns := make([]svelte.Column, len(m.Columns))
+				for i, col := range m.Columns {
+					svelteColumns[i] = svelte.Column{Name: col.Name, Type: col.Type}
+				}
+				if err := svelte.GenerateSvelteScaffolding(m.Name, svelteColumns); err != nil {
+					cmd.Printf("Error generating '%s' client pages: %v\n", m.Name, err)
+				}
+				if err := svelte.UpdateUserPermissions(m.Name); err != nil {
+					cmd.Printf("Error updating user permissions for '%s': %v\n", m.Name, err)
 				}
 			}
-
-			if err := svelte.GenerateSvelteScaffolding(m.Name, svelteColumns); err != nil {
-				cmd.Printf("Error generating '%s' client pages: %v\n", m.Name, err)
-			}
-
-			// Add permissions to user management page
-			if err := svelte.UpdateUserPermissions(m.Name); err != nil {
-				cmd.Printf("Error updating user permissions for '%s': %v\n", m.Name, err)
+			if serviceType == "tanstack" {
+				tanstackColumns := make([]tanstack.Column, len(m.Columns))
+				for i, col := range m.Columns {
+					tanstackColumns[i] = tanstack.Column{Name: col.Name, Type: col.Type}
+				}
+				if err := tanstack.GenerateTanstackScaffolding(m.Name, tanstackColumns); err != nil {
+					cmd.Printf("Error generating '%s' tanstack pages: %v\n", m.Name, err)
+				}
+				if err := tanstack.UpdateUserPermissions(m.Name); err != nil {
+					cmd.Printf("Error updating tanstack user permissions for '%s': %v\n", m.Name, err)
+				}
 			}
 		}
 
 		cmd.Println("")
-		cmd.Println(config.SuccessStyle.Render("Svelte client added successfully!"))
+		if serviceType == "svelte" {
+			cmd.Println(config.SuccessStyle.Render("Svelte client added successfully!"))
+		} else {
+			cmd.Println(config.SuccessStyle.Render("TanStack client added successfully!"))
+		}
 		cmd.Println("")
 
-		// Print routes to add to navigation
 		var routes []string
 		for _, m := range con.Models {
-			if m.Name != "skeleton" {
+			if m.Name == "skeleton" {
+				continue
+			}
+			if serviceType == "svelte" {
 				routes = append(routes, svelte.GetModelPath(m.Name))
 			}
+			if serviceType == "tanstack" {
+				routes = append(routes, tanstack.GetModelPath(m.Name))
+			}
 		}
-		// Add integration routes if enabled
 		if enabledIntegrations["stripe"] {
 			routes = append(routes, "/payments")
 		}
@@ -279,7 +318,12 @@ var clientCmd = &cobra.Command{
 
 		cmd.Println("Next steps:")
 		cmd.Printf("  1. Run %s to regenerate proto code\n", config.SuccessStyle.Render("'make gen'"))
-		cmd.Printf("  2. Run %s to launch your app with your new client service\n", config.SuccessStyle.Render("'make startc'"))
+		if serviceType == "svelte" {
+			cmd.Printf("  2. Run %s to launch your app with your new client service\n", config.SuccessStyle.Render("'make startc'"))
+		}
+		if serviceType == "tanstack" {
+			cmd.Printf("  2. Run %s to launch your app with your new client service\n", config.SuccessStyle.Render("'make startt'"))
+		}
 		cmd.Println("")
 	},
 }

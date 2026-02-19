@@ -46,6 +46,15 @@ func R2StripClient(clientPath string) error {
 	return nil
 }
 
+// R2StripTanstackClient removes R2-related content from the TanStack client.
+func R2StripTanstackClient(clientPath string) error {
+	filesPath := filepath.Join(clientPath, "src", "routes", "_layout", "files.tsx")
+	if err := os.Remove(filesPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("removing tanstack files route: %w", err)
+	}
+	return nil
+}
+
 // R2AddClient adds R2-related content to an existing Svelte client.
 // Called by 'gof add r2' when client already exists.
 func R2AddClient(tmpProject, clientPath string) error {
@@ -54,6 +63,16 @@ func R2AddClient(tmpProject, clientPath string) error {
 	dstFiles := filepath.Join(clientPath, "src", "routes", "(app)", "files")
 	if err := CopyDir(srcFiles, dstFiles); err != nil {
 		return fmt.Errorf("copying files folder: %w", err)
+	}
+	return nil
+}
+
+// R2AddTanstackClient adds R2-related content to an existing TanStack client.
+func R2AddTanstackClient(tmpProject, clientPath string) error {
+	srcFiles := filepath.Join(tmpProject, "app", "service-tanstack", "src", "routes", "_layout", "files.tsx")
+	dstFiles := filepath.Join(clientPath, "src", "routes", "_layout", "files.tsx")
+	if err := CopyFile(srcFiles, dstFiles); err != nil {
+		return fmt.Errorf("copying tanstack files route: %w", err)
 	}
 	return nil
 }
@@ -133,7 +152,7 @@ func R2Add(email, apiKey string) error {
 		return fmt.Errorf("copying files with FILE markers: %w", err)
 	}
 
-	// 6. Add client-side Files content if Svelte client is configured
+	// 6. Add client-side Files content for configured clients
 	if config.IsSvelte() {
 		clientPath := filepath.Join("app", "service-client")
 		if err := R2AddClient(tmpProject, clientPath); err != nil {
@@ -145,6 +164,12 @@ func R2Add(email, apiKey string) error {
 			if err := R2AddE2E(tmpProject, e2ePath); err != nil {
 				return fmt.Errorf("adding r2 e2e tests: %w", err)
 			}
+		}
+	}
+	if config.IsTanstack() {
+		clientPath := filepath.Join("app", "service-tanstack")
+		if err := R2AddTanstackClient(tmpProject, clientPath); err != nil {
+			return fmt.Errorf("adding files to tanstack client: %w", err)
 		}
 	}
 

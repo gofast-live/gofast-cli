@@ -11,6 +11,7 @@ import (
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/e2e"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/svelte"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/tanstack"
 	"github.com/spf13/cobra"
 )
 
@@ -250,6 +251,25 @@ Example:
 				return
 			}
 		}
+		if config.IsTanstack() {
+			tanstackColumns := make([]tanstack.Column, len(columns))
+			for i, col := range columns {
+				tanstackColumns[i] = tanstack.Column{
+					Name: col.Name,
+					Type: col.Type,
+				}
+			}
+			err = tanstack.GenerateTanstackScaffolding(modelName, tanstackColumns)
+			if err != nil {
+				cmd.Printf("Error generating TanStack client pages: %v.\n", err)
+				return
+			}
+			err = tanstack.UpdateUserPermissions(modelName)
+			if err != nil {
+				cmd.Printf("Error updating TanStack user permissions page: %v.\n", err)
+				return
+			}
+		}
 
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Model '" + modelName + "' created successfully!"))
@@ -269,6 +289,9 @@ Example:
 		if config.IsSvelte() {
 			cmd.Printf("  - Client:    %s\n", config.SuccessStyle.Render("app/service-client/src/routes/(app)/models/"+pluralizeClient.Plural(modelName)))
 		}
+		if config.IsTanstack() {
+			cmd.Printf("  - TanStack:  %s\n", config.SuccessStyle.Render("app/service-tanstack/src/routes/_layout/models/"+pluralizeClient.Plural(modelName)))
+		}
 		cmd.Println("")
 		cmd.Println("Next steps:")
 		cmd.Printf("  1. Run %s to regenerate SQL queries\n", config.SuccessStyle.Render("'make sql'"))
@@ -276,13 +299,18 @@ Example:
 		cmd.Printf("  3. Run %s to format generated code\n", config.SuccessStyle.Render("'make format'"))
 		cmd.Printf("  4. Run %s to apply migrations\n", config.SuccessStyle.Render("'make migrate'"))
 		cmd.Println("")
-		if config.IsSvelte() {
+		if config.IsSvelte() || config.IsTanstack() {
 			cmd.Printf("If you have existing users, update their permissions at %s\n", config.SuccessStyle.Render("/users"))
 			cmd.Println("")
 		}
 		if config.IsSvelte() {
 			cmd.Println("Add this route to your navigation:")
 			cmd.Printf("  %s\n", config.SuccessStyle.Render(svelte.GetModelPath(modelName)))
+			cmd.Println("")
+		}
+		if config.IsTanstack() {
+			cmd.Println("Add this route to your navigation:")
+			cmd.Printf("  %s\n", config.SuccessStyle.Render(tanstack.GetModelPath(modelName)))
 			cmd.Println("")
 		}
 	},

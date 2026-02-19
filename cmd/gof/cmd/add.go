@@ -76,7 +76,7 @@ After running this command:
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Stripe integration added successfully!"))
 		cmd.Println("")
-		if config.IsSvelte() {
+		if config.HasService("svelte") || config.HasService("tanstack") {
 			cmd.Println("Add this route to your navigation:")
 			cmd.Printf("  %s\n", config.SuccessStyle.Render("/payments"))
 			cmd.Println("")
@@ -151,7 +151,7 @@ After running this command:
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("R2 integration added successfully!"))
 		cmd.Println("")
-		if config.IsSvelte() {
+		if config.HasService("svelte") || config.HasService("tanstack") {
 			cmd.Println("Add this route to your navigation:")
 			cmd.Printf("  %s\n", config.SuccessStyle.Render("/files"))
 			cmd.Println("")
@@ -226,7 +226,7 @@ After running this command:
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Postmark integration added successfully!"))
 		cmd.Println("")
-		if config.IsSvelte() {
+		if config.HasService("svelte") || config.HasService("tanstack") {
 			cmd.Println("Add this route to your navigation:")
 			cmd.Printf("  %s\n", config.SuccessStyle.Render("/emails"))
 			cmd.Println("")
