@@ -122,7 +122,7 @@ export const state = {
 		const parts = ['Go', 'ConnectRPC'];
 		if (completed.has('client')) parts.push('Svelte');
 		if (completed.has('stripe')) parts.push('Stripe');
-		if (completed.has('r2')) parts.push('R2');
+		if (completed.has('s3')) parts.push('S3');
 		if (completed.has('postmark')) parts.push('Postmark');
 		if (completed.has('infra')) parts.push('K8s');
 		return parts.join(' + ');

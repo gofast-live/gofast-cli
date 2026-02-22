@@ -136,21 +136,6 @@ export const commands = [
                     ]
                 }
             },
-            {
-                text: 'GitHub Actions CI/CD',
-                details: {
-                    files: [
-                        '.github/workflows/build.yml',
-                        '.github/workflows/deploy.yml',
-                        '.github/workflows/pr-deploy.yml'
-                    ],
-                    features: [
-                        'Docker build & push to GHCR',
-                        'PR preview environments',
-                        'Migration pipeline'
-                    ]
-                }
-            }
         ],
         contextOutputs: []
     },
@@ -333,12 +318,12 @@ export const commands = [
                 }
             },
             {
-                text: 'Cloudflare Workers ready',
+                text: 'Docker container ready',
                 details: {
-                    files: ['wrangler.toml', 'svelte.config.js'],
+                    files: ['Dockerfile', 'svelte.config.js'],
                     features: [
-                        'Edge deployment adapter',
-                        'Node.js adapter fallback',
+                        'Node.js adapter',
+                        'Multi-stage Docker build',
                         'PR preview environments'
                     ]
                 }
@@ -365,8 +350,8 @@ export const commands = [
             },
             {
                 text: 'File manager',
-                showIf: (s) => s.has('r2'),
-                dependency: 'R2 Storage',
+                showIf: (s) => s.has('s3'),
+                dependency: 'S3 Storage',
                 details: {
                     files: ['src/routes/(app)/files/+page.svelte'],
                     features: ['Upload with progress', 'File listing', 'Download/delete actions']
@@ -456,15 +441,15 @@ export const commands = [
         ]
     },
     {
-        id: 'r2',
-        label: 'cloudflare r2',
-        command: () => 'gof add r2',
+        id: 's3',
+        label: 's3',
+        command: () => 'gof add s3',
         description: 'Adding file storage...',
         baseOutputs: [
             {
                 text: 'File domain service',
                 details: {
-                    files: ['domain/file/service.go', 'domain/file/r2.go'],
+                    files: ['domain/file/service.go', 'domain/file/s3.go'],
                     features: [
                         'S3-compatible API client',
                         'Presigned URL generation',
@@ -521,7 +506,7 @@ export const commands = [
                 dependency: 'Infrastructure',
                 details: {
                     files: ['infra/integrations.tf'],
-                    features: ['R2 credentials injection', 'Bucket name config']
+                    features: ['S3 credentials injection', 'Bucket name config']
                 }
             }
         ]
@@ -638,13 +623,11 @@ export const commands = [
                 details: {
                     files: [
                         'infra/setup_rke2.sh',
-                        'infra/setup_gh.sh',
-                        'infra/setup_cloudflare.sh'
+                        'infra/setup_app.sh'
                     ],
                     features: [
                         'RKE2 cluster bootstrap',
-                        'GitHub secrets/variables sync',
-                        'Cloudflare DNS + Workers'
+                        'App deployment setup'
                     ]
                 }
             },
@@ -654,16 +637,31 @@ export const commands = [
                     files: ['infra/cron-delete-tokens.tf'],
                     features: ['Expired token cleanup', 'Authenticated cron endpoint']
                 }
+            },
+            {
+                text: 'GitHub Actions CI/CD',
+                details: {
+                    files: [
+                        '.github/workflows/build.yml',
+                        '.github/workflows/deploy.yml',
+                        '.github/workflows/pr-deploy.yml'
+                    ],
+                    features: [
+                        'Docker build & push to GHCR',
+                        'PR preview environments',
+                        'Migration pipeline'
+                    ]
+                }
             }
         ],
         contextOutputs: [
             {
-                text: 'Client Workers deployment',
+                text: 'Client container deployment',
                 showIf: (s) => s.has('client'),
                 dependency: 'Frontend',
                 details: {
-                    files: ['wrangler.toml'],
-                    features: ['Cloudflare Workers edge hosting', 'PR preview environments']
+                    files: ['infra/service-client.tf'],
+                    features: ['In-cluster Node.js hosting', 'PR preview environments']
                 }
             },
             {
@@ -676,9 +674,9 @@ export const commands = [
                 }
             },
             {
-                text: 'R2 credentials',
-                showIf: (s) => s.has('r2'),
-                dependency: 'R2 Storage',
+                text: 'S3 credentials',
+                showIf: (s) => s.has('s3'),
+                dependency: 'S3 Storage',
                 details: {
                     files: ['infra/integrations.tf'],
                     features: ['Access key + secret', 'Endpoint + bucket config']

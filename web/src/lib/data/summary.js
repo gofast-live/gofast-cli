@@ -76,8 +76,8 @@ export const wallSections = [
                 items: () => [{ text: 'Subscriptions table', source: 'stripe' }]
             },
             {
-                showIf: (s) => s.has('r2'),
-                items: () => [{ text: 'Files table', source: 'r2' }]
+                showIf: (s) => s.has('s3'),
+                items: () => [{ text: 'Files table', source: 's3' }]
             },
             {
                 showIf: (s) => s.has('postmark'),
@@ -111,18 +111,16 @@ export const wallSections = [
         items: [
             'Dockerfile (multi-stage)',
             'docker-compose.yml',
-            'Makefile commands',
-            '.github/workflows/build.yml',
-            '.github/workflows/deploy.yml',
-            '.github/workflows/pr-deploy.yml'
+            'Makefile commands'
         ],
         dynamicItems: [
             {
                 showIf: (s) => s.has('infra'),
                 items: () => [
+                    { text: 'GitHub Actions CI/CD', source: 'infra' },
                     { text: 'Terraform K8s configs', source: 'infra' },
                     { text: 'CloudNativePG setup', source: 'infra' },
-                    { text: 'Setup scripts (rke2, gh, cloudflare)', source: 'infra' }
+                    { text: 'Setup scripts (rke2, app)', source: 'infra' }
                 ]
             },
             {
@@ -153,8 +151,8 @@ export const wallSections = [
                 items: () => [{ text: 'Billing UI', source: 'stripe' }]
             },
             {
-                showIf: (s) => s.has('r2'),
-                items: () => [{ text: 'File manager', source: 'r2' }]
+                showIf: (s) => s.has('s3'),
+                items: () => [{ text: 'File manager', source: 's3' }]
             },
             {
                 showIf: (s) => s.has('postmark'),
@@ -175,9 +173,9 @@ export const wallSections = [
         ]
     },
     {
-        category: 'File Storage (R2)',
-        showIf: (s) => s.has('r2'),
-        source: 'r2',
+        category: 'File Storage (S3)',
+        showIf: (s) => s.has('s3'),
+        source: 's3',
         items: [
             'S3-compatible client',
             'Presigned URLs',
@@ -231,7 +229,7 @@ export const sourceLabels = {
     model: 'model',
     client: 'client',
     stripe: 'stripe',
-    r2: 'r2',
+    s3: 's3',
     postmark: 'postmark',
     infra: 'infra',
     mon: 'mon'
@@ -243,7 +241,7 @@ export const sourceColors = {
     model: 'bg-purple-500/20 text-purple-400',
     client: 'bg-orange-500/20 text-orange-400',
     stripe: 'bg-violet-500/20 text-violet-400',
-    r2: 'bg-amber-500/20 text-amber-400',
+    s3: 'bg-amber-500/20 text-amber-400',
     postmark: 'bg-rose-500/20 text-rose-400',
     infra: 'bg-emerald-500/20 text-emerald-400',
     mon: 'bg-cyan-500/20 text-cyan-400'

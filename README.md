@@ -20,7 +20,7 @@ The v2 CLI generates full-stack Go applications with:
 - PostgreSQL database with SQLC
 - OAuth authentication (GitHub, Google, Phone)
 - Optional Svelte frontend
-- Optional integrations (Stripe, R2, Postmark)
+- Optional integrations (Stripe, S3, Postmark)
 
 Visit [gofast.live](https://gofast.live) for more details and features.
 
@@ -74,7 +74,7 @@ make start
 | `gof model <name> [cols...]` | Generate CRUD model |
 | `gof client svelte` | Add Svelte frontend |
 | `gof add stripe` | Add Stripe payments |
-| `gof add r2` | Add Cloudflare R2 storage |
+| `gof add s3` | Add S3 file storage |
 | `gof add postmark` | Add Postmark email |
 | `gof infra` | Add local monitoring stack + Terraform deployment/monitoring |
 | `gof version` | Show CLI version |

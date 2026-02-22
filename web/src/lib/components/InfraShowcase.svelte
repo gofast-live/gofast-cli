@@ -47,12 +47,8 @@
             desc: "K8s cluster bootstrap"
         },
         {
-            name: "./setup_gh.sh",
-            desc: "GitHub secrets & variables"
-        },
-        {
-            name: "./setup_cloudflare.sh",
-            desc: "DNS + Workers config"
+            name: "./setup_app.sh",
+            desc: "App deployment setup"
         }
     ];
 </script>
