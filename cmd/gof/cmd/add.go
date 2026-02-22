@@ -12,14 +12,14 @@ import (
 func init() {
 	rootCmd.AddCommand(addCmd)
 	addCmd.AddCommand(addStripeCmd)
-	addCmd.AddCommand(addR2Cmd)
+	addCmd.AddCommand(addS3Cmd)
 	addCmd.AddCommand(addPostmarkCmd)
 }
 
 var addCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add optional features to the project",
-	Long:  "Add optional features like Stripe payments, R2 file storage, or Postmark email to an existing GoFast project.",
+	Long:  "Add optional features like Stripe payments, S3 file storage, or Postmark email to an existing GoFast project.",
 }
 
 var addStripeCmd = &cobra.Command{
@@ -98,10 +98,11 @@ After running this command:
 	},
 }
 
-var addR2Cmd = &cobra.Command{
-	Use:   "r2",
-	Short: "Add Cloudflare R2 file storage integration",
-	Long: `Add Cloudflare R2 file storage integration to your GoFast project.
+var addS3Cmd = &cobra.Command{
+	Use:   "s3",
+	Short: "Add S3 file storage integration",
+	Long: `Add S3 file storage integration to your GoFast project.
+Works with any S3-compatible provider (AWS S3, Cloudflare R2, MinIO, etc.).
 
 This command adds:
 - File domain service (upload, download, delete)
@@ -113,7 +114,7 @@ After running this command:
 1. Run 'make gen' to regenerate proto code
 2. Run 'make sql' to regenerate SQL queries
 3. Run 'make migrate' to create the files table
-4. Configure R2 environment variables in your .env file
+4. Configure S3 environment variables in your .env file
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		email, apiKey, err := auth.CheckAuthentication()
@@ -129,10 +130,10 @@ After running this command:
 		}
 
 		cmd.Println("")
-		cmd.Println("Adding Cloudflare R2 file storage integration...")
+		cmd.Println("Adding S3 file storage integration...")
 
-		if err := integrations.R2Add(email, apiKey); err != nil {
-			cmd.Printf("Error adding R2: %v\n", err)
+		if err := integrations.S3Add(email, apiKey); err != nil {
+			cmd.Printf("Error adding S3: %v\n", err)
 			return
 		}
 
@@ -143,13 +144,13 @@ After running this command:
 			cmd.Printf("Warning: go fmt failed: %v\nOutput: %s\n", err, output)
 		}
 
-		if err := config.AddIntegration("r2"); err != nil {
+		if err := config.AddIntegration("s3"); err != nil {
 			cmd.Printf("Error updating config: %v\n", err)
 			return
 		}
 
 		cmd.Println("")
-		cmd.Println(config.SuccessStyle.Render("R2 integration added successfully!"))
+		cmd.Println(config.SuccessStyle.Render("S3 integration added successfully!"))
 		cmd.Println("")
 		if config.IsSvelte() {
 			cmd.Println("Add this route to your navigation:")
@@ -162,13 +163,13 @@ After running this command:
 		cmd.Printf("  3. Run %s to format generated code\n", config.SuccessStyle.Render("'make format'"))
 		cmd.Printf("  4. Run %s to apply migrations\n", config.SuccessStyle.Render("'make migrate'"))
 		cmd.Println("  5. Add environment variables to docker-compose.yml:")
-		cmd.Println("     - R2_ACCESS_KEY_ID")
-		cmd.Println("     - R2_SECRET_ACCESS_KEY")
-		cmd.Println("     - R2_ENDPOINT")
+		cmd.Println("     - S3_ACCESS_KEY_ID")
+		cmd.Println("     - S3_SECRET_ACCESS_KEY")
+		cmd.Println("     - S3_ENDPOINT")
 		cmd.Println("     - BUCKET_NAME")
 		cmd.Println("  6. Add to GitHub secrets/variables:")
-		cmd.Println("     Secrets: R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY")
-		cmd.Println("     Variables: R2_ENDPOINT, BUCKET_NAME")
+		cmd.Println("     Secrets: S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY")
+		cmd.Println("     Variables: S3_ENDPOINT, BUCKET_NAME")
 		cmd.Println("")
 	},
 }

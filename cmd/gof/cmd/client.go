@@ -172,9 +172,9 @@ var clientCmd = &cobra.Command{
 				return
 			}
 		}
-		if !enabledIntegrations["r2"] {
-			if err := integrations.R2StripClient(dstClientPath); err != nil {
-				cmd.Printf("Error stripping r2 from client: %v\n", err)
+		if !enabledIntegrations["s3"] {
+			if err := integrations.S3StripClient(dstClientPath); err != nil {
+				cmd.Printf("Error stripping s3 from client: %v\n", err)
 				return
 			}
 		}
@@ -200,9 +200,9 @@ var clientCmd = &cobra.Command{
 					return
 				}
 			}
-			if !enabledIntegrations["r2"] {
-				if err := integrations.R2StripE2E(dstE2E); err != nil {
-					cmd.Printf("Error stripping r2 from e2e: %v\n", err)
+			if !enabledIntegrations["s3"] {
+				if err := integrations.S3StripE2E(dstE2E); err != nil {
+					cmd.Printf("Error stripping s3 from e2e: %v\n", err)
 					return
 				}
 			}
@@ -263,7 +263,7 @@ var clientCmd = &cobra.Command{
 		if enabledIntegrations["stripe"] {
 			routes = append(routes, "/payments")
 		}
-		if enabledIntegrations["r2"] {
+		if enabledIntegrations["s3"] {
 			routes = append(routes, "/files")
 		}
 		if enabledIntegrations["postmark"] {

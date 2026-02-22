@@ -98,13 +98,16 @@ var initCmd = &cobra.Command{
 		if err := os.RemoveAll(filepath.Join(projectName, "e2e")); err != nil {
 			cmd.Printf("Warning: could not remove e2e folder: %v\n", err)
 		}
+		if err := os.RemoveAll(filepath.Join(projectName, ".github")); err != nil {
+			cmd.Printf("Warning: could not remove .github folder: %v\n", err)
+		}
 		// Strip optional integrations - user can add them back with 'gof add <integration>'
 		if err := integrations.StripeStrip(projectName); err != nil {
 			cmd.Printf("Error stripping stripe: %v\n", err)
 			return
 		}
-		if err := integrations.R2Strip(projectName); err != nil {
-			cmd.Printf("Error stripping r2: %v\n", err)
+		if err := integrations.S3Strip(projectName); err != nil {
+			cmd.Printf("Error stripping s3: %v\n", err)
 			return
 		}
 		if err := integrations.PostmarkStrip(projectName); err != nil {

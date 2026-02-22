@@ -80,6 +80,16 @@ var infraCmd = &cobra.Command{
 			}
 		}
 
+		// Copy GitHub Actions workflows
+		srcGithubDir := filepath.Join(srcRoot, ".github")
+		dstGithubDir := filepath.Join(cwd, ".github")
+		if _, err := os.Stat(dstGithubDir); err == nil {
+			cmd.Printf("Directory '%s' already exists. Skipping copy.\n", dstGithubDir)
+		} else if err := copyDir(srcGithubDir, dstGithubDir); err != nil {
+			cmd.Printf("Error copying .github directory: %v\n", err)
+			return
+		}
+
 		err = os.Chdir(cwd)
 		if err != nil {
 			cmd.Printf("Error returning to project directory: %v\n", err)
@@ -100,7 +110,7 @@ var infraCmd = &cobra.Command{
 		cmd.Println("Next steps:")
 		cmd.Printf("  1. Run %s\n", config.SuccessStyle.Render("'cd infra && cp .env.example .env'"))
 		cmd.Println("  2. Update infra/.env with your server details")
-		cmd.Println("  3. Review and run the setup scripts (setup_rke2.sh, setup_gh.sh, setup_cloudflare.sh)")
+		cmd.Println("  3. Review and run the setup scripts (setup_rke2.sh, setup_app.sh)")
 		cmd.Println("")
 		cmd.Printf("See %s for the full workflow.\n", config.SuccessStyle.Render("'infra/README.md'"))
 		cmd.Println("")

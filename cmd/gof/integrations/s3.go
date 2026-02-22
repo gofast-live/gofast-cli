@@ -9,9 +9,9 @@ import (
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
 )
 
-// R2Strip removes all R2/files-related code from a freshly initialized project.
+// S3Strip removes all S3/files-related code from a freshly initialized project.
 // Called by init command after downloading the template.
-func R2Strip(projectPath string) error {
+func S3Strip(projectPath string) error {
 	// 1. Remove file domain folder
 	if err := os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "domain", "file")); err != nil {
 		return fmt.Errorf("removing file domain: %w", err)
@@ -35,9 +35,9 @@ func R2Strip(projectPath string) error {
 	return nil
 }
 
-// R2StripClient removes R2-related content from the Svelte client.
+// S3StripClient removes S3-related content from the Svelte client.
 // Called by 'gof client svelte' command after copying the client folder.
-func R2StripClient(clientPath string) error {
+func S3StripClient(clientPath string) error {
 	// Remove files route folder
 	filesPath := filepath.Join(clientPath, "src", "routes", "(app)", "files")
 	if err := os.RemoveAll(filesPath); err != nil && !os.IsNotExist(err) {
@@ -46,9 +46,9 @@ func R2StripClient(clientPath string) error {
 	return nil
 }
 
-// R2AddClient adds R2-related content to an existing Svelte client.
-// Called by 'gof add r2' when client already exists.
-func R2AddClient(tmpProject, clientPath string) error {
+// S3AddClient adds S3-related content to an existing Svelte client.
+// Called by 'gof add s3' when client already exists.
+func S3AddClient(tmpProject, clientPath string) error {
 	// Copy files route folder
 	srcFiles := filepath.Join(tmpProject, "app", "service-client", "src", "routes", "(app)", "files")
 	dstFiles := filepath.Join(clientPath, "src", "routes", "(app)", "files")
@@ -58,18 +58,18 @@ func R2AddClient(tmpProject, clientPath string) error {
 	return nil
 }
 
-// R2StripE2E removes R2-related e2e tests.
-// Called by 'gof client svelte' when r2 is not enabled.
-func R2StripE2E(e2ePath string) error {
+// S3StripE2E removes S3-related e2e tests.
+// Called by 'gof client svelte' when s3 is not enabled.
+func S3StripE2E(e2ePath string) error {
 	if err := os.Remove(filepath.Join(e2ePath, "files.test.ts")); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("removing files.test.ts: %w", err)
 	}
 	return nil
 }
 
-// R2AddE2E adds R2-related e2e tests.
-// Called by 'gof add r2' when client exists.
-func R2AddE2E(tmpProject, e2ePath string) error {
+// S3AddE2E adds S3-related e2e tests.
+// Called by 'gof add s3' when client exists.
+func S3AddE2E(tmpProject, e2ePath string) error {
 	src := filepath.Join(tmpProject, "e2e", "files.test.ts")
 	dst := filepath.Join(e2ePath, "files.test.ts")
 	if err := CopyFile(src, dst); err != nil {
@@ -78,9 +78,9 @@ func R2AddE2E(tmpProject, e2ePath string) error {
 	return nil
 }
 
-// R2Add adds Cloudflare R2 file storage integration to an existing project.
-// Called by 'gof add r2' command.
-func R2Add(email, apiKey string) error {
+// S3Add adds S3 file storage integration to an existing project.
+// Called by 'gof add s3' command.
+func S3Add(email, apiKey string) error {
 	// 1. Download template to temp location
 	tmpDir, err := os.MkdirTemp("", "gofast-files-*")
 	if err != nil {
@@ -136,14 +136,14 @@ func R2Add(email, apiKey string) error {
 	// 6. Add client-side Files content if Svelte client is configured
 	if config.IsSvelte() {
 		clientPath := filepath.Join("app", "service-client")
-		if err := R2AddClient(tmpProject, clientPath); err != nil {
+		if err := S3AddClient(tmpProject, clientPath); err != nil {
 			return fmt.Errorf("adding files to client: %w", err)
 		}
 		// Add e2e tests if e2e folder exists
 		e2ePath := "e2e"
 		if _, err := os.Stat(e2ePath); err == nil {
-			if err := R2AddE2E(tmpProject, e2ePath); err != nil {
-				return fmt.Errorf("adding r2 e2e tests: %w", err)
+			if err := S3AddE2E(tmpProject, e2ePath); err != nil {
+				return fmt.Errorf("adding s3 e2e tests: %w", err)
 			}
 		}
 	}

@@ -251,7 +251,7 @@ func ComputeUserAccess(numModels int) int64 {
 	}
 
 	// Integration flags (8 total) always come after model flags
-	// Stripe(2) + R2/Files(4) + Postmark/Email(2) = 8
+	// Stripe(2) + S3/Files(4) + Postmark/Email(2) = 8
 	integrationStartBit := startBit + modelBits
 	for i := 0; i < 8; i++ {
 		access |= 1 << (integrationStartBit + i)
