@@ -252,7 +252,7 @@
             </div>
 
             <!-- Setup Scripts -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
                 {#each setupScripts as script, i}
                     <div
                         class="bg-surface/50 border border-border rounded-xl p-4 text-left hover:border-primary/30 transition-colors {!hasInfra
