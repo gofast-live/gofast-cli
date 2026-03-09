@@ -137,24 +137,6 @@ var clientCmd = &cobra.Command{
 				cmd.Printf("Error copying e2e folder: %v\n", err)
 				return
 			}
-			if !enabledIntegrations["stripe"] {
-				if err := integrations.StripeStripE2E(dstE2E); err != nil {
-					cmd.Printf("Error stripping stripe from e2e: %v\n", err)
-					return
-				}
-			}
-			if !enabledIntegrations["s3"] {
-				if err := integrations.S3StripE2E(dstE2E); err != nil {
-					cmd.Printf("Error stripping s3 from e2e: %v\n", err)
-					return
-				}
-			}
-			if !enabledIntegrations["postmark"] {
-				if err := integrations.PostmarkStripE2E(dstE2E); err != nil {
-					cmd.Printf("Error stripping postmark from e2e: %v\n", err)
-					return
-				}
-			}
 		}
 
 		if err := os.Chdir(cwd); err != nil {
