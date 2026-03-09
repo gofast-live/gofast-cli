@@ -17,6 +17,21 @@ func init() {
 	addCmd.AddCommand(addPostmarkCmd)
 }
 
+func formatEnabledClients() error {
+	cfg, err := config.ParseConfig()
+	if err != nil {
+		return err
+	}
+
+	for _, client := range clients.Enabled(cfg) {
+		if err := formatClientProject(client.Name); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 var addCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add optional features to the project",
@@ -71,6 +86,10 @@ After running this command:
 
 		if err := config.AddIntegration("stripe"); err != nil {
 			cmd.Printf("Error updating config: %v\n", err)
+			return
+		}
+		if err := formatEnabledClients(); err != nil {
+			cmd.Printf("Error formatting client after Stripe add: %v\n", err)
 			return
 		}
 
@@ -149,6 +168,10 @@ After running this command:
 			cmd.Printf("Error updating config: %v\n", err)
 			return
 		}
+		if err := formatEnabledClients(); err != nil {
+			cmd.Printf("Error formatting client after S3 add: %v\n", err)
+			return
+		}
 
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("S3 integration added successfully!"))
@@ -222,6 +245,10 @@ After running this command:
 
 		if err := config.AddIntegration("postmark"); err != nil {
 			cmd.Printf("Error updating config: %v\n", err)
+			return
+		}
+		if err := formatEnabledClients(); err != nil {
+			cmd.Printf("Error formatting client after Postmark add: %v\n", err)
 			return
 		}
 

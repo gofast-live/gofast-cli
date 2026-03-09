@@ -22,7 +22,8 @@ func GetModelPath(modelName string) string {
 }
 
 func FormatProject() error {
-	cmd := "cd ./app/service-tanstack && npm ci && npm run format"
+	// vite build refreshes routeTree.gen.ts from the current file routes.
+	cmd := "cd ./app/service-tanstack && npm ci && npm run build && npm run format"
 	execCmd := exec.Command("bash", "-c", cmd)
 	out, err := execCmd.CombinedOutput()
 	if err != nil {
