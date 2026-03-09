@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/gertd/go-pluralize"
@@ -53,99 +52,6 @@ func toPascalCase(s string) string {
 		b.WriteString(strings.ToUpper(p[:1]) + p[1:])
 	}
 	return b.String()
-}
-
-// UpdateUserPermissions adds new model permissions to the user management page
-// (users/[user_id]/+page.svelte) by inserting entries before the GF_PERMISSIONS_END marker.
-func UpdateUserPermissions(modelName string) error {
-	path := "./app/service-svelte/src/routes/(app)/users/[user_id]/+page.svelte"
-	contentBytes, err := os.ReadFile(path)
-	if err != nil {
-		// User management page doesn't exist, skip silently
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("reading user details page: %w", err)
-	}
-	content := string(contentBytes)
-
-	// Build permission names
-	modelCap := toPascalCase(modelName)
-	modelPlural := pluralizeClient.Plural(modelName)
-	modelPluralCap := toPascalCase(modelPlural)
-
-	// Check if already present
-	if strings.Contains(content, "Get"+modelPluralCap) {
-		return nil
-	}
-
-	const marker = "// GF_PERMISSIONS_END"
-	e := strings.Index(content, marker)
-	if e == -1 {
-		return nil
-	}
-
-	// Find the last bit number by scanning backwards from the marker
-	// Look for the last "bit: N" pattern before the marker
-	beforeMarker := content[:e]
-	lastBit := -1
-	for i := len(beforeMarker) - 1; i >= 0; i-- {
-		if i >= 4 && beforeMarker[i-4:i+1] == "bit: " {
-			// Found "bit: ", now extract the number
-			numStart := i + 1
-			numEnd := numStart
-			for numEnd < len(beforeMarker) && beforeMarker[numEnd] >= '0' && beforeMarker[numEnd] <= '9' {
-				numEnd++
-			}
-			if numEnd > numStart {
-				if n, err := strconv.Atoi(beforeMarker[numStart:numEnd]); err == nil && n > lastBit {
-					lastBit = n
-				}
-			}
-			break
-		}
-	}
-
-	if lastBit == -1 {
-		return fmt.Errorf("could not find last bit number in permissions array")
-	}
-
-	// Build the new permissions entries
-	nextBit := lastBit + 1
-	newPerms := fmt.Sprintf(`        { name: "Get%[1]s", bit: %[3]d },
-        { name: "Create%[2]s", bit: %[4]d },
-        { name: "Edit%[2]s", bit: %[5]d },
-        { name: "Remove%[2]s", bit: %[6]d }
-`, modelPluralCap, modelCap, nextBit, nextBit+1, nextBit+2, nextBit+3)
-
-	// Find the last permission entry line and ensure it has a trailing comma
-	markerLineStart := strings.LastIndex(content[:e], "\n") + 1
-
-	// Find the previous non-empty line (which should be the last permission entry)
-	prevLineEnd := markerLineStart - 1
-	for prevLineEnd > 0 && content[prevLineEnd-1] == '\n' {
-		prevLineEnd--
-	}
-	prevLineStart := strings.LastIndex(content[:prevLineEnd], "\n") + 1
-	prevLine := content[prevLineStart:prevLineEnd]
-	trimmedPrev := strings.TrimSpace(prevLine)
-
-	// If the previous line ends with "}" but no comma, add the comma
-	if strings.HasSuffix(trimmedPrev, "}") && !strings.HasSuffix(trimmedPrev, "},") {
-		// Find the position of the closing brace and add comma after it
-		bracePos := prevLineStart + strings.LastIndex(prevLine, "}")
-		content = content[:bracePos+1] + "," + content[bracePos+1:]
-		// Update marker position since we added a character
-		markerLineStart++
-	}
-
-	// Insert the new permissions before the marker
-	content = content[:markerLineStart] + newPerms + content[markerLineStart:]
-
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		return fmt.Errorf("writing user details page: %w", err)
-	}
-	return nil
 }
 
 func GenerateSvelteScaffolding(modelName string, columns []Column) error {

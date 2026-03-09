@@ -96,6 +96,25 @@ cd /home/mat/projects/gofast-cli
 rm -rf demo
 TEST=true go run ./cmd/gof/... init demo
 cd demo
+
+# 1.5. For local testing, switch buf.gen.yaml to local plugins
+# Replace remote plugins with local ones before running `make gen`
+# Use this shape:
+# version: v2
+# plugins:
+#   - local: protoc-gen-go
+#     out: app/gen
+#     opt: paths=source_relative
+#   - local: protoc-gen-connect-go
+#     out: app/gen
+#     opt: paths=source_relative
+#   - local: protoc-gen-es
+#     out: app/service-svelte/src/lib/gen
+#     opt: target=ts
+#   - local: protoc-gen-es
+#     out: app/service-tanstack/src/lib/gen
+#     opt: target=ts
+
 # ... add models/integrations/client as needed ...
 
 # 2. Quick verification (no secrets needed)
@@ -610,7 +629,6 @@ e2e.UpdateSeedDevUser() error
 
 // Svelte
 svelte.GenerateSvelteScaffolding(modelName string, columns []config.Column) error
-svelte.UpdateUserPermissions(modelName string) error
 
 // TanStack
 tanstack.GenerateTanstackScaffolding(modelName string, columns []config.Column) error
@@ -635,6 +653,23 @@ TEST=true go run ./cmd/gof/... <command> <args>
 rm -rf demo
 TEST=true go run ./cmd/gof/... init demo
 cd demo
+
+# Before `make gen`, edit buf.gen.yaml to use local plugins:
+# version: v2
+# plugins:
+#   - local: protoc-gen-go
+#     out: app/gen
+#     opt: paths=source_relative
+#   - local: protoc-gen-connect-go
+#     out: app/gen
+#     opt: paths=source_relative
+#   - local: protoc-gen-es
+#     out: app/service-svelte/src/lib/gen
+#     opt: target=ts
+#   - local: protoc-gen-es
+#     out: app/service-tanstack/src/lib/gen
+#     opt: target=ts
+
 TEST=true go run ../cmd/gof/... client svelte
 # or: TEST=true go run ../cmd/gof/... client tanstack
 TEST=true go run ../cmd/gof/... add stripe
