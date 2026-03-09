@@ -1,23 +1,54 @@
-# GoFast CLI (`gof`) - Context Document
+# GoFast CLI (`gof`) Context
 
-## Overview
+## Metadata
+- Domain: `gof` CLI - Go application code generator
+- Primary audience: LLM agents working on CLI development
+- Last updated: 2026-03-09
+- Status: Active
+- Stability note: Sections marked `[STABLE]` should change rarely. Sections marked `[VOLATILE]` are expected to change often.
 
-The `gof` CLI is a code generation tool that builds Go applications like Lego bricks. It generates a full-stack application with:
-- Go backend with ConnectRPC transport
-- PostgreSQL database with SQLC
-- OAuth authentication
-- Optional Svelte frontend client
+---
 
-The CLI uses a **skeleton-based code generation** approach - it copies template files and performs smart token replacements and dynamic content generation.
+## 0. Context Maintenance Protocol (LLM-First) [STABLE]
 
-## Source of Truth: `../gofast-app`
+This file is the primary working context for the `gof` CLI tool.
 
-**IMPORTANT:** The `gofast-app` repository (located at `../gofast-app` relative to this CLI) is the **single source of truth** for all templates and integrations. When investigating issues or understanding how generated code should look:
+- LLM agents should treat this as a living document and update it whenever meaningful behavior changes.
+- If code and this file diverge, prefer updating this file quickly so future work stays reliable.
+- Temporary or branch-specific behavior should be documented here with clear cleanup notes.
 
-1. **Check `../gofast-app` first** - it contains the complete application with all integrations enabled
-2. **Template files live there** - domain services, transport handlers, configs, migrations, etc.
-3. **Integration markers** (`GF_STRIPE_START/END`, `GF_EMAIL_START/END`, `GF_FILE_START/END`) wrap optional code
-4. **Use `TEST=true`** when running CLI commands locally - this copies from `../gofast-app` instead of downloading
+### Quick update checklist
+- Refresh `Last updated` date
+- Review `Current Work` and `Future Work`
+- Validate `Critical Invariants`
+- Update marker references if any markers renamed or added
+- Remove obsolete notes
+
+### Freshness target
+- Re-review this file regularly (every 2 weeks) to prevent context drift.
+
+---
+
+## 1. Summary [STABLE]
+
+The `gof` CLI is a code generation tool that builds full-stack Go applications like Lego bricks. It generates a production-ready application with Go backend (ConnectRPC), PostgreSQL (SQLC), OAuth auth, optional Svelte or TanStack frontend, and optional integrations (Stripe, S3, Postmark).
+
+The CLI uses **skeleton-based code generation**: it copies template files from a reference repository and performs token replacements plus marker-based dynamic content injection.
+
+- **Primary entry points:** `cmd/gof/main.go` -> `cmd/gof/cmd/root.go` (Cobra commands)
+- **Main responsibilities:** Project scaffolding, CRUD model generation, integration wiring, client scaffolding, infra/monitoring setup
+- **Highest-risk areas:** Test generation (`model_test_gen.go`), marker-based code injection, permission bitmask computation
+
+---
+
+## Source of Truth: `../gofast-app` [STABLE]
+
+**CRITICAL:** The `gofast-app` repository (at `../gofast-app` relative to this CLI) is the **single source of truth** for all templates and integrations.
+
+1. **Check `../gofast-app` first** when investigating issues or understanding generated code
+2. **Skeleton templates live there** - `domain/skeleton/`, `transport/skeleton/`, `e2e/skeletons.test.ts`
+3. **Integration markers** (`GF_STRIPE_START/END`, `GF_FILE_START/END`, `GF_EMAIL_START/END`) wrap optional code
+4. **Use `TEST=true`** when running CLI commands locally - copies from `../gofast-app` instead of downloading
 
 ```bash
 # Local development - uses ../gofast-app as source
@@ -25,404 +56,39 @@ TEST=true go run ./cmd/gof/... init demo
 TEST=true go run ../cmd/gof/... add stripe   # from inside demo/
 ```
 
-## Project Structure
-
-```
-cmd/gof/
-├── main.go              # Entry point, calls cmd.Execute()
-├── cmd/                 # Cobra commands
-│   ├── root.go          # Root command
-│   ├── init.go          # Project initialization
-│   ├── add.go           # Add integrations (stripe, r2, postmark)
-│   ├── model.go         # Model generation orchestration
-│   ├── model_db.go      # Proto, schema, SQL query generation
-│   ├── model_service.go # Domain service layer generation
-│   ├── model_test_gen.go # Test fixture generation
-│   ├── model_transport.go # ConnectRPC transport generation
-│   ├── client.go        # Client service setup
-│   ├── auth.go          # Auth command
-│   ├── infra.go         # Infrastructure files
-│   └── version.go       # Version display
-├── integrations/        # Optional integration handlers
-│   ├── integrations.go  # Shared helpers (strip, copy, migrate, nav)
-│   ├── stripe.go        # Stripe payment integration
-│   ├── r2.go            # Cloudflare R2 file storage
-│   └── postmark.go      # Postmark email integration
-├── config/config.go     # gofast.json configuration management
-├── repo/repo.go         # Template repository download
-├── svelte/svelte.go     # Svelte client page generation
-├── auth/                # Authentication TUI (Bubble Tea)
-│   ├── auth.go
-│   ├── bubble.go
-│   └── config.go
-└── build.sh             # Build script
-```
-
-## CLI Commands
-
-### `gof init [project_name]`
-Sets up a new Go project with:
-- Docker Compose (PostgreSQL, services)
-- OAuth authentication
-- Base project structure
-- Git repository with initial commit
-
-**Prerequisites:** buf, goose, sqlc, docker, docker-compose, gh (for repo creation)
-
-**Creates:** `gofast.json` config file with project metadata
-
-**Output:** Prints `gh repo create` command for easy GitHub repo setup
-
-### `gof model [name] [columns...]`
-Generates a complete CRUD model with all layers.
-
-**Syntax:** `gof model note title:string views:number published_at:date is_active:bool`
-
-**Model name rules:**
-- Must be lowercase letters and underscores only (e.g., `user_profile`, `event_log`)
-- Must be singular - plural names are rejected with a suggestion (e.g., `trucks` → use `truck`)
-- Underscores are converted to CamelCase for Go types (e.g., `event_log` → `EventLog`)
-
-**Column name rules:**
-- Must be lowercase letters, numbers, and underscores (e.g., `view_count`, `is_active2`)
-- Reserved names rejected: `id`, `user_id`, `created`, `updated` (auto-generated)
-- Go keywords rejected: `type`, `func`, `var`, `package`, `map`, `chan`, etc.
-
-**Column types:**
-| Type | SQL | Proto | Go | Validation |
-|------|-----|-------|-----|------------|
-| string | text | string | string | required, minlength(3) |
-| number | numeric | string | string | must parse, >= 1 |
-| date | timestamptz | string | time.Time | valid date format |
-| bool | boolean | bool | bool | none |
-
-**Generates:**
-1. **Database layer:** Proto definitions, SQL migrations, SQLC queries
-2. **Service layer:** Domain service with validation logic
-3. **Transport layer:** ConnectRPC handlers
-4. **Tests:** Service tests, transport tests, validation tests
-5. **Client (if Svelte):** List page, detail/create page, navigation entry
-
-### `gof client svelte`
-Adds a Svelte frontend client service:
-- Copies template from downloaded repo
-- Updates docker-compose
-- Generates CRUD pages for all existing models
-
-### `gof infra`
-Adds infrastructure/deployment files:
-- `docker-compose.monitoring.yml` - Local monitoring stack
-- `infra/` folder - Terraform configs, setup scripts, PR environment manifests
-- `monitoring/` folder - Grafana/Alloy configs
-- Marks project as `infraPopulated: true` in config
-
-**Setup scripts:** `setup_rke2.sh`, `setup_gh.sh`, `setup_cloudflare.sh`
-
-### `gof add <integration>`
-Adds optional integrations to the project. Available integrations:
-
-**`gof add stripe`** - Stripe payment integration:
-- Payment domain service (checkout, portal, webhook handling)
-- Subscriptions database migration
-- Full subscription-based access control
-
-**`gof add r2`** - Cloudflare R2 file storage:
-- File domain service (upload, download, delete via S3 API)
-- Files database migration
-- File management UI (if client enabled)
-
-**`gof add postmark`** - Postmark email integration:
-- Email domain service (send emails with attachments)
-- Emails database migration
-- Email management UI (if client enabled)
-
-**See:** [Integration Marker System](#integration-marker-system) for how this works.
-
-## Integration Marker System
-
-The CLI uses a **marker-based integration system** for optional features like Stripe payments. This allows clean addition/removal of integrations without hardcoded string replacements.
-
-### How It Works
-
-1. **Reference repo (`gofast-app`) contains ALL integrations** with code wrapped in markers:
-   ```go
-   // GF_STRIPE_START
-   // ... stripe-specific code ...
-   // GF_STRIPE_END
-   ```
-
-2. **`gofast.json` tracks enabled integrations:**
-   ```json
-   {
-     "projectName": "myapp",
-     "integrations": ["stripe"],
-     ...
-   }
-   ```
-
-3. **On `gof init`:**
-   - Copy full template from `gofast-app`
-   - Read `integrations` from config (empty by default)
-   - Strip ALL marker blocks for integrations NOT in the list
-   - Result: clean project without optional features
-
-4. **On `gof add <integration>`:**
-   - Add integration name to `gofast.json`
-   - Copy relevant files from template (domain/, transport/, migrations)
-   - Copy files that have markers, strip only OTHER integrations' markers
-   - Result: integration code is present with its markers intact
-
-### Marker Naming Convention
-
-Each integration has its own marker prefix (singular form):
-- Stripe: `GF_STRIPE_START` / `GF_STRIPE_END`
-- Files: `GF_FILE_START` / `GF_FILE_END`
-- Email: `GF_EMAIL_START` / `GF_EMAIL_END`
-
-### Files with Integration Markers
-
-Markers exist in these locations:
-- `app/service-core/main.go` - imports, deps, route mounting
-- `app/service-core/config/config.go` - integration-specific config fields
-- `app/service-core/storage/query.sql` - integration queries
-- `app/service-core/storage/migrations/` - integration tables
-- `proto/v1/main.proto` - service definitions
-
-For Stripe specifically:
-- `app/service-core/domain/login/service.go` - `CheckUserAccess()` function
-
-### Benefits
-
-- **Single source of truth:** All code lives in `gofast-app` with markers
-- **Config-driven:** `gofast.json` determines what's included
-- **Composable:** Multiple integrations can coexist (stripe + analytics)
-- **Maintainable:** No hardcoded string replacements, just marker stripping
-- **Future-proof:** Adding new integrations = adding new markers
-
-### Implementation
-
-```go
-// Strip integrations not in the enabled list
-func StripIntegrations(projectPath string, enabledIntegrations []string) error {
-    // Walk all files
-    // For each GF_*_START marker, extract integration name
-    // If integration not in enabledIntegrations, remove the block
-}
-```
-
-## How Code Generation Works
-
-### Skeleton-Based Generation
-
-1. **Source templates** live in skeleton directories:
-   - `app/service-core/domain/skeleton/` - Service layer
-   - `app/service-core/transport/skeleton/` - Transport layer
-   - `app/service-client/src/routes/(app)/models/skeletons/` - Svelte pages
-
-2. **Token replacement:**
-   - `skeleton` → model name (lowercase)
-   - `Skeleton` → Model name (capitalized)
-   - `skeletons` → pluralized
-   - `Skeletons` → pluralized + capitalized
-
-3. **Dynamic content generation** for tests and validation using markers like:
-   ```go
-   // GF_FIXTURES_START
-   // generated code
-   // GF_FIXTURES_END
-   ```
-
-### Wiring Injection
-
-The CLI uses **marker-based injection** to wire new models into existing code:
-
-**In `app/service-core/transport/server.go`:**
-- `GF_TP_IMPORT_SERVICES_START/END` - Service imports
-- `GF_TP_HANDLER_FIELDS_START/END` - Handler struct fields
-- `GF_TP_ROUTES_START/END` - Route registration
-
-**In `app/service-core/main.go`:**
-- `GF_MAIN_INIT_SERVICES_START/END` - Service instantiation
-- `GF_MAIN_HANDLER_ARGS_START/END` - Handler constructor args
-
-**In `app/pkg/auth/auth.go`:**
-- `GF_ACCESS_FLAGS_START/END` - Permission flags
-- `GF_USER_ACCESS_START/END` - User access bitmask
-
-## Test Generation
-
-Tests are generated for Go only (client-side test generation dropped due to complexity).
-
-### Service Tests (`model_test_gen.go`)
-Generates in `app/service-core/domain/{model}/{model}_test.go`:
-- `makeQuery{Model}(i, userID)` - Factory with dynamic fields
-- `makeInsert{Model}Params(userID)` - Insert params builder
-- `makeCreate{Model}Req()` - Proto request fixtures
-- Zero/invalid variants for validation testing
-
-### Transport Tests
-Generates in `app/service-core/transport/{model}/route_test.go`:
-- Request fixtures based on column types
-- Validation test cases
-
-### Validation Tests
-Generates comprehensive table-driven tests:
-- String: required, minlength
-- Number: parse validation, >= 1
-- Date: format validation
-- UUID: for edit operations
-
-## Configuration
-
-**`gofast.json`** - Project configuration file:
-```json
-{
-  "projectName": "myapp",
-  "services": [
-    {"name": "service-core", "port": 8080},
-    {"name": "service-client", "port": 3000}
-  ],
-  "models": [
-    {
-      "name": "note",
-      "columns": [
-        {"name": "title", "type": "string"},
-        {"name": "content", "type": "string"}
-      ]
-    }
-  ],
-  "integrations": ["stripe"],
-  "infraPopulated": false
-}
-```
-
-**Note:** `integrations` is empty by default. Each `gof add <integration>` command adds to this list.
-
-## Demo Project
-
-The `demo` project contains **output generated by the CLI**. It gets recreated each time the CLI changes to verify what we're producing.
-
-Use it to:
-1. See what the CLI currently generates
-2. Inspect generated code for debugging
-3. Regenerate after CLI changes to verify output
-
-### Regenerating Demo
-
-```bash
-rm -rf demo
-TEST=true go run ./cmd/gof/... init demo
-```
-
-The `TEST=true` env var makes the CLI copy from local `../gofast-app` instead of downloading from the network.
-
-### Adding a Model
-
-From inside the demo directory:
-```bash
-cd demo
-TEST=true go run ../cmd/gof/... model note title:string content:string views:number published:date active:bool
-```
-
-### Testing Generated Code
-
-**Important:** Tests require PostgreSQL to be running via Docker Compose.
-
-```bash
-# Start PostgreSQL first
-cd demo && docker compose up postgres -d
-
-# Apply migrations for new models (init applies base migrations automatically)
-goose -dir app/service-core/storage/migrations postgres "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" up
-
-# Run tests
-cd demo/app/service-core && go test -race ./...
-
-# Stop PostgreSQL when done
-cd demo && docker compose stop
-```
-
-### Resetting the Database
-
-If you have stale schema from previous test runs, reset the database:
-
-```bash
-cd demo
-docker compose down -v   # Remove container AND volume (clears all data)
-docker compose up postgres -d
-sleep 2  # Wait for postgres to start
-goose -dir app/service-core/storage/migrations postgres "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" up
-```
-
-## Makefile Commands
-
-Generated projects use Makefile commands instead of shell scripts:
-
-| Command | Description |
-|---------|-------------|
-| `make start` | Start services with Docker Compose |
-| `make startc` | Start with client service |
-| `make keys` | Generate public/private keys |
-| `make sql` | Regenerate SQLC queries |
-| `make gen` | Regenerate proto/buf code |
-| `make migrate` | Apply database migrations |
-
-## Design Considerations
-
-**Scalability of generation:**
-- `gof model` can have ANY combination of columns
-- Examples: 5 dates + 6 bools, all strings, mixed types, etc.
-- Generation logic must handle all combinations cleanly
-
-**Test generation complexity:**
-- Go tests are being generated (service, transport, validation)
-- If test generation becomes too complicated to maintain, **drop it**
-- Client-side tests already dropped for this reason
-- Keep it simple - if it's too hard to generate reliably, it's not worth it
-
-## Key Files for Development
-
-| Purpose | File |
-|---------|------|
-| Model orchestration | `cmd/model.go` |
-| Test generation | `cmd/model_test_gen.go` |
-| Service generation | `cmd/model_service.go` |
-| Transport generation | `cmd/model_transport.go` |
-| Database/Proto | `cmd/model_db.go` |
-| Svelte pages | `svelte/svelte.go` |
-| Config management | `config/config.go` |
-| Integration helpers | `integrations/integrations.go` |
-| Stripe integration | `integrations/stripe.go` |
-| R2 integration | `integrations/r2.go` |
-| Postmark integration | `integrations/postmark.go` |
-
-## Gotchas
-
-**Proto → TypeScript field naming:**
-- Proto uses snake_case: `published_at`
-- Generated TypeScript uses camelCase: `publishedAt`
-- Svelte generation uses `toCamelCase()` for proto field access
-
-**Use config checks, not file existence:**
-- Use `config.IsSvelte()` not `os.Stat("app/service-client")`
-- Use `config.HasIntegration("stripe")` to check integrations
-- Config is the source of truth for what's enabled
-
-**Migration numbering:**
-- Always calculate next number dynamically from existing migrations
-- Never copy migrations with hardcoded numbers
-
-## Dependencies
-
-- **Cobra:** CLI framework
-- **Bubble Tea:** TUI for authentication
-- **go-pluralize:** Pluralization of model names
-
-## TEST FUCKING EVERYTHING :D
-
-Comprehensive testing of the CLI. Always include client - `run_tests.sh` covers Go build/lint/test + client lint/build + e2e tests.
-
-### How to Test
+### Key template locations in `../gofast-app`
+
+| Template | Path |
+|----------|------|
+| Service skeleton | `app/service-core/domain/skeleton/` (service.go, service_test.go, validation.go, validation_test.go) |
+| Transport skeleton | `app/service-core/transport/skeleton/` (route.go, route_test.go) |
+| E2E skeleton | `e2e/skeletons.test.ts` |
+| Proto skeleton | `proto/v1/skeleton.proto` |
+| Svelte skeleton | `app/service-svelte/src/routes/(app)/models/skeletons/` |
+| TanStack skeleton | `app/service-tanstack/src/routes/_layout/models/skeletons/` |
+| Main wiring | `app/service-core/main.go` (marker injection points) |
+| Auth permissions | `app/pkg/auth/auth.go` (permission flags) |
+
+---
+
+## Test Strategy [STABLE]
+
+### ALWAYS TEST EVERYTHING
+
+Testing is the most critical part of this CLI. Every change must be verified by generating a demo project and running its full test suite. Always include a client for full coverage.
+
+### Scope and intent
+- The CLI itself has no unit tests - it is tested by **generating projects and running their tests**
+- Generated projects include Go unit tests, integration tests, and Playwright e2e tests
+- CI runs `golangci-lint` on the CLI code itself (`.github/workflows/lint.yml`)
+
+### LLM default policy
+- On every code change, regenerate a demo project and verify Go builds + tests pass
+- For marker/injection changes, test multiple model type combinations
+- For integration changes, test with client enabled and disabled
+- If tests are deferred, document the gap explicitly
+
+### How to test
 
 ```bash
 # 1. Generate scenario (from gofast-cli root)
@@ -430,10 +96,16 @@ cd /home/mat/projects/gofast-cli
 rm -rf demo
 TEST=true go run ./cmd/gof/... init demo
 cd demo
-# ... add models/integrations/client ...
+# ... add models/integrations/client as needed ...
 
-# 2. Run full test suite (requires secrets - ask user for them)
-# Script is at scripts/run_tests.sh, run from demo directory
+# 2. Quick verification (no secrets needed)
+docker compose up postgres -d
+goose -dir app/service-core/storage/migrations postgres \
+  "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" up
+cd app/service-core && go test -race ./...
+
+# 3. Full test suite (requires secrets - ask user for them)
+# Run from demo directory
 CONTEXT=gofast-rc \
 GITHUB_CLIENT_ID=<ask_user> \
 GITHUB_CLIENT_SECRET=<ask_user> \
@@ -455,38 +127,43 @@ EMAIL_FROM=admin@gofast.live \
 POSTMARK_API_KEY=<ask_user> \
 bash scripts/run_tests.sh
 
-# 3. Check e2e results
+# 4. Check e2e results
 cat e2e/test-results/.last-run.json
 # Should show: {"status": "passed", "failedTests": []}
 ```
 
-### Test Scenarios
+### Resetting the database
 
-Each scenario should be tested fresh (rm -rf demo first). Always add client for full coverage.
+```bash
+cd demo
+docker compose down -v   # Remove container AND volume
+docker compose up postgres -d
+sleep 2
+goose -dir app/service-core/storage/migrations postgres \
+  "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" up
+```
+
+### Test scenarios
+
+Each scenario should be tested fresh (`rm -rf demo` first). Always add client for full coverage.
 
 **Model type variations:**
 ```bash
 # All strings
 TEST=true go run ../cmd/gof/... model article title:string body:string author:string
-
 # All numbers
 TEST=true go run ../cmd/gof/... model metric count:number value:number score:number
-
 # All dates
 TEST=true go run ../cmd/gof/... model event start:date end:date reminder:date
-
 # All bools
 TEST=true go run ../cmd/gof/... model settings dark_mode:bool notifications:bool auto_save:bool
-
-# Mixed (the classic)
+# Mixed (classic)
 TEST=true go run ../cmd/gof/... model post title:string views:number published_at:date is_active:bool
-
 # Single column each type
 TEST=true go run ../cmd/gof/... model tag name:string
 TEST=true go run ../cmd/gof/... model counter value:number
 TEST=true go run ../cmd/gof/... model deadline due:date
 TEST=true go run ../cmd/gof/... model toggle enabled:bool
-
 # Snake_case names
 TEST=true go run ../cmd/gof/... model user_profile display_name:string bio:string
 TEST=true go run ../cmd/gof/... model event_log event_type:string occurred_at:date
@@ -496,91 +173,534 @@ TEST=true go run ../cmd/gof/... model event_log event_type:string occurred_at:da
 ```bash
 # Individual
 TEST=true go run ../cmd/gof/... add stripe
-TEST=true go run ../cmd/gof/... add r2
+TEST=true go run ../cmd/gof/... add s3
 TEST=true go run ../cmd/gof/... add postmark
-
-# All together
-TEST=true go run ../cmd/gof/... add stripe
-TEST=true go run ../cmd/gof/... add r2
-TEST=true go run ../cmd/gof/... add postmark
-
-# Order variations (client before/after integrations)
-TEST=true go run ../cmd/gof/... client svelte
-TEST=true go run ../cmd/gof/... add postmark   # This was a bug!
+# All together (order matters - test different orders)
 ```
 
-**Client timing variations:**
+**Client timing variations (critical - order bugs are common):**
 ```bash
-# CLIENT AT START - client first, then models and integrations
-rm -rf demo
-TEST=true go run ./cmd/gof/... init demo
-cd demo
-TEST=true go run ../cmd/gof/... client svelte
-TEST=true go run ../cmd/gof/... add r2
-TEST=true go run ../cmd/gof/... add postmark
-TEST=true go run ../cmd/gof/... model note title:string content:string
-TEST=true go run ../cmd/gof/... model event start:date end:date
-TEST=true go run ../cmd/gof/... add stripe
-./run_tests.sh
+# CLIENT AT START
+gof client svelte|tanstack -> add integrations -> add models
 
-# CLIENT IN MIDDLE - some stuff, then client, then more stuff
-rm -rf demo
-TEST=true go run ./cmd/gof/... init demo
-cd demo
-TEST=true go run ../cmd/gof/... add r2
-TEST=true go run ../cmd/gof/... model note title:string content:string
-TEST=true go run ../cmd/gof/... client svelte
-TEST=true go run ../cmd/gof/... add postmark
-TEST=true go run ../cmd/gof/... add stripe
-TEST=true go run ../cmd/gof/... model task description:string due:date priority:number done:bool
-./run_tests.sh
+# CLIENT IN MIDDLE
+add some integrations/models -> gof client svelte|tanstack -> add more
 
-# CLIENT AT END - all models and integrations, then client last
-rm -rf demo
-TEST=true go run ./cmd/gof/... init demo
-cd demo
-TEST=true go run ../cmd/gof/... add r2
-TEST=true go run ../cmd/gof/... add postmark
-TEST=true go run ../cmd/gof/... add stripe
-TEST=true go run ../cmd/gof/... model article title:string body:string
-TEST=true go run ../cmd/gof/... model counter value:number
-TEST=true go run ../cmd/gof/... model deadline due:date
-TEST=true go run ../cmd/gof/... model toggle enabled:bool
-TEST=true go run ../cmd/gof/... client svelte
-./run_tests.sh
+# CLIENT AT END
+add all integrations/models -> gof client svelte|tanstack
 ```
 
-### Known Bug Patterns
+### Known bug patterns
+- formatDate function included when model has no date columns
+- Missing trailing comma in nav array when adding integrations
+- Icon imported but nav entry not added
+- Proto field names (snake_case vs camelCase in TypeScript)
+- Permission flags not updated for new models
 
-Things that have broken before:
-- [ ] formatDate function included when model has no date columns
-- [ ] Missing trailing comma in nav array when adding integrations
-- [ ] Icon imported but nav entry not added
-- [ ] Proto field names (snake_case vs camelCase in TypeScript)
-- [ ] Permission flags not updated for new models
+---
 
-## Infrastructure & Integrations
+## 2. Architecture [STABLE]
 
-**Approach: Static Configuration with Empty Defaults**
+### 2.1 Component map
 
-Infrastructure files in `gofast-app` come with **all integrations pre-configured**. Integration-specific variables default to empty strings, so users don't need to configure GitHub secrets/vars for integrations they don't use.
+```mermaid
+flowchart LR
+  subgraph CLI["gof CLI"]
+    CMD[Cobra Commands]
+    CFG[Config Manager]
+    INT[Integrations]
+    SVL[Svelte Generator]
+    E2E[E2E Generator]
+    AUTH[Auth TUI]
+    REPO[Repo Downloader]
+  end
 
-**Key Files:**
+  subgraph EXT["External"]
+    APP["../gofast-app<br/>(template repo)"]
+    ADMIN["admin.gofast.live<br/>(auth + download)"]
+  end
 
-- `infra/integrations.tf` - All integration-specific variables (with `default = ""`) and Kubernetes secrets in one place
-- `infra/variables.tf` - Base infrastructure variables only
-- `infra/secrets.tf` - Base secrets only (regcred, cron, e2e, r2-credentials for DB backups, google-oauth)
+  CMD --> CFG
+  CMD --> INT
+  CMD --> SVL
+  CMD --> E2E
+  CMD --> AUTH
+  CMD --> REPO
+  REPO --> APP
+  REPO --> ADMIN
+  AUTH --> ADMIN
+```
+
+### 2.2 Code generation flow (`gof model`)
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant M as model.go
+  participant DB as model_db.go
+  participant SVC as model_service.go
+  participant TST as model_test_gen.go
+  participant E as e2e.go
+  participant S as svelte.go
+
+  U->>M: gof model note title:string
+  M->>DB: generateProto() + generateSchema() + generateQueries()
+  M->>M: generateAuthAccessFlags() + wireCoreMain()
+  M->>SVC: generateServiceLayer() + generateTransportLayer()
+  M->>TST: generateServiceTestContent() + generateValidationTestContent()
+  M->>TST: generateTransportTestContent()
+  M->>E: GenerateClientE2ETest() + UpdateSeedDevUser()
+  M->>S: GenerateSvelteScaffolding() (if client enabled)
+```
+
+### 2.3 Integration addition flow (`gof add`)
+
+```mermaid
+flowchart TD
+  A[gof add stripe] --> B[Authenticate]
+  B --> C[Download template to tmpDir]
+  C --> D[Copy integration files<br/>domain, transport, migrations]
+  D --> E[Merge markers into main.go, config.go]
+  E --> F[Strip OTHER integrations' markers]
+  F --> G[Add client pages if Svelte enabled]
+  G --> H[Update gofast.json]
+```
+
+---
+
+## 3. File Tree (Curated) [STABLE]
+
+```text
+cmd/gof/
+├── main.go                    # Entry point -> cmd.Execute()
+├── build.sh                   # Cross-platform build (linux, darwin, windows)
+├── cmd/
+│   ├── root.go                # Root Cobra command
+│   ├── init.go                # gof init - project scaffolding
+│   ├── model.go               # gof model - CRUD generation orchestrator (560 lines)
+│   ├── model_db.go            # Proto, SQL migration, SQLC query generation
+│   ├── model_service.go       # Service + transport + validation generation
+│   ├── model_test_gen.go      # Test generation for service/transport/validation (542 lines)
+│   ├── add.go                 # gof add - integration dispatcher
+│   ├── client.go              # gof client - frontend scaffolding
+│   ├── infra.go               # gof infra - Terraform/deployment files
+│   ├── mon.go                 # gof mon - monitoring stack
+│   ├── auth.go                # gof auth - authentication
+│   └── version.go             # gof version
+├── config/
+│   └── config.go              # gofast.json management (v2.17.0)
+├── repo/
+│   └── repo.go                # Template repo download (admin.gofast.live)
+├── integrations/
+│   ├── integrations.go        # Core helpers: strip, copy, merge markers (548 lines)
+│   ├── stripe.go              # Stripe: strip, add, client, e2e
+│   ├── s3.go                  # S3: strip, add, client, e2e
+│   └── postmark.go            # Postmark: strip, add, client, e2e
+├── svelte/
+│   └── svelte.go              # Svelte page generation per model
+├── tanstack/
+│   └── tanstack.go            # TanStack page generation per model
+├── e2e/
+│   └── e2e.go                 # Playwright e2e test generation (294 lines)
+└── auth/
+    ├── auth.go                # Auth flow runner
+    ├── bubble.go              # Bubble Tea TUI components
+    └── config.go              # Auth config (token storage)
+```
+
+Related files outside `cmd/gof/`:
+- `go.mod` - Module: `github.com/gofast-live/gofast-cli/v2`, Go 1.25
+- `.github/workflows/lint.yml` - golangci-lint CI
+- `web/` - Marketing website (SvelteKit on Cloudflare Workers) - not part of CLI
+- `cmd/gofast/` - Legacy v1 CLI - ignore
+
+---
+
+## 4. Core Contracts [STABLE]
+
+### 4.1 CLI commands
+
+| Command | Purpose |
+|---------|---------|
+| `gof init <name>` | Scaffold new project |
+| `gof model <name> <col:type...>` | Generate CRUD model with all layers |
+| `gof client svelte` | Add Svelte frontend |
+| `gof client tanstack` | Add TanStack frontend |
+| `gof add stripe` | Add Stripe payments |
+| `gof add s3` | Add S3 file storage |
+| `gof add postmark` | Add Postmark email |
+| `gof infra` | Add Terraform/deployment files |
+| `gof mon` | Add monitoring stack (Grafana, Loki, Tempo, Prometheus) |
+| `gof auth` | Authenticate with GoFast |
+| `gof version` | Print version (v2.17.0) |
+
+**Prerequisites for `gof init`:** buf, sqlc, goose, docker, docker-compose
+
+### 4.2 Model generation contract
+
+**Syntax:** `gof model <name> <col1:type> <col2:type> ...`
+
+**Model name rules:**
+- Lowercase letters and underscores only (e.g., `user_profile`, `event_log`)
+- Must be singular - plural names rejected with suggestion (e.g., `trucks` -> use `truck`)
+- Minimum 2 columns required
+
+**Column name rules:**
+- Lowercase letters, numbers, underscores (e.g., `view_count`, `is_active2`)
+- Reserved names rejected: `id`, `user_id`, `created`, `updated` (auto-generated)
+- Go keywords rejected: `type`, `func`, `var`, `package`, `map`, `chan`, etc.
+
+**Column types:**
+
+| Type | SQL | Proto | Go | Validation |
+|------|-----|-------|-----|------------|
+| string | text | string | string | required, minlength(3) |
+| number | numeric | string | string | must parse float, >= 1 |
+| date | timestamptz | string | time.Time | valid date format (RFC3339 or YYYY-MM-DD) |
+| bool | boolean | bool | bool | none |
+
+**Generated artifacts per model:**
+1. `proto/v1/{name}.proto` + appends to `main.proto`
+2. `app/service-core/storage/migrations/{num}_create_{plural}.sql`
+3. Appends queries to `app/service-core/storage/query.sql`
+4. `app/service-core/domain/{pkgname}/` - service.go, validation.go, service_test.go, validation_test.go
+5. `app/service-core/transport/{pkgname}/` - route.go, route_test.go
+6. Wires into `app/service-core/main.go` (imports, deps, routes)
+7. Updates `app/pkg/auth/auth.go` (permission flags)
+8. Updates `scripts/seed_dev_user.sh` (permission bitmask)
+9. `e2e/{plural}.test.ts` (if e2e dir exists)
+10. Client pages for each configured frontend (Svelte and/or TanStack)
+
+### 4.3 Naming conversions
+
+| Input (snake_case) | Output | Used for |
+|---------------------|--------|----------|
+| `user_profile` | `UserProfile` (PascalCase) | Go types, proto messages |
+| `user_profile` | `userProfile` (camelCase) | Go variables, TS proto field access |
+| `user_profile` | `userprofile` | Go package/directory names |
+| `user_profile` | `user_profiles` (pluralized) | Table names, route paths, proto service |
+
+### 4.4 Configuration (`gofast.json`)
+
+```json
+{
+  "project_name": "myapp",
+  "services": [
+    {"name": "core", "port": "4000"},
+    {"name": "svelte", "port": "3000"},
+    {"name": "tanstack", "port": "3000"}
+  ],
+  "models": [
+    {
+      "name": "note",
+      "columns": [
+        {"name": "title", "type": "string"},
+        {"name": "content", "type": "string"}
+      ]
+    }
+  ],
+  "integrations": ["stripe", "s3"],
+  "infra_populated": true,
+  "monitoring_populated": false
+}
+```
+
+**Always use config checks, not file existence:**
+- `config.HasService("svelte")` / `config.HasService("tanstack")`, not `os.Stat(...)`
+- `config.HasIntegration("stripe")` to check integrations
+
+---
+
+## 5. Marker System [STABLE]
+
+### Integration markers
+
+Code in `../gofast-app` is wrapped with markers for optional features. On `gof init`, all integration markers are stripped. On `gof add`, the target integration's markers are kept and others stripped.
+
+**Go files:** `// GF_<INTEGRATION>_START` / `// GF_<INTEGRATION>_END`
+**SQL files:** `-- GF_<INTEGRATION>_START` / `-- GF_<INTEGRATION>_END`
+
+| Integration | Marker prefix |
+|-------------|---------------|
+| Stripe | `GF_STRIPE_` |
+| S3/Files | `GF_FILE_` |
+| Postmark/Email | `GF_EMAIL_` |
+
+**Files with integration markers:**
+- `app/service-core/main.go` - imports, deps, route mounting
+- `app/service-core/config/config.go` - integration-specific config fields
+- `app/service-core/storage/query.sql` - integration queries
+- `app/service-core/storage/migrations/` - integration tables
+- `proto/v1/main.proto` - service definitions
+- `app/service-core/domain/login/service.go` - `CheckUserAccess()` (Stripe-specific)
+
+### Model wiring markers (in generated project)
+
+**In `app/service-core/main.go`:**
+- `GF_MAIN_IMPORT_SERVICES_START/END` - Service imports
+- `GF_MAIN_IMPORT_ROUTES_START/END` - Route imports
+- `GF_MAIN_INIT_SERVICES_START/END` - Deps initialization
+- `GF_MAIN_MOUNT_ROUTES_START/END` - Route mounting
+
+**In `app/service-core/config/config.go`:**
+- `GF_CONFIG_STRUCT_INSERT` - Struct fields
+- `GF_CONFIG_INIT_INSERT` - Initialization code
+
+**In `app/pkg/auth/auth.go`:**
+- `GF_ACCESS_FLAGS_END` - Permission flag constants (insert before)
+- `GF_USER_ACCESS_END` - UserAccess bitmask entries (insert before)
+
+### Test generation markers (in skeleton templates)
+
+| Marker | Location | Purpose |
+|--------|----------|---------|
+| `GF_TP_TEST_ENTITY_FIELDS_START/END` | service_test.go, route_test.go | Database entity field assignments |
+| `GF_TP_TEST_CREATE_FIELDS_START/END` | service_test.go, route_test.go | Proto creation request fields |
+| `GF_TP_TEST_EDIT_FIELDS_START/END` | service_test.go, route_test.go | Proto edit request fields |
+| `GF_TP_TEST_INVALID_FIELDS_START/END` | service_test.go | Invalid proto fields for validation tests |
+| `GF_TP_TEST_EDIT_ASSERT_START/END` | route_test.go | Assertions after edit operations |
+| `GF_FIXTURES_START/END` | validation_test.go | Proto builder helper functions |
+| `GF_MODEL_CONFIG_START/END` | skeletons.test.ts | E2E test model config object |
+
+### How marker replacement works
+
+1. Read skeleton template file
+2. Check conditions (has date columns? has non-bool columns?)
+3. Build field-specific content per column type
+4. Replace each marker region using `replaceMarkerRegion()` - preserves indentation
+5. Strip marker lines themselves (clean output)
+6. Apply token replacement (`skeleton` -> model name, etc.)
+7. Write generated file
+
+---
+
+## 6. Test Generation Details [STABLE]
+
+### Permission bitmask system
+
+Uses bit-shifting (iota pattern) for per-model CRUD permissions:
+- Bits 0-1: Plan flags (Free, Pro)
+- Bits 2+: Model flags (4 per model: Get, Create, Edit, Remove)
+- Final 8 bits: Integration flags (Stripe, S3/Files, Postmark/Email)
+
+`e2e/e2e.go:ComputeUserAccess()` recalculates the dev user permission value dynamically.
+
+### Generated Go tests
+
+**Service tests** (`domain/{model}/service_test.go`):
+- Test environment with real PostgreSQL (testutil)
+- Tests per function: Unauthorized, Forbidden, Validation Error, Success
+- Factory helpers: `createTestSkeleton`, `contextWithUser`
+
+**Validation tests** (`domain/{model}/validation_test.go`):
+- Table-driven tests for both Create and Edit validation
+- Per-column: string (required, minlength), number (parse, gte), date (format)
+- Edit adds UUID validation cases
+- If all columns are bool, validation error test is removed
+
+**Transport tests** (`transport/{model}/route_test.go`):
+- HTTP server with mock auth interceptor
+- Tests: Create, GetByID, Edit, Remove, GetAll (streaming)
+- Uses ConnectRPC client for type-safe requests
+
+### Generated E2E tests (Playwright)
+
+`e2e/{plural}.test.ts`:
+- Create with field validation
+- List and verify created item
+- Edit and assert updated values
+- Delete and verify removal
+- Stream get-all endpoint
+
+### Smart conditional behavior
+
+- Removes `"time"` import if no date columns
+- Removes Create validation error test if only bool columns
+- Generates appropriate test values per column type
+- Handles `formatDate` inclusion only when date columns present (Svelte)
+
+---
+
+## 7. Telemetry and Observability [STABLE]
+
+- No telemetry in the CLI itself
+- Generated projects include OpenTelemetry tracing in service layer (via `ot.StartSpan`)
+- `gof mon` adds Grafana/Loki/Tempo/Prometheus monitoring stack
+- CI: golangci-lint on push/PR to main
+
+---
+
+## 8. Current Work [VOLATILE]
+
+- Active initiatives: None documented
+- Integration naming: `r2` was renamed to `s3` (more generic, works with any S3-compatible storage)
+
+---
+
+## 9. Future Work [VOLATILE]
+
+1. Additional client frameworks (Next.js, Vue - stubbed in client.go but not implemented)
+2. Additional integrations (new marker prefixes)
+3. Unit tests for the CLI itself (currently tested only via generated project verification)
+
+Known gaps:
+- No automated CI pipeline that generates a demo project and runs its tests
+- `scripts/run_tests.sh` referenced in CONTEXT but doesn't exist in CLI repo (lives in generated project)
+
+---
+
+## 10. Critical Invariants and Tricky Flows [STABLE]
+
+### 10.1 Security/scoping invariants
+- Authentication required for all commands that download templates (init, add, client, infra, mon)
+- `TEST=true` bypasses auth and uses local `../gofast-app` (development only)
+- Generated projects scope all queries by `user_id` - never expose other users' data
+
+### 10.2 Data integrity invariants
+- Migration numbering must be calculated dynamically from existing files - never hardcoded
+- `gofast.json` is the source of truth for enabled features, not file existence
+- Permission bitmask must be recalculated whenever models are added
+
+### 10.3 High-risk flows
+
+**Integration addition order:** Adding integrations before/after client affects different code paths. The `gof add` command checks configured frontend services to decide whether to also add client-side pages. If client is added after integration, `gof client` must handle already-enabled integrations.
+
+**Marker merging:** When adding an integration, the CLI copies files with markers from the template and merges marker blocks into existing project files (main.go, config.go). It must strip markers for OTHER integrations that aren't enabled, while keeping the target integration's markers.
+
+### 10.4 Easy-to-break gotchas
+- Proto uses snake_case (`published_at`), TypeScript uses camelCase (`publishedAt`) - Svelte generation must use `toCamelCase()`
+- Go package names strip underscores: `user_profile` -> package `userprofile`
+- Plural detection uses `go-pluralize` - some edge cases may not pluralize correctly
+- Adding client generates pages for ALL existing models in config, not just new ones
+- `model_test_gen.go` has multiple instances of the same marker (e.g., `GF_TP_TEST_CREATE_FIELDS` appears 3+ times in service_test.go) - `replaceMarkerRegion` must handle all occurrences
+
+---
+
+## 11. Quick Reference APIs [STABLE]
+
+```go
+// Config
+config.ParseConfig() (*Config, error)
+config.Initialize(projectName string) error
+config.AddModel(name string, columns []Column) error
+config.AddIntegration(name string) error
+config.HasService(name string) bool
+config.AddService(name, port string) error
+config.HasIntegration(name string) bool
+config.MarkInfraPopulated() error
+config.MarkMonitoringPopulated() error
+
+// Integrations
+integrations.StripIntegration(projectPath, integration string) error
+integrations.RemoveMarkerBlocks(content, startMarker, endMarker string) string
+integrations.CopyDir(src, dst string) error
+integrations.CopyFile(src, dst string) error
+integrations.GetNextMigrationNumber(migrationsDir string) (int, error)
+integrations.MergeMainGoMarkers(srcMain, dstMain, integration string) error
+integrations.MergeConfigMarkers(srcConfig, dstConfig, integration string) error
+integrations.StripOtherIntegrations(projectPath string, keep string) error
+
+// Repo
+repo.DownloadRepo(email, apiKey, projectName string) error
+
+// E2E
+e2e.GenerateClientE2ETest(modelName string, columns []config.Column) error
+e2e.ComputeUserAccess(numModels int) int
+e2e.UpdateSeedDevUser() error
+
+// Svelte
+svelte.GenerateSvelteScaffolding(modelName string, columns []config.Column) error
+svelte.UpdateUserPermissions(modelName string) error
+
+// TanStack
+tanstack.GenerateTanstackScaffolding(modelName string, columns []config.Column) error
+
+// Naming helpers (in model.go)
+toCamelCase(s string) string      // snake_case -> PascalCase
+toGoPackageName(s string) string  // snake_case -> lowercase (no underscores)
+toGoVarName(s string) string      // snake_case -> camelCase
+```
+
+---
+
+## 12. Runbook [VOLATILE]
+
+### 12.1 Local development
+
+```bash
+# Run any gof command locally
+TEST=true go run ./cmd/gof/... <command> <args>
+
+# Full regeneration test
+rm -rf demo
+TEST=true go run ./cmd/gof/... init demo
+cd demo
+TEST=true go run ../cmd/gof/... client svelte
+# or: TEST=true go run ../cmd/gof/... client tanstack
+TEST=true go run ../cmd/gof/... add stripe
+TEST=true go run ../cmd/gof/... add s3
+TEST=true go run ../cmd/gof/... add postmark
+TEST=true go run ../cmd/gof/... model note title:string content:string views:number published:date active:bool
+
+# Verify generated code compiles and tests pass
+docker compose up postgres -d
+goose -dir app/service-core/storage/migrations postgres \
+  "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" up
+cd app/service-core && go test -race ./...
+```
+
+### 12.2 Building release binaries
+
+```bash
+cd cmd/gof
+bash build.sh
+# Produces: gof-linux-amd64, gof-darwin-amd64, gof-windows-amd64.exe
+```
+
+### 12.3 Debugging checklist
+1. Check `gofast.json` - is the config state correct?
+2. Check `../gofast-app` - does the template have the expected markers/content?
+3. Check generated files in `demo/` - did token replacement work correctly?
+4. For test failures: check migration numbering, permission bitmask, import statements
+5. For integration issues: verify marker stripping left the right code in place
+
+### 12.4 Generated project Makefile commands
+
+| Command | Description |
+|---------|-------------|
+| `make start` | Start services with Docker Compose |
+| `make starts` | Start with the Svelte client |
+| `make startt` | Start with the TanStack client |
+| `make startm` | Start with monitoring stack |
+| `make keys` | Generate public/private keys |
+| `make sql` | Regenerate SQLC queries |
+| `make gen` | Regenerate proto/buf code |
+| `make migrate` | Apply database migrations |
+
+---
+
+## 13. Infrastructure [STABLE]
+
+**Approach: Static configuration with empty defaults.**
+
+Infrastructure files in `gofast-app` come with all integrations pre-configured. Integration-specific variables default to empty strings, so unused integrations don't break anything.
+
+**Key infra files:**
+- `infra/integrations.tf` - All integration variables (default = "")
+- `infra/variables.tf` - Base infrastructure variables
+- `infra/secrets.tf` - Base secrets (regcred, cron, e2e, google-oauth)
 - `infra/service-core.tf` - Deployment with all integration env vars pre-wired
 
-**Why No Dynamic Injection:**
+No dynamic injection for infra files - they're copied as-is from the template.
 
-1. Empty env vars don't break the app (integration code is stripped if not enabled)
-2. Simpler CLI - no marker-based injection for infra files
-3. Users can manually delete unused env blocks from `service-core.tf` if desired
-4. Single source of truth in `gofast-app`
+---
 
-**User Workflow:**
+## Dependencies [STABLE]
 
-1. Run `gof infra` - copies all infra files as-is
-2. Configure GitHub secrets/vars only for integrations they actually use
-3. Unused integration variables remain empty - no harm done
+| Package | Purpose |
+|---------|---------|
+| `github.com/spf13/cobra` v1.9.1 | CLI framework |
+| `github.com/charmbracelet/bubbletea` v0.26.6 | Terminal UI for auth |
+| `github.com/charmbracelet/bubbles` v0.18.0 | TUI components |
+| `github.com/charmbracelet/lipgloss` v0.12.1 | Terminal styling |
+| `github.com/gertd/go-pluralize` v0.2.1 | Model name pluralization |

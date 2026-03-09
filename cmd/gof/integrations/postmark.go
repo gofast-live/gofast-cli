@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/clients"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
 )
@@ -35,27 +36,14 @@ func PostmarkStrip(projectPath string) error {
 	return nil
 }
 
-// PostmarkStripClient removes Postmark-related content from the Svelte client.
-// Called by 'gof client svelte' command after copying the client folder.
-func PostmarkStripClient(clientPath string) error {
-	// Remove emails route folder
-	emailsPath := filepath.Join(clientPath, "src", "routes", "(app)", "emails")
-	if err := os.RemoveAll(emailsPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("removing emails folder: %w", err)
-	}
-	return nil
+// PostmarkStripClient removes Postmark-related content from a generated client.
+func PostmarkStripClient(clientType, clientPath string) error {
+	return StripClientIntegration(clientType, clientPath, "postmark")
 }
 
-// PostmarkAddClient adds Postmark-related content to an existing Svelte client.
-// Called by 'gof add postmark' when client already exists.
-func PostmarkAddClient(tmpProject, clientPath string) error {
-	// Copy emails route folder
-	srcEmails := filepath.Join(tmpProject, "app", "service-client", "src", "routes", "(app)", "emails")
-	dstEmails := filepath.Join(clientPath, "src", "routes", "(app)", "emails")
-	if err := CopyDir(srcEmails, dstEmails); err != nil {
-		return fmt.Errorf("copying emails folder: %w", err)
-	}
-	return nil
+// PostmarkAddClient adds Postmark-related content to an existing client.
+func PostmarkAddClient(tmpProject, clientType, clientPath string) error {
+	return AddClientIntegration(tmpProject, clientType, clientPath, "postmark")
 }
 
 // PostmarkStripE2E removes Postmark-related e2e tests.
@@ -133,13 +121,20 @@ func PostmarkAdd(email, apiKey string) error {
 		return fmt.Errorf("copying files with EMAIL markers: %w", err)
 	}
 
-	// 6. Add client-side Email content if Svelte client is configured
-	if config.IsSvelte() {
-		clientPath := filepath.Join("app", "service-client")
-		if err := PostmarkAddClient(tmpProject, clientPath); err != nil {
-			return fmt.Errorf("adding email to client: %w", err)
+	cfg, err := config.ParseConfig()
+	if err != nil {
+		return fmt.Errorf("parsing config: %w", err)
+	}
+
+	enabledClients := clients.Enabled(cfg)
+	for _, client := range enabledClients {
+		clientPath := filepath.Join("app", client.ServiceDir)
+		if err := PostmarkAddClient(tmpProject, client.Name, clientPath); err != nil {
+			return fmt.Errorf("adding email to %s client: %w", client.DisplayName, err)
 		}
-		// Add e2e tests if e2e folder exists
+	}
+
+	if len(enabledClients) > 0 {
 		e2ePath := "e2e"
 		if _, err := os.Stat(e2ePath); err == nil {
 			if err := PostmarkAddE2E(tmpProject, e2ePath); err != nil {

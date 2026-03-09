@@ -36,17 +36,26 @@ type Model struct {
 }
 
 type Config struct {
-	ProjectName          string    `json:"project_name"`
-	Services             []Service `json:"services"`
-	Models               []Model   `json:"models"`
-	Integrations         []string  `json:"integrations"`
-	InfraPopulated       bool      `json:"infra_populated"`
-	MonitoringPopulated  bool      `json:"monitoring_populated"`
+	ProjectName         string    `json:"project_name"`
+	Services            []Service `json:"services"`
+	Models              []Model   `json:"models"`
+	Integrations        []string  `json:"integrations"`
+	InfraPopulated      bool      `json:"infra_populated"`
+	MonitoringPopulated bool      `json:"monitoring_populated"`
 }
 
 type Service struct {
 	Name string `json:"name"`
 	Port string `json:"port"`
+}
+
+func writeConfig(cfg *Config) error {
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(ConfigFileName, data, 0644)
 }
 
 func ParseConfig() (*Config, error) {
@@ -82,12 +91,7 @@ func AddModel(modelName string, columns []Column) error {
 	}
 	config.Models = append(config.Models, newModel)
 
-	data, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(ConfigFileName, data, 0644)
+	return writeConfig(config)
 }
 
 func Initialize(projectName string) error {
@@ -121,16 +125,40 @@ func Initialize(projectName string) error {
 }
 
 func IsSvelte() bool {
+	return HasService("svelte")
+}
+
+func IsTanstack() bool {
+	return HasService("tanstack")
+}
+
+func HasService(name string) bool {
 	config, err := ParseConfig()
 	if err != nil {
 		return false
 	}
 	for _, service := range config.Services {
-		if service.Name == "svelte" {
+		if service.Name == name {
 			return true
 		}
 	}
 	return false
+}
+
+func AddService(name, port string) error {
+	cfg, err := ParseConfig()
+	if err != nil {
+		return err
+	}
+
+	for _, service := range cfg.Services {
+		if service.Name == name {
+			return nil
+		}
+	}
+
+	cfg.Services = append(cfg.Services, Service{Name: name, Port: port})
+	return writeConfig(cfg)
 }
 
 func MarkInfraPopulated() error {
@@ -144,13 +172,7 @@ func MarkInfraPopulated() error {
 	}
 
 	cfg.InfraPopulated = true
-
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(ConfigFileName, data, 0644)
+	return writeConfig(cfg)
 }
 
 func MarkMonitoringPopulated() error {
@@ -164,13 +186,7 @@ func MarkMonitoringPopulated() error {
 	}
 
 	cfg.MonitoringPopulated = true
-
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(ConfigFileName, data, 0644)
+	return writeConfig(cfg)
 }
 
 func HasIntegration(name string) bool {
@@ -200,11 +216,5 @@ func AddIntegration(name string) error {
 	}
 
 	cfg.Integrations = append(cfg.Integrations, name)
-
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(ConfigFileName, data, 0644)
+	return writeConfig(cfg)
 }

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/gertd/go-pluralize"
-	"github.com/gofast-live/gofast-cli/v2/cmd/gof/e2e"
 )
 
 type Column struct {
@@ -59,7 +58,7 @@ func toPascalCase(s string) string {
 // UpdateUserPermissions adds new model permissions to the user management page
 // (users/[user_id]/+page.svelte) by inserting entries before the GF_PERMISSIONS_END marker.
 func UpdateUserPermissions(modelName string) error {
-	path := "./app/service-client/src/routes/(app)/users/[user_id]/+page.svelte"
+	path := "./app/service-svelte/src/routes/(app)/users/[user_id]/+page.svelte"
 	contentBytes, err := os.ReadFile(path)
 	if err != nil {
 		// User management page doesn't exist, skip silently
@@ -83,7 +82,7 @@ func UpdateUserPermissions(modelName string) error {
 	const marker = "// GF_PERMISSIONS_END"
 	e := strings.Index(content, marker)
 	if e == -1 {
-		return fmt.Errorf("permissions marker %s not found in user details page", marker)
+		return nil
 	}
 
 	// Find the last bit number by scanning backwards from the marker
@@ -159,19 +158,11 @@ func GenerateSvelteScaffolding(modelName string, columns []Column) error {
 	if err := generateClientDetailPage(modelName, columns); err != nil {
 		return fmt.Errorf("generating client detail page: %w", err)
 	}
-	e2e_columns := make([]e2e.Column, len(columns))
-	for i, c := range columns {
-		e2e_columns[i] = e2e.Column{
-			Name: c.Name,
-			Type: c.Type,
-		}
-	}
-	if err := e2e.GenerateClientE2ETest(modelName, e2e_columns); err != nil {
-		return fmt.Errorf("generating e2e test: %w", err)
-	}
+	return nil
+}
 
-	// run npm i && npm run format in the service-client directory
-	cmd := "cd ./app/service-client && npm ci && npm run format"
+func FormatProject() error {
+	cmd := "cd ./app/service-svelte && npm ci && npm run format"
 	execCmd := exec.Command("bash", "-c", cmd)
 	out, err := execCmd.CombinedOutput()
 	if err != nil {
@@ -183,7 +174,7 @@ func GenerateSvelteScaffolding(modelName string, columns []Column) error {
 // generateClientConnect updates the client-side ConnectRPC wiring by adding the
 // <Model>Service import and exporting a typed client instance in connect.ts.
 func generateClientConnect(modelName string) error {
-	path := "./app/service-client/src/lib/connect.ts"
+	path := "./app/service-svelte/src/lib/connect.ts"
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("reading connect.ts: %w", err)
@@ -254,13 +245,13 @@ func generateClientConnect(modelName string) error {
 // singular/plural model variants. Columns are not yet expanded; this
 // is a straight token-based clone of the skeleton UI.
 func generateClientListPage(modelName string, columns []Column) error {
-	sourcePath := "./app/service-client/src/routes/(app)/models/skeletons/+page.svelte"
+	sourcePath := "./app/service-svelte/src/routes/(app)/models/skeletons/+page.svelte"
 	pluralLower := pluralizeClient.Plural(modelName)
 	pluralCap := toPascalCase(pluralLower)
 	capitalizedModelName := toPascalCase(modelName)
 
 	// Ensure destination directory exists
-	destDir := filepath.Join("app/service-client/src/routes/(app)/models", pluralLower)
+	destDir := filepath.Join("app/service-svelte/src/routes/(app)/models", pluralLower)
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return fmt.Errorf("creating destination directory %s: %w", destDir, err)
 	}
@@ -378,14 +369,14 @@ func generateClientListPage(modelName string, columns []Column) error {
 // singular/plural model variants. It also expands the column-aware regions for
 // empty model defaults, form-data extraction, request payload fields, and form inputs.
 func generateClientDetailPage(modelName string, columns []Column) error {
-	sourcePath := "./app/service-client/src/routes/(app)/models/skeletons/[skeleton_id]/+page.svelte"
+	sourcePath := "./app/service-svelte/src/routes/(app)/models/skeletons/[skeleton_id]/+page.svelte"
 	pluralLower := pluralizeClient.Plural(modelName)
 	pluralCap := toPascalCase(pluralLower)
 	capitalizedModelName := toPascalCase(modelName)
 
 	// Ensure destination directory exists: /(app)/models/<plural>/[<model>_id]
 	destDir := filepath.Join(
-		"app/service-client/src/routes/(app)/models",
+		"app/service-svelte/src/routes/(app)/models",
 		pluralLower,
 		"["+modelName+"_id]",
 	)

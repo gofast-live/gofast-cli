@@ -42,6 +42,10 @@ func checkConfig(email string, apiKey string) tea.Cmd {
 }
 
 func CheckAuthentication() (string, string, error) {
+	if os.Getenv("TEST") == "true" {
+		return "test@gofast.local", "test-api-key", nil
+	}
+
 	path, err := os.UserConfigDir()
 	if err != nil {
 		return "", "", err

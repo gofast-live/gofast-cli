@@ -4,6 +4,7 @@ import (
 	"os/exec"
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/clients"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/integrations"
 	"github.com/spf13/cobra"
@@ -76,8 +77,8 @@ After running this command:
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Stripe integration added successfully!"))
 		cmd.Println("")
-		if config.IsSvelte() {
-			cmd.Println("Add this route to your navigation:")
+		if cfg, err := config.ParseConfig(); err == nil && clients.HasAny(cfg) {
+			cmd.Println("Add this route to your client navigation:")
 			cmd.Printf("  %s\n", config.SuccessStyle.Render("/payments"))
 			cmd.Println("")
 		}
@@ -152,8 +153,8 @@ After running this command:
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("S3 integration added successfully!"))
 		cmd.Println("")
-		if config.IsSvelte() {
-			cmd.Println("Add this route to your navigation:")
+		if cfg, err := config.ParseConfig(); err == nil && clients.HasAny(cfg) {
+			cmd.Println("Add this route to your client navigation:")
 			cmd.Printf("  %s\n", config.SuccessStyle.Render("/files"))
 			cmd.Println("")
 		}
@@ -227,8 +228,8 @@ After running this command:
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Postmark integration added successfully!"))
 		cmd.Println("")
-		if config.IsSvelte() {
-			cmd.Println("Add this route to your navigation:")
+		if cfg, err := config.ParseConfig(); err == nil && clients.HasAny(cfg) {
+			cmd.Println("Add this route to your client navigation:")
 			cmd.Printf("  %s\n", config.SuccessStyle.Render("/emails"))
 			cmd.Println("")
 		}

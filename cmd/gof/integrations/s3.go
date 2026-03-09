@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/clients"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
 )
@@ -35,27 +36,14 @@ func S3Strip(projectPath string) error {
 	return nil
 }
 
-// S3StripClient removes S3-related content from the Svelte client.
-// Called by 'gof client svelte' command after copying the client folder.
-func S3StripClient(clientPath string) error {
-	// Remove files route folder
-	filesPath := filepath.Join(clientPath, "src", "routes", "(app)", "files")
-	if err := os.RemoveAll(filesPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("removing files folder: %w", err)
-	}
-	return nil
+// S3StripClient removes S3-related content from a generated client.
+func S3StripClient(clientType, clientPath string) error {
+	return StripClientIntegration(clientType, clientPath, "s3")
 }
 
-// S3AddClient adds S3-related content to an existing Svelte client.
-// Called by 'gof add s3' when client already exists.
-func S3AddClient(tmpProject, clientPath string) error {
-	// Copy files route folder
-	srcFiles := filepath.Join(tmpProject, "app", "service-client", "src", "routes", "(app)", "files")
-	dstFiles := filepath.Join(clientPath, "src", "routes", "(app)", "files")
-	if err := CopyDir(srcFiles, dstFiles); err != nil {
-		return fmt.Errorf("copying files folder: %w", err)
-	}
-	return nil
+// S3AddClient adds S3-related content to an existing client.
+func S3AddClient(tmpProject, clientType, clientPath string) error {
+	return AddClientIntegration(tmpProject, clientType, clientPath, "s3")
 }
 
 // S3StripE2E removes S3-related e2e tests.
@@ -133,13 +121,20 @@ func S3Add(email, apiKey string) error {
 		return fmt.Errorf("copying files with FILE markers: %w", err)
 	}
 
-	// 6. Add client-side Files content if Svelte client is configured
-	if config.IsSvelte() {
-		clientPath := filepath.Join("app", "service-client")
-		if err := S3AddClient(tmpProject, clientPath); err != nil {
-			return fmt.Errorf("adding files to client: %w", err)
+	cfg, err := config.ParseConfig()
+	if err != nil {
+		return fmt.Errorf("parsing config: %w", err)
+	}
+
+	enabledClients := clients.Enabled(cfg)
+	for _, client := range enabledClients {
+		clientPath := filepath.Join("app", client.ServiceDir)
+		if err := S3AddClient(tmpProject, client.Name, clientPath); err != nil {
+			return fmt.Errorf("adding files to %s client: %w", client.DisplayName, err)
 		}
-		// Add e2e tests if e2e folder exists
+	}
+
+	if len(enabledClients) > 0 {
 		e2ePath := "e2e"
 		if _, err := os.Stat(e2ePath); err == nil {
 			if err := S3AddE2E(tmpProject, e2ePath); err != nil {
