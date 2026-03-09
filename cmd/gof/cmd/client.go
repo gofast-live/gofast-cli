@@ -244,10 +244,7 @@ func generateClientScaffolding(clientType, modelName string, columns []config.Co
 		for i, col := range columns {
 			svelteColumns[i] = svelte.Column{Name: col.Name, Type: col.Type}
 		}
-		if err := svelte.GenerateSvelteScaffolding(modelName, svelteColumns); err != nil {
-			return err
-		}
-		return svelte.UpdateUserPermissions(modelName)
+		return svelte.GenerateSvelteScaffolding(modelName, svelteColumns)
 	case clients.Tanstack:
 		tanstackColumns := make([]tanstack.Column, len(columns))
 		for i, col := range columns {

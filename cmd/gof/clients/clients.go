@@ -8,28 +8,26 @@ const (
 )
 
 type Spec struct {
-	Name                    string
-	DisplayName             string
-	ServiceDir              string
-	ComposeFile             string
-	Port                    string
-	PaymentsRouteSubpath    string
-	FilesRouteSubpath       string
-	EmailsRouteSubpath      string
-	SupportsUserPermissions bool
+	Name                 string
+	DisplayName          string
+	ServiceDir           string
+	ComposeFile          string
+	Port                 string
+	PaymentsRouteSubpath string
+	FilesRouteSubpath    string
+	EmailsRouteSubpath   string
 }
 
 var specs = map[string]Spec{
 	Svelte: {
-		Name:                    Svelte,
-		DisplayName:             "Svelte",
-		ServiceDir:              "service-svelte",
-		ComposeFile:             "docker-compose.svelte.yml",
-		Port:                    "3000",
-		PaymentsRouteSubpath:    "src/routes/(app)/payments",
-		FilesRouteSubpath:       "src/routes/(app)/files",
-		EmailsRouteSubpath:      "src/routes/(app)/emails",
-		SupportsUserPermissions: true,
+		Name:                 Svelte,
+		DisplayName:          "Svelte",
+		ServiceDir:           "service-svelte",
+		ComposeFile:          "docker-compose.svelte.yml",
+		Port:                 "3000",
+		PaymentsRouteSubpath: "src/routes/(app)/payments",
+		FilesRouteSubpath:    "src/routes/(app)/files",
+		EmailsRouteSubpath:   "src/routes/(app)/emails",
 	},
 	Tanstack: {
 		Name:                 Tanstack,

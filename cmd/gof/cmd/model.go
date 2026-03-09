@@ -290,13 +290,6 @@ Example:
 		cmd.Printf("  3. Run %s to format generated code\n", config.SuccessStyle.Render("'make format'"))
 		cmd.Printf("  4. Run %s to apply migrations\n", config.SuccessStyle.Render("'make migrate'"))
 		cmd.Println("")
-		for _, client := range enabledClients {
-			if client.SupportsUserPermissions {
-				cmd.Printf("If you have existing users, update their permissions at %s\n", config.SuccessStyle.Render("/users"))
-				cmd.Println("")
-				break
-			}
-		}
 		if len(enabledClients) > 0 {
 			cmd.Println("Add this route to your navigation:")
 			cmd.Printf("  %s\n", config.SuccessStyle.Render(clientModelPath(enabledClients[0].Name, modelName)))
