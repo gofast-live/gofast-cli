@@ -151,6 +151,34 @@ cat e2e/test-results/.last-run.json
 # Should show: {"status": "passed", "failedTests": []}
 ```
 
+### E2E validation (after client-side generation)
+
+After every client-side generation (`gof client svelte|tanstack`, `gof model` with client enabled, `gof add` with client enabled), validate with the full e2e suite. This is the most important validation indicator — Go unit tests alone don't catch client-side wiring issues.
+
+```bash
+# From demo/ directory, after all gof commands and codegen:
+make gen && make sql
+
+# Start services (use starts for svelte, startt for tanstack)
+docker compose -f docker-compose.yml -f docker-compose.tanstack.yml up --build -d
+# or: docker compose -f docker-compose.yml -f docker-compose.svelte.yml up --build -d
+
+# Wait for all containers to be healthy, then migrate
+make migrate
+
+# Run e2e tests
+cd e2e
+PLAYWRIGHT_BASE_URL=http://localhost:3000 PUBLIC_CORE_URL=http://localhost:4000 npx playwright test
+```
+
+**Expected results (no integrations):** ~33 passed, ~28 skipped (integration tests for emails/files/payments).
+**Expected results (with integrations):** skipped count decreases as integration tests become runnable.
+
+**Common e2e pitfalls:**
+- `docker compose down -v` wipes the DB volume — must re-run `make migrate` before tests
+- `routeTree.gen.ts` (TanStack) must match actual route files — integration stripping must update it
+- Proto codegen (`make gen`) must run before `make startt` — client imports services from `main_pb.ts`
+
 ### Resetting the database
 
 ```bash
