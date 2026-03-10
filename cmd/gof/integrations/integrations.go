@@ -309,12 +309,6 @@ func StripClientIntegration(clientType, clientPath, integration string) error {
 	if err := os.RemoveAll(targetPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("removing %s route %s: %w", integration, targetPath, err)
 	}
-	if spec.Name == clients.Tanstack {
-		routeTreePath := filepath.Join(clientPath, "src", "routeTree.gen.ts")
-		if err := os.Remove(routeTreePath); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("removing stale TanStack route tree %s: %w", routeTreePath, err)
-		}
-	}
 	return nil
 }
 
@@ -344,12 +338,6 @@ func AddClientIntegration(tmpProject, clientType, clientPath, integration string
 	}
 	if err := CopyFile(srcPath, dstPath); err != nil {
 		return fmt.Errorf("copying client integration file %s: %w", srcPath, err)
-	}
-	if spec.Name == clients.Tanstack {
-		routeTreePath := filepath.Join(clientPath, "src", "routeTree.gen.ts")
-		if err := os.Remove(routeTreePath); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("removing stale TanStack route tree %s: %w", routeTreePath, err)
-		}
 	}
 	return nil
 }

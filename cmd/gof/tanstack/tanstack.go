@@ -21,16 +21,8 @@ func GetModelPath(modelName string) string {
 	return "/models/" + pluralizeClient.Plural(modelName)
 }
 
-func InvalidateGeneratedFiles() error {
-	routeTreePath := filepath.Join("app", "service-tanstack", "src", "routeTree.gen.ts")
-	if err := os.Remove(routeTreePath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("removing stale route tree: %w", err)
-	}
-	return nil
-}
-
 func FormatProject() error {
-	cmd := "cd ./app/service-tanstack && npm ci && npm run format"
+	cmd := `cd ./app/service-tanstack && npm ci && node --input-type=module -e "import { Generator } from '@tanstack/router-generator'; import { getConfig } from '@tanstack/router-plugin'; const root = process.cwd(); const generator = new Generator({ config: getConfig({}, root), root }); await generator.run();" && npm run format`
 	execCmd := exec.Command("bash", "-c", cmd)
 	out, err := execCmd.CombinedOutput()
 	if err != nil {
@@ -40,9 +32,6 @@ func FormatProject() error {
 }
 
 func GenerateTanstackScaffolding(modelName string, columns []Column) error {
-	if err := InvalidateGeneratedFiles(); err != nil {
-		return err
-	}
 	if err := generateClientConnect(modelName); err != nil {
 		return fmt.Errorf("generating client connect.ts: %w", err)
 	}
