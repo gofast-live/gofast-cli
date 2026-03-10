@@ -3,7 +3,7 @@
 ## Metadata
 - Domain: `gof` CLI - Go application code generator
 - Primary audience: LLM agents working on CLI development
-- Last updated: 2026-03-09
+- Last updated: 2026-03-10
 - Status: Active
 - Stability note: Sections marked `[STABLE]` should change rarely. Sections marked `[VOLATILE]` are expected to change often.
 
@@ -37,7 +37,7 @@ The CLI uses **skeleton-based code generation**: it copies template files from a
 
 - **Primary entry points:** `cmd/gof/main.go` -> `cmd/gof/cmd/root.go` (Cobra commands)
 - **Main responsibilities:** Project scaffolding, CRUD model generation, integration wiring, client scaffolding, infra/monitoring setup
-- **Highest-risk areas:** Test generation (`model_test_gen.go`), marker-based code injection, permission bitmask computation
+- **Highest-risk areas:** Test generation (`model_test_gen.go`), marker-based code injection, multi-client scaffolding/order-dependent generation, permission bitmask computation
 
 ---
 
@@ -176,8 +176,9 @@ PLAYWRIGHT_BASE_URL=http://localhost:3000 PUBLIC_CORE_URL=http://localhost:4000 
 
 **Common e2e pitfalls:**
 - `docker compose down -v` wipes the DB volume — must re-run `make migrate` before tests
-- `routeTree.gen.ts` (TanStack) must match actual route files — integration stripping must update it
+- `routeTree.gen.ts` (TanStack) must match actual route files — the CLI now regenerates it via `@tanstack/router-generator` during TanStack client formatting
 - Proto codegen (`make gen`) must run before `make startt` — client imports services from `main_pb.ts`
+- `e2e/users.test.ts` in the root template is currently flaky because it clicks the first `Edit` link instead of the row for the generated `adminEmail`
 
 ### Resetting the database
 
@@ -288,7 +289,7 @@ sequenceDiagram
   participant SVC as model_service.go
   participant TST as model_test_gen.go
   participant E as e2e.go
-  participant S as svelte.go
+  participant S as client generators
 
   U->>M: gof model note title:string
   M->>DB: generateProto() + generateSchema() + generateQueries()
@@ -297,7 +298,7 @@ sequenceDiagram
   M->>TST: generateServiceTestContent() + generateValidationTestContent()
   M->>TST: generateTransportTestContent()
   M->>E: GenerateClientE2ETest() + UpdateSeedDevUser()
-  M->>S: GenerateSvelteScaffolding() (if client enabled)
+  M->>S: Generate client scaffolding for each enabled frontend
 ```
 
 ### 2.3 Integration addition flow (`gof add`)
@@ -309,7 +310,7 @@ flowchart TD
   C --> D[Copy integration files<br/>domain, transport, migrations]
   D --> E[Merge markers into main.go, config.go]
   E --> F[Strip OTHER integrations' markers]
-  F --> G[Add client pages if Svelte enabled]
+  F --> G[Add client pages for each enabled frontend]
   G --> H[Update gofast.json]
 ```
 
@@ -340,9 +341,9 @@ cmd/gof/
 │   └── repo.go                # Template repo download (admin.gofast.live)
 ├── integrations/
 │   ├── integrations.go        # Core helpers: strip, copy, merge markers (548 lines)
-│   ├── stripe.go              # Stripe: strip, add, client, e2e
-│   ├── s3.go                  # S3: strip, add, client, e2e
-│   └── postmark.go            # Postmark: strip, add, client, e2e
+│   ├── stripe.go              # Stripe: strip, add, client
+│   ├── s3.go                  # S3: strip, add, client
+│   └── postmark.go            # Postmark: strip, add, client
 ├── svelte/
 │   └── svelte.go              # Svelte page generation per model
 ├── tanstack/
@@ -415,7 +416,7 @@ Related files outside `cmd/gof/`:
 6. Wires into `app/service-core/main.go` (imports, deps, routes)
 7. Updates `app/pkg/auth/auth.go` (permission flags)
 8. Updates `scripts/seed_dev_user.sh` (permission bitmask)
-9. `e2e/{plural}.test.ts` (if e2e dir exists)
+9. `e2e/{plural}.test.ts` (if at least one client exists, since `gof client` owns the `e2e/` folder)
 10. Client pages for each configured frontend (Svelte and/or TanStack)
 
 ### 4.3 Naming conversions
@@ -532,6 +533,8 @@ Uses bit-shifting (iota pattern) for per-model CRUD permissions:
 
 `e2e/e2e.go:ComputeUserAccess()` recalculates the dev user permission value dynamically.
 
+Client-side permission marker updates were removed. Svelte and TanStack no longer have frontend permission-marker injection; user access is edited through a simple input in the generated app template.
+
 ### Generated Go tests
 
 **Service tests** (`domain/{model}/service_test.go`):
@@ -565,6 +568,10 @@ Uses bit-shifting (iota pattern) for per-model CRUD permissions:
 - Removes Create validation error test if only bool columns
 - Generates appropriate test values per column type
 - Handles `formatDate` inclusion only when date columns present (Svelte)
+- `gof client` copies the full `e2e/` folder as-is, including integration tests
+- `gof add stripe|s3|postmark` does not modify `e2e/`
+- TanStack formatting runs `npm ci`, regenerates `src/routeTree.gen.ts` with `@tanstack/router-generator`, then formats
+- Svelte and TanStack are intentionally aligned at CLI time: no frontend build/typecheck is run by the CLI
 
 ---
 
@@ -612,6 +619,8 @@ Known gaps:
 
 **Integration addition order:** Adding integrations before/after client affects different code paths. The `gof add` command checks configured frontend services to decide whether to also add client-side pages. If client is added after integration, `gof client` must handle already-enabled integrations.
 
+**E2E ownership:** `gof client` is the single owner of the `e2e/` folder. `gof add` no longer adds/removes e2e files.
+
 **Marker merging:** When adding an integration, the CLI copies files with markers from the template and merges marker blocks into existing project files (main.go, config.go). It must strip markers for OTHER integrations that aren't enabled, while keeping the target integration's markers.
 
 ### 10.4 Easy-to-break gotchas
@@ -619,6 +628,7 @@ Known gaps:
 - Go package names strip underscores: `user_profile` -> package `userprofile`
 - Plural detection uses `go-pluralize` - some edge cases may not pluralize correctly
 - Adding client generates pages for ALL existing models in config, not just new ones
+- Adding TanStack client to a project with existing models requires route-tree regeneration after route scaffolding; the CLI now does this directly via TanStack's router generator instead of `vite build`
 - `model_test_gen.go` has multiple instances of the same marker (e.g., `GF_TP_TEST_CREATE_FIELDS` appears 3+ times in service_test.go) - `replaceMarkerRegion` must handle all occurrences
 
 ---
