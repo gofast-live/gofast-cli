@@ -397,6 +397,7 @@ Related files outside `cmd/gof/`:
 - Lowercase letters, numbers, underscores (e.g., `view_count`, `is_active2`)
 - Reserved names rejected: `id`, `user_id`, `created`, `updated` (auto-generated)
 - Go keywords rejected: `type`, `func`, `var`, `package`, `map`, `chan`, etc.
+- SQL keywords rejected: e.g., `start`, `end`, `select`, `order`, `group`
 
 **Column types:**
 

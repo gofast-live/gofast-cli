@@ -30,6 +30,22 @@ var typeMap = map[string]string{
 	"bool":   "boolean",
 }
 
+var sqlKeywords = map[string]bool{
+	"all": true, "and": true, "any": true, "as": true, "asc": true,
+	"between": true, "by": true, "case": true, "check": true, "column": true,
+	"create": true, "default": true, "delete": true, "desc": true, "distinct": true,
+	"drop": true, "else": true, "end": true, "exists": true, "false": true,
+	"from": true, "full": true, "group": true, "having": true, "in": true,
+	"index": true, "inner": true, "insert": true, "into": true, "is": true,
+	"join": true, "key": true, "left": true, "like": true, "limit": true,
+	"not": true, "null": true, "offset": true, "on": true, "or": true,
+	"order": true, "outer": true, "primary": true, "references": true, "returning": true,
+	"right": true, "select": true, "set": true, "start": true, "table": true,
+	"then": true, "to": true, "true": true, "union": true, "unique": true,
+	"update": true, "user": true, "using": true, "values": true, "view": true,
+	"when": true, "where": true, "with": true,
+}
+
 var modelCmd = &cobra.Command{
 	Use:   "model [model_name] [columns...]",
 	Short: "Create a new model",
@@ -132,6 +148,12 @@ Example:
 			// Check for Go keywords
 			if goKeywords[colName] {
 				cmd.Printf("Error: Column name '%s' is a Go reserved keyword. Choose a different name.\n", colName)
+				return
+			}
+
+			// Check for SQL keywords that would break generated migrations/queries
+			if sqlKeywords[colName] {
+				cmd.Printf("Error: Column name '%s' is a reserved SQL keyword. Choose a different name.\n", colName)
 				return
 			}
 
