@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/gertd/go-pluralize"
@@ -70,6 +71,11 @@ func toPascalCase(s string) string {
 		b.WriteString(strings.ToUpper(p[:1]) + p[1:])
 	}
 	return b.String()
+}
+
+func replaceProtoFieldAccess(content, fieldName, replacement string) string {
+	pattern := regexp.MustCompile(`\.` + regexp.QuoteMeta(fieldName) + `\b`)
+	return pattern.ReplaceAllString(content, "."+replacement)
 }
 
 func generateClientConnect(modelName string) error {
@@ -150,7 +156,7 @@ func generateClientListPage(modelName string, columns []Column) error {
 	s = strings.ReplaceAll(s, "skeletons", pluralLower)
 	s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
 	camelName := toCamelCase(modelName)
-	s = strings.ReplaceAll(s, "res.skeleton", "res."+camelName)
+	s = replaceProtoFieldAccess(s, "skeleton", camelName)
 	s = strings.ReplaceAll(s, "skeleton", modelName)
 
 	toTitle := func(name string) string {
@@ -257,8 +263,7 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 	s = strings.ReplaceAll(s, "skeletons", pluralLower)
 	s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
 	camelName := toCamelCase(modelName)
-	s = strings.ReplaceAll(s, "!s.skeleton)", "!s."+camelName+")")
-	s = strings.ReplaceAll(s, " s.skeleton;", " s."+camelName+";")
+	s = replaceProtoFieldAccess(s, "skeleton", camelName)
 	s = strings.ReplaceAll(s, "skeleton: {", camelName+": {")
 	s = strings.ReplaceAll(s, "skeleton", modelName)
 

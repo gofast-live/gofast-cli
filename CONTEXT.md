@@ -626,6 +626,7 @@ Known gaps:
 
 ### 10.4 Easy-to-break gotchas
 - Proto uses snake_case (`published_at`), TypeScript uses camelCase (`publishedAt`) - Svelte generation must use `toCamelCase()`
+- Proto response fields stay camelCase for snake_case models (`userProfile`), so client generators must rewrite `.skeleton`-style proto field access before blanket `skeleton -> model_name` token replacement
 - Go package names strip underscores: `user_profile` -> package `userprofile`
 - Plural detection uses `go-pluralize` - some edge cases may not pluralize correctly
 - Adding client generates pages for ALL existing models in config, not just new ones

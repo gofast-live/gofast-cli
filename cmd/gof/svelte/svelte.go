@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/gertd/go-pluralize"
@@ -52,6 +53,11 @@ func toPascalCase(s string) string {
 		b.WriteString(strings.ToUpper(p[:1]) + p[1:])
 	}
 	return b.String()
+}
+
+func replaceProtoFieldAccess(content, fieldName, replacement string) string {
+	pattern := regexp.MustCompile(`\.` + regexp.QuoteMeta(fieldName) + `\b`)
+	return pattern.ReplaceAllString(content, "."+replacement)
 }
 
 func GenerateSvelteScaffolding(modelName string, columns []Column) error {
@@ -174,9 +180,9 @@ func generateClientListPage(modelName string, columns []Column) error {
 	s = strings.ReplaceAll(s, "Skeletons", pluralCap)
 	s = strings.ReplaceAll(s, "skeletons", pluralLower)
 	s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
-	// Replace protobuf field access patterns with camelCase BEFORE the blanket replacement
+	// Replace protobuf field access patterns with camelCase BEFORE the blanket replacement.
 	camelName := toCamelCase(modelName)
-	s = strings.ReplaceAll(s, "res.skeleton", "res."+camelName)
+	s = replaceProtoFieldAccess(s, "skeleton", camelName)
 	s = strings.ReplaceAll(s, "skeleton", modelName)
 
 	// Helper: Title-case a label from snake_case
@@ -302,11 +308,9 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 	s = strings.ReplaceAll(s, "Skeletons", pluralCap)
 	s = strings.ReplaceAll(s, "skeletons", pluralLower)
 	s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
-	// Replace protobuf field access patterns with camelCase BEFORE the blanket replacement
-	// Be specific to avoid matching partial strings like params.skeleton_id
 	camelName := toCamelCase(modelName)
-	s = strings.ReplaceAll(s, "!s.skeleton)", "!s."+camelName+")") // null check: if (!s.skeleton)
-	s = strings.ReplaceAll(s, " s.skeleton;", " s."+camelName+";") // return s.skeleton;
+	// Replace protobuf field access patterns with camelCase BEFORE the blanket replacement.
+	s = replaceProtoFieldAccess(s, "skeleton", camelName)
 	s = strings.ReplaceAll(s, "skeleton: {", camelName+": {")
 	s = strings.ReplaceAll(s, "skeleton", modelName)
 
