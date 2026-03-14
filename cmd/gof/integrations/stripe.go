@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/clients"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
 )
@@ -70,47 +71,14 @@ func stripeReplaceCheckUserAccess(projectPath string) error {
 	return os.WriteFile(loginServicePath, []byte(s), 0644)
 }
 
-// StripeStripClient removes Stripe-related content from the Svelte client.
-// Called by 'gof client svelte' command after copying the client folder.
-func StripeStripClient(clientPath string) error {
-	// Remove payments route folder
-	paymentsPath := filepath.Join(clientPath, "src", "routes", "(app)", "payments")
-	if err := os.RemoveAll(paymentsPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("removing payments folder: %w", err)
-	}
-	return nil
+// StripeStripClient removes Stripe-related content from a generated client.
+func StripeStripClient(clientType, clientPath string) error {
+	return StripClientIntegration(clientType, clientPath, "stripe")
 }
 
-// StripeAddClient adds Stripe-related content to an existing Svelte client.
-// Called by 'gof add stripe' when client already exists.
-func StripeAddClient(tmpProject, clientPath string) error {
-	// Copy payments route folder
-	srcPayments := filepath.Join(tmpProject, "app", "service-client", "src", "routes", "(app)", "payments")
-	dstPayments := filepath.Join(clientPath, "src", "routes", "(app)", "payments")
-	if err := CopyDir(srcPayments, dstPayments); err != nil {
-		return fmt.Errorf("copying payments folder: %w", err)
-	}
-	return nil
-}
-
-// StripeStripE2E removes Stripe-related e2e tests.
-// Called by 'gof client svelte' when stripe is not enabled.
-func StripeStripE2E(e2ePath string) error {
-	if err := os.Remove(filepath.Join(e2ePath, "payments.test.ts")); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("removing payments.test.ts: %w", err)
-	}
-	return nil
-}
-
-// StripeAddE2E adds Stripe-related e2e tests.
-// Called by 'gof add stripe' when client exists.
-func StripeAddE2E(tmpProject, e2ePath string) error {
-	src := filepath.Join(tmpProject, "e2e", "payments.test.ts")
-	dst := filepath.Join(e2ePath, "payments.test.ts")
-	if err := CopyFile(src, dst); err != nil {
-		return fmt.Errorf("copying payments.test.ts: %w", err)
-	}
-	return nil
+// StripeAddClient adds Stripe-related content to an existing client.
+func StripeAddClient(tmpProject, clientType, clientPath string) error {
+	return AddClientIntegration(tmpProject, clientType, clientPath, "stripe")
 }
 
 // StripeAdd adds Stripe payment integration to an existing project.
@@ -168,18 +136,16 @@ func StripeAdd(email, apiKey string) error {
 		return fmt.Errorf("copying files with stripe markers: %w", err)
 	}
 
-	// 6. Add client-side Stripe content if Svelte client is configured
-	if config.IsSvelte() {
-		clientPath := filepath.Join("app", "service-client")
-		if err := StripeAddClient(tmpProject, clientPath); err != nil {
-			return fmt.Errorf("adding stripe to client: %w", err)
-		}
-		// Add e2e tests if e2e folder exists
-		e2ePath := "e2e"
-		if _, err := os.Stat(e2ePath); err == nil {
-			if err := StripeAddE2E(tmpProject, e2ePath); err != nil {
-				return fmt.Errorf("adding stripe e2e tests: %w", err)
-			}
+	cfg, err := config.ParseConfig()
+	if err != nil {
+		return fmt.Errorf("parsing config: %w", err)
+	}
+
+	enabledClients := clients.Enabled(cfg)
+	for _, client := range enabledClients {
+		clientPath := filepath.Join("app", client.ServiceDir)
+		if err := StripeAddClient(tmpProject, client.Name, clientPath); err != nil {
+			return fmt.Errorf("adding stripe to %s client: %w", client.DisplayName, err)
 		}
 	}
 

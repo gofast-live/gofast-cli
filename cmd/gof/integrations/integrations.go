@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/clients"
 )
 
 // StripIntegration removes all GF_<integration>_START/END blocks from all files in the project
@@ -290,6 +292,67 @@ func AppendMarkerBlock(srcPath, dstPath, integration string) error {
 	result += markerBlock
 
 	return os.WriteFile(dstPath, []byte(result), 0644)
+}
+
+func StripClientIntegration(clientType, clientPath, integration string) error {
+	spec, ok := clients.SpecFor(clientType)
+	if !ok {
+		return fmt.Errorf("unknown client type %q", clientType)
+	}
+
+	routeSubpath, err := integrationRouteSubpath(spec, integration)
+	if err != nil {
+		return err
+	}
+
+	targetPath := filepath.Join(clientPath, filepath.FromSlash(routeSubpath))
+	if err := os.RemoveAll(targetPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("removing %s route %s: %w", integration, targetPath, err)
+	}
+	return nil
+}
+
+func AddClientIntegration(tmpProject, clientType, clientPath, integration string) error {
+	spec, ok := clients.SpecFor(clientType)
+	if !ok {
+		return fmt.Errorf("unknown client type %q", clientType)
+	}
+
+	routeSubpath, err := integrationRouteSubpath(spec, integration)
+	if err != nil {
+		return err
+	}
+
+	srcPath := filepath.Join(tmpProject, "app", spec.ServiceDir, filepath.FromSlash(routeSubpath))
+	dstPath := filepath.Join(clientPath, filepath.FromSlash(routeSubpath))
+
+	info, err := os.Stat(srcPath)
+	if err != nil {
+		return fmt.Errorf("stat client integration source %s: %w", srcPath, err)
+	}
+	if info.IsDir() {
+		if err := CopyDir(srcPath, dstPath); err != nil {
+			return fmt.Errorf("copying client integration directory %s: %w", srcPath, err)
+		}
+		return nil
+	}
+	if err := CopyFile(srcPath, dstPath); err != nil {
+		return fmt.Errorf("copying client integration file %s: %w", srcPath, err)
+	}
+	return nil
+}
+
+func integrationRouteSubpath(spec clients.Spec, integration string) (string, error) {
+	switch integration {
+	case "stripe":
+		return spec.PaymentsRouteSubpath, nil
+	case "s3":
+		return spec.FilesRouteSubpath, nil
+	case "postmark":
+		return spec.EmailsRouteSubpath, nil
+	default:
+		return "", fmt.Errorf("unknown integration %q", integration)
+	}
 }
 
 // MergeMainGoMarkers extracts marker blocks from src main.go and injects them into dst main.go

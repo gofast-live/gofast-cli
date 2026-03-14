@@ -1,7 +1,7 @@
 # GoFast CLI
 
 Building blocks for Go.
-Generate production-ready Go apps with ConnectRPC, SvelteKit, and PostgreSQL.
+Generate production-ready Go apps with ConnectRPC, SvelteKit or TanStack Start, and PostgreSQL.
 
 This repository contains two CLI tools:
 - **`gof`** - v2 CLI (current)
@@ -19,7 +19,7 @@ The v2 CLI generates full-stack Go applications with:
 - Go backend with ConnectRPC transport
 - PostgreSQL database with SQLC
 - OAuth authentication (GitHub, Google, Phone)
-- Optional Svelte frontend
+- Optional Svelte or TanStack frontend
 - Optional integrations (Stripe, S3, Postmark)
 
 Visit [gofast.live](https://gofast.live) for more details and features.
@@ -73,6 +73,7 @@ make start
 | `gof init <name>` | Create new project |
 | `gof model <name> [cols...]` | Generate CRUD model |
 | `gof client svelte` | Add Svelte frontend |
+| `gof client tanstack` | Add TanStack frontend |
 | `gof add stripe` | Add Stripe payments |
 | `gof add s3` | Add S3 file storage |
 | `gof add postmark` | Add Postmark email |
@@ -105,6 +106,7 @@ gof model comment content:string
 
 # Add frontend
 gof client svelte
+# or: gof client tanstack
 
 # Add payments
 gof add stripe
@@ -115,11 +117,11 @@ gof infra
 # Generate code
 make sql && make gen && make format && make migrate
 
-# Run with client
-make startc
+# Run with Svelte
+make starts
 
-# Run with client + monitoring (Grafana, Alloy, Loki, Tempo, Prometheus)
-make startcm
+# Run with TanStack
+make startt
 ```
 
 ### Generated Project Commands
@@ -127,9 +129,11 @@ make startcm
 | Command | Description |
 |---------|-------------|
 | `make start` | Start backend services |
-| `make startc` | Start with Svelte client |
+| `make starts` | Start with Svelte client |
+| `make startt` | Start with TanStack client |
 | `make startm` | Start with monitoring (Grafana, Alloy, Loki, Tempo, Prometheus) |
-| `make startcm` | Start with client + monitoring |
+| `make startsm` | Start with Svelte client + monitoring |
+| `make starttm` | Start with TanStack client + monitoring |
 | `make sql` | Regenerate SQLC queries |
 | `make gen` | Regenerate proto code |
 | `make migrate` | Apply database migrations |

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/clients"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/integrations"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/repo"
@@ -80,8 +81,10 @@ var initCmd = &cobra.Command{
 			cmd.Printf("Warning: could not remove template git metadata: %v\n", err)
 		}
 		// remove template-only folders and files
-		if err := os.RemoveAll(filepath.Join(projectName, "app", "service-client")); err != nil {
-			cmd.Printf("Warning: could not remove initial client folder: %v\n", err)
+		for _, client := range clients.All() {
+			if err := os.RemoveAll(filepath.Join(projectName, "app", client.ServiceDir)); err != nil {
+				cmd.Printf("Warning: could not remove initial %s client folder: %v\n", client.DisplayName, err)
+			}
 		}
 		if err := os.RemoveAll(filepath.Join(projectName, "monitoring")); err != nil {
 			cmd.Printf("Warning: could not remove monitoring folder: %v\n", err)
@@ -92,8 +95,10 @@ var initCmd = &cobra.Command{
 		if err := os.Remove(filepath.Join(projectName, "docker-compose.monitoring.yml")); err != nil && !os.IsNotExist(err) {
 			cmd.Printf("Warning: could not remove monitoring docker compose file: %v\n", err)
 		}
-		if err := os.Remove(filepath.Join(projectName, "docker-compose.client.yml")); err != nil && !os.IsNotExist(err) {
-			cmd.Printf("Warning: could not remove client docker compose file: %v\n", err)
+		for _, client := range clients.All() {
+			if err := os.Remove(filepath.Join(projectName, client.ComposeFile)); err != nil && !os.IsNotExist(err) {
+				cmd.Printf("Warning: could not remove %s docker compose file: %v\n", client.DisplayName, err)
+			}
 		}
 		if err := os.RemoveAll(filepath.Join(projectName, "e2e")); err != nil {
 			cmd.Printf("Warning: could not remove e2e folder: %v\n", err)

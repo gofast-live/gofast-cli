@@ -8,9 +8,9 @@ import (
 
 	"github.com/gertd/go-pluralize"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/clients"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/e2e"
-	"github.com/gofast-live/gofast-cli/v2/cmd/gof/svelte"
 	"github.com/spf13/cobra"
 )
 
@@ -28,6 +28,22 @@ var typeMap = map[string]string{
 	"number": "numeric",
 	"date":   "timestamptz",
 	"bool":   "boolean",
+}
+
+var sqlKeywords = map[string]bool{
+	"all": true, "and": true, "any": true, "as": true, "asc": true,
+	"between": true, "by": true, "case": true, "check": true, "column": true,
+	"create": true, "default": true, "delete": true, "desc": true, "distinct": true,
+	"drop": true, "else": true, "end": true, "exists": true, "false": true,
+	"from": true, "full": true, "group": true, "having": true, "in": true,
+	"index": true, "inner": true, "insert": true, "into": true, "is": true,
+	"join": true, "key": true, "left": true, "like": true, "limit": true,
+	"not": true, "null": true, "offset": true, "on": true, "or": true,
+	"order": true, "outer": true, "primary": true, "references": true, "returning": true,
+	"right": true, "select": true, "set": true, "start": true, "table": true,
+	"then": true, "to": true, "true": true, "union": true, "unique": true,
+	"update": true, "user": true, "using": true, "values": true, "view": true,
+	"when": true, "where": true, "with": true,
 }
 
 var modelCmd = &cobra.Command{
@@ -55,7 +71,8 @@ Example:
 		}
 
 		// Ensure we are inside a valid gofast project (has gofast.json)
-		if _, err := config.ParseConfig(); err != nil {
+		con, err := config.ParseConfig()
+		if err != nil {
 			cmd.Printf("%v\n", err)
 			return
 		}
@@ -131,6 +148,12 @@ Example:
 			// Check for Go keywords
 			if goKeywords[colName] {
 				cmd.Printf("Error: Column name '%s' is a Go reserved keyword. Choose a different name.\n", colName)
+				return
+			}
+
+			// Check for SQL keywords that would break generated migrations/queries
+			if sqlKeywords[colName] {
+				cmd.Printf("Error: Column name '%s' is a reserved SQL keyword. Choose a different name.\n", colName)
 				return
 			}
 
@@ -230,24 +253,30 @@ Example:
 			return
 		}
 
-		if config.IsSvelte() {
-			svelteColumns := make([]svelte.Column, len(columns))
+		enabledClients := clients.Enabled(con)
+		if len(enabledClients) > 0 {
+			e2eColumns := make([]e2e.Column, len(columns))
 			for i, col := range columns {
-				svelteColumns[i] = svelte.Column{
-					Name: col.Name,
-					Type: col.Type,
+				e2eColumns[i] = e2e.Column{Name: col.Name, Type: col.Type}
+			}
+			err = e2e.GenerateClientE2ETest(modelName, e2eColumns)
+			if err != nil {
+				cmd.Printf("Error generating client e2e test: %v.\n", err)
+				return
+			}
+			for _, client := range enabledClients {
+				err = generateClientScaffolding(client.Name, modelName, configColumns)
+				if err != nil {
+					cmd.Printf("Error generating %s client pages: %v.\n", client.DisplayName, err)
+					return
 				}
 			}
-			err = svelte.GenerateSvelteScaffolding(modelName, svelteColumns)
-			if err != nil {
-				cmd.Printf("Error generating Svelte client pages: %v.\n", err)
-				return
-			}
-			// Update user management page with new model permissions
-			err = svelte.UpdateUserPermissions(modelName)
-			if err != nil {
-				cmd.Printf("Error updating user permissions page: %v.\n", err)
-				return
+			for _, client := range enabledClients {
+				err = formatClientProject(client.Name)
+				if err != nil {
+					cmd.Printf("Error formatting %s client: %v.\n", client.DisplayName, err)
+					return
+				}
 			}
 		}
 
@@ -266,8 +295,15 @@ Example:
 		cmd.Printf("  - Queries:   %s\n", config.SuccessStyle.Render("app/service-core/storage/query.sql"))
 		cmd.Printf("  - Service:   %s\n", config.SuccessStyle.Render("app/service-core/domain/"+goPackageName))
 		cmd.Printf("  - Transport: %s\n", config.SuccessStyle.Render("app/service-core/transport/"+goPackageName))
-		if config.IsSvelte() {
-			cmd.Printf("  - Client:    %s\n", config.SuccessStyle.Render("app/service-client/src/routes/(app)/models/"+pluralizeClient.Plural(modelName)))
+		for _, client := range enabledClients {
+			clientPath := "app/" + client.ServiceDir + "/src/routes"
+			switch client.Name {
+			case clients.Svelte:
+				clientPath += "/(app)/models/" + pluralizeClient.Plural(modelName)
+			case clients.Tanstack:
+				clientPath += "/_layout/models/" + pluralizeClient.Plural(modelName)
+			}
+			cmd.Printf("  - %s: %s\n", client.DisplayName+" client", config.SuccessStyle.Render(clientPath))
 		}
 		cmd.Println("")
 		cmd.Println("Next steps:")
@@ -276,13 +312,9 @@ Example:
 		cmd.Printf("  3. Run %s to format generated code\n", config.SuccessStyle.Render("'make format'"))
 		cmd.Printf("  4. Run %s to apply migrations\n", config.SuccessStyle.Render("'make migrate'"))
 		cmd.Println("")
-		if config.IsSvelte() {
-			cmd.Printf("If you have existing users, update their permissions at %s\n", config.SuccessStyle.Render("/users"))
-			cmd.Println("")
-		}
-		if config.IsSvelte() {
+		if len(enabledClients) > 0 {
 			cmd.Println("Add this route to your navigation:")
-			cmd.Printf("  %s\n", config.SuccessStyle.Render(svelte.GetModelPath(modelName)))
+			cmd.Printf("  %s\n", config.SuccessStyle.Render(clientModelPath(enabledClients[0].Name, modelName)))
 			cmd.Println("")
 		}
 	},

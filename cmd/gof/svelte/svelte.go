@@ -5,11 +5,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
+	"regexp"
 	"strings"
 
 	"github.com/gertd/go-pluralize"
-	"github.com/gofast-live/gofast-cli/v2/cmd/gof/e2e"
 )
 
 type Column struct {
@@ -56,97 +55,9 @@ func toPascalCase(s string) string {
 	return b.String()
 }
 
-// UpdateUserPermissions adds new model permissions to the user management page
-// (users/[user_id]/+page.svelte) by inserting entries before the GF_PERMISSIONS_END marker.
-func UpdateUserPermissions(modelName string) error {
-	path := "./app/service-client/src/routes/(app)/users/[user_id]/+page.svelte"
-	contentBytes, err := os.ReadFile(path)
-	if err != nil {
-		// User management page doesn't exist, skip silently
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("reading user details page: %w", err)
-	}
-	content := string(contentBytes)
-
-	// Build permission names
-	modelCap := toPascalCase(modelName)
-	modelPlural := pluralizeClient.Plural(modelName)
-	modelPluralCap := toPascalCase(modelPlural)
-
-	// Check if already present
-	if strings.Contains(content, "Get"+modelPluralCap) {
-		return nil
-	}
-
-	const marker = "// GF_PERMISSIONS_END"
-	e := strings.Index(content, marker)
-	if e == -1 {
-		return fmt.Errorf("permissions marker %s not found in user details page", marker)
-	}
-
-	// Find the last bit number by scanning backwards from the marker
-	// Look for the last "bit: N" pattern before the marker
-	beforeMarker := content[:e]
-	lastBit := -1
-	for i := len(beforeMarker) - 1; i >= 0; i-- {
-		if i >= 4 && beforeMarker[i-4:i+1] == "bit: " {
-			// Found "bit: ", now extract the number
-			numStart := i + 1
-			numEnd := numStart
-			for numEnd < len(beforeMarker) && beforeMarker[numEnd] >= '0' && beforeMarker[numEnd] <= '9' {
-				numEnd++
-			}
-			if numEnd > numStart {
-				if n, err := strconv.Atoi(beforeMarker[numStart:numEnd]); err == nil && n > lastBit {
-					lastBit = n
-				}
-			}
-			break
-		}
-	}
-
-	if lastBit == -1 {
-		return fmt.Errorf("could not find last bit number in permissions array")
-	}
-
-	// Build the new permissions entries
-	nextBit := lastBit + 1
-	newPerms := fmt.Sprintf(`        { name: "Get%[1]s", bit: %[3]d },
-        { name: "Create%[2]s", bit: %[4]d },
-        { name: "Edit%[2]s", bit: %[5]d },
-        { name: "Remove%[2]s", bit: %[6]d }
-`, modelPluralCap, modelCap, nextBit, nextBit+1, nextBit+2, nextBit+3)
-
-	// Find the last permission entry line and ensure it has a trailing comma
-	markerLineStart := strings.LastIndex(content[:e], "\n") + 1
-
-	// Find the previous non-empty line (which should be the last permission entry)
-	prevLineEnd := markerLineStart - 1
-	for prevLineEnd > 0 && content[prevLineEnd-1] == '\n' {
-		prevLineEnd--
-	}
-	prevLineStart := strings.LastIndex(content[:prevLineEnd], "\n") + 1
-	prevLine := content[prevLineStart:prevLineEnd]
-	trimmedPrev := strings.TrimSpace(prevLine)
-
-	// If the previous line ends with "}" but no comma, add the comma
-	if strings.HasSuffix(trimmedPrev, "}") && !strings.HasSuffix(trimmedPrev, "},") {
-		// Find the position of the closing brace and add comma after it
-		bracePos := prevLineStart + strings.LastIndex(prevLine, "}")
-		content = content[:bracePos+1] + "," + content[bracePos+1:]
-		// Update marker position since we added a character
-		markerLineStart++
-	}
-
-	// Insert the new permissions before the marker
-	content = content[:markerLineStart] + newPerms + content[markerLineStart:]
-
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		return fmt.Errorf("writing user details page: %w", err)
-	}
-	return nil
+func replaceProtoFieldAccess(content, fieldName, replacement string) string {
+	pattern := regexp.MustCompile(`\.` + regexp.QuoteMeta(fieldName) + `\b`)
+	return pattern.ReplaceAllString(content, "."+replacement)
 }
 
 func GenerateSvelteScaffolding(modelName string, columns []Column) error {
@@ -159,19 +70,11 @@ func GenerateSvelteScaffolding(modelName string, columns []Column) error {
 	if err := generateClientDetailPage(modelName, columns); err != nil {
 		return fmt.Errorf("generating client detail page: %w", err)
 	}
-	e2e_columns := make([]e2e.Column, len(columns))
-	for i, c := range columns {
-		e2e_columns[i] = e2e.Column{
-			Name: c.Name,
-			Type: c.Type,
-		}
-	}
-	if err := e2e.GenerateClientE2ETest(modelName, e2e_columns); err != nil {
-		return fmt.Errorf("generating e2e test: %w", err)
-	}
+	return nil
+}
 
-	// run npm i && npm run format in the service-client directory
-	cmd := "cd ./app/service-client && npm ci && npm run format"
+func FormatProject() error {
+	cmd := "cd ./app/service-svelte && npm ci && npm run format"
 	execCmd := exec.Command("bash", "-c", cmd)
 	out, err := execCmd.CombinedOutput()
 	if err != nil {
@@ -183,7 +86,7 @@ func GenerateSvelteScaffolding(modelName string, columns []Column) error {
 // generateClientConnect updates the client-side ConnectRPC wiring by adding the
 // <Model>Service import and exporting a typed client instance in connect.ts.
 func generateClientConnect(modelName string) error {
-	path := "./app/service-client/src/lib/connect.ts"
+	path := "./app/service-svelte/src/lib/connect.ts"
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("reading connect.ts: %w", err)
@@ -254,13 +157,13 @@ func generateClientConnect(modelName string) error {
 // singular/plural model variants. Columns are not yet expanded; this
 // is a straight token-based clone of the skeleton UI.
 func generateClientListPage(modelName string, columns []Column) error {
-	sourcePath := "./app/service-client/src/routes/(app)/models/skeletons/+page.svelte"
+	sourcePath := "./app/service-svelte/src/routes/(app)/models/skeletons/+page.svelte"
 	pluralLower := pluralizeClient.Plural(modelName)
 	pluralCap := toPascalCase(pluralLower)
 	capitalizedModelName := toPascalCase(modelName)
 
 	// Ensure destination directory exists
-	destDir := filepath.Join("app/service-client/src/routes/(app)/models", pluralLower)
+	destDir := filepath.Join("app/service-svelte/src/routes/(app)/models", pluralLower)
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return fmt.Errorf("creating destination directory %s: %w", destDir, err)
 	}
@@ -277,9 +180,9 @@ func generateClientListPage(modelName string, columns []Column) error {
 	s = strings.ReplaceAll(s, "Skeletons", pluralCap)
 	s = strings.ReplaceAll(s, "skeletons", pluralLower)
 	s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
-	// Replace protobuf field access patterns with camelCase BEFORE the blanket replacement
+	// Replace protobuf field access patterns with camelCase BEFORE the blanket replacement.
 	camelName := toCamelCase(modelName)
-	s = strings.ReplaceAll(s, "res.skeleton", "res."+camelName)
+	s = replaceProtoFieldAccess(s, "skeleton", camelName)
 	s = strings.ReplaceAll(s, "skeleton", modelName)
 
 	// Helper: Title-case a label from snake_case
@@ -378,14 +281,14 @@ func generateClientListPage(modelName string, columns []Column) error {
 // singular/plural model variants. It also expands the column-aware regions for
 // empty model defaults, form-data extraction, request payload fields, and form inputs.
 func generateClientDetailPage(modelName string, columns []Column) error {
-	sourcePath := "./app/service-client/src/routes/(app)/models/skeletons/[skeleton_id]/+page.svelte"
+	sourcePath := "./app/service-svelte/src/routes/(app)/models/skeletons/[skeleton_id]/+page.svelte"
 	pluralLower := pluralizeClient.Plural(modelName)
 	pluralCap := toPascalCase(pluralLower)
 	capitalizedModelName := toPascalCase(modelName)
 
 	// Ensure destination directory exists: /(app)/models/<plural>/[<model>_id]
 	destDir := filepath.Join(
-		"app/service-client/src/routes/(app)/models",
+		"app/service-svelte/src/routes/(app)/models",
 		pluralLower,
 		"["+modelName+"_id]",
 	)
@@ -405,11 +308,9 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 	s = strings.ReplaceAll(s, "Skeletons", pluralCap)
 	s = strings.ReplaceAll(s, "skeletons", pluralLower)
 	s = strings.ReplaceAll(s, "Skeleton", capitalizedModelName)
-	// Replace protobuf field access patterns with camelCase BEFORE the blanket replacement
-	// Be specific to avoid matching partial strings like params.skeleton_id
 	camelName := toCamelCase(modelName)
-	s = strings.ReplaceAll(s, "!s.skeleton)", "!s."+camelName+")") // null check: if (!s.skeleton)
-	s = strings.ReplaceAll(s, " s.skeleton;", " s."+camelName+";") // return s.skeleton;
+	// Replace protobuf field access patterns with camelCase BEFORE the blanket replacement.
+	s = replaceProtoFieldAccess(s, "skeleton", camelName)
 	s = strings.ReplaceAll(s, "skeleton: {", camelName+": {")
 	s = strings.ReplaceAll(s, "skeleton", modelName)
 

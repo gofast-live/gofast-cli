@@ -4,6 +4,7 @@ import (
 	"os/exec"
 
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/auth"
+	"github.com/gofast-live/gofast-cli/v2/cmd/gof/clients"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/integrations"
 	"github.com/spf13/cobra"
@@ -14,6 +15,21 @@ func init() {
 	addCmd.AddCommand(addStripeCmd)
 	addCmd.AddCommand(addS3Cmd)
 	addCmd.AddCommand(addPostmarkCmd)
+}
+
+func formatEnabledClients() error {
+	cfg, err := config.ParseConfig()
+	if err != nil {
+		return err
+	}
+
+	for _, client := range clients.Enabled(cfg) {
+		if err := formatClientProject(client.Name); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 var addCmd = &cobra.Command{
@@ -72,12 +88,16 @@ After running this command:
 			cmd.Printf("Error updating config: %v\n", err)
 			return
 		}
+		if err := formatEnabledClients(); err != nil {
+			cmd.Printf("Error formatting client after Stripe add: %v\n", err)
+			return
+		}
 
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Stripe integration added successfully!"))
 		cmd.Println("")
-		if config.IsSvelte() {
-			cmd.Println("Add this route to your navigation:")
+		if cfg, err := config.ParseConfig(); err == nil && clients.HasAny(cfg) {
+			cmd.Println("Add this route to your client navigation:")
 			cmd.Printf("  %s\n", config.SuccessStyle.Render("/payments"))
 			cmd.Println("")
 		}
@@ -148,12 +168,16 @@ After running this command:
 			cmd.Printf("Error updating config: %v\n", err)
 			return
 		}
+		if err := formatEnabledClients(); err != nil {
+			cmd.Printf("Error formatting client after S3 add: %v\n", err)
+			return
+		}
 
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("S3 integration added successfully!"))
 		cmd.Println("")
-		if config.IsSvelte() {
-			cmd.Println("Add this route to your navigation:")
+		if cfg, err := config.ParseConfig(); err == nil && clients.HasAny(cfg) {
+			cmd.Println("Add this route to your client navigation:")
 			cmd.Printf("  %s\n", config.SuccessStyle.Render("/files"))
 			cmd.Println("")
 		}
@@ -223,12 +247,16 @@ After running this command:
 			cmd.Printf("Error updating config: %v\n", err)
 			return
 		}
+		if err := formatEnabledClients(); err != nil {
+			cmd.Printf("Error formatting client after Postmark add: %v\n", err)
+			return
+		}
 
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Postmark integration added successfully!"))
 		cmd.Println("")
-		if config.IsSvelte() {
-			cmd.Println("Add this route to your navigation:")
+		if cfg, err := config.ParseConfig(); err == nil && clients.HasAny(cfg) {
+			cmd.Println("Add this route to your client navigation:")
 			cmd.Printf("  %s\n", config.SuccessStyle.Render("/emails"))
 			cmd.Println("")
 		}
