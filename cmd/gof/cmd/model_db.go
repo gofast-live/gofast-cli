@@ -44,7 +44,7 @@ func generateProto(modelName string, columns []Column) error {
 			if !ok {
 				ptype = "string"
 			}
-			b.WriteString(fmt.Sprintf("    %s %s = %d;\n", ptype, col.Name, fieldNo))
+			fmt.Fprintf(&b, "    %s %s = %d;\n", ptype, col.Name, fieldNo)
 			fieldNo++
 		}
 		b.WriteString("}\n")
@@ -86,53 +86,53 @@ func generateProto(modelName string, columns []Column) error {
 		// Messages
 		pluralCap := capitalize(pluralModelName)
 		// GetAll
-		sb.WriteString(fmt.Sprintf("// GetAll%s\n", pluralCap))
-		sb.WriteString(fmt.Sprintf("message GetAll%sRequest {}\n", pluralCap))
-		sb.WriteString(fmt.Sprintf("message GetAll%sResponse {\n", pluralCap))
-		sb.WriteString(fmt.Sprintf("    %s %s = 1;\n", capitalizedModelName, modelName))
+		fmt.Fprintf(&sb, "// GetAll%s\n", pluralCap)
+		fmt.Fprintf(&sb, "message GetAll%sRequest {}\n", pluralCap)
+		fmt.Fprintf(&sb, "message GetAll%sResponse {\n", pluralCap)
+		fmt.Fprintf(&sb, "    %s %s = 1;\n", capitalizedModelName, modelName)
 		sb.WriteString("}\n\n")
 
 		// GetByID
-		sb.WriteString(fmt.Sprintf("// Get%sByID\n", capitalizedModelName))
-		sb.WriteString(fmt.Sprintf("message Get%sByIDRequest {\n", capitalizedModelName))
+		fmt.Fprintf(&sb, "// Get%sByID\n", capitalizedModelName)
+		fmt.Fprintf(&sb, "message Get%sByIDRequest {\n", capitalizedModelName)
 		sb.WriteString("    string id = 1;\n")
 		sb.WriteString("}\n")
-		sb.WriteString(fmt.Sprintf("message Get%sByIDResponse {\n", capitalizedModelName))
-		sb.WriteString(fmt.Sprintf("    %s %s = 1;\n", capitalizedModelName, modelName))
+		fmt.Fprintf(&sb, "message Get%sByIDResponse {\n", capitalizedModelName)
+		fmt.Fprintf(&sb, "    %s %s = 1;\n", capitalizedModelName, modelName)
 		sb.WriteString("}\n\n")
 
 		// Create
-		sb.WriteString(fmt.Sprintf("// Create%s\n", capitalizedModelName))
-		sb.WriteString(fmt.Sprintf("message Create%sRequest {\n", capitalizedModelName))
-		sb.WriteString(fmt.Sprintf("    %s %s = 1;\n", capitalizedModelName, modelName))
+		fmt.Fprintf(&sb, "// Create%s\n", capitalizedModelName)
+		fmt.Fprintf(&sb, "message Create%sRequest {\n", capitalizedModelName)
+		fmt.Fprintf(&sb, "    %s %s = 1;\n", capitalizedModelName, modelName)
 		sb.WriteString("}\n")
-		sb.WriteString(fmt.Sprintf("message Create%sResponse {\n", capitalizedModelName))
-		sb.WriteString(fmt.Sprintf("    %s %s = 1;\n", capitalizedModelName, modelName))
+		fmt.Fprintf(&sb, "message Create%sResponse {\n", capitalizedModelName)
+		fmt.Fprintf(&sb, "    %s %s = 1;\n", capitalizedModelName, modelName)
 		sb.WriteString("}\n\n")
 
 		// Edit
-		sb.WriteString(fmt.Sprintf("// Edit%s\n", capitalizedModelName))
-		sb.WriteString(fmt.Sprintf("message Edit%sRequest {\n", capitalizedModelName))
-		sb.WriteString(fmt.Sprintf("    %s %s = 1;\n", capitalizedModelName, modelName))
+		fmt.Fprintf(&sb, "// Edit%s\n", capitalizedModelName)
+		fmt.Fprintf(&sb, "message Edit%sRequest {\n", capitalizedModelName)
+		fmt.Fprintf(&sb, "    %s %s = 1;\n", capitalizedModelName, modelName)
 		sb.WriteString("}\n")
-		sb.WriteString(fmt.Sprintf("message Edit%sResponse {\n", capitalizedModelName))
-		sb.WriteString(fmt.Sprintf("    %s %s = 1;\n", capitalizedModelName, modelName))
+		fmt.Fprintf(&sb, "message Edit%sResponse {\n", capitalizedModelName)
+		fmt.Fprintf(&sb, "    %s %s = 1;\n", capitalizedModelName, modelName)
 		sb.WriteString("}\n\n")
 
 		// Remove
-		sb.WriteString(fmt.Sprintf("// Remove%s\n", capitalizedModelName))
-		sb.WriteString(fmt.Sprintf("message Remove%sRequest {\n", capitalizedModelName))
+		fmt.Fprintf(&sb, "// Remove%s\n", capitalizedModelName)
+		fmt.Fprintf(&sb, "message Remove%sRequest {\n", capitalizedModelName)
 		sb.WriteString("    string id = 1;\n")
 		sb.WriteString("}\n")
-		sb.WriteString(fmt.Sprintf("message Remove%sResponse {}\n\n", capitalizedModelName))
+		fmt.Fprintf(&sb, "message Remove%sResponse {}\n\n", capitalizedModelName)
 
 		// Service
-		sb.WriteString(fmt.Sprintf("service %sService {\n", capitalizedModelName))
-		sb.WriteString(fmt.Sprintf("    rpc GetAll%s(GetAll%sRequest) returns (stream GetAll%sResponse) {}\n", pluralCap, pluralCap, pluralCap))
-		sb.WriteString(fmt.Sprintf("    rpc Get%sByID(Get%sByIDRequest) returns (Get%sByIDResponse) {}\n", capitalizedModelName, capitalizedModelName, capitalizedModelName))
-		sb.WriteString(fmt.Sprintf("    rpc Create%s(Create%sRequest) returns (Create%sResponse) {}\n", capitalizedModelName, capitalizedModelName, capitalizedModelName))
-		sb.WriteString(fmt.Sprintf("    rpc Edit%s(Edit%sRequest) returns (Edit%sResponse) {}\n", capitalizedModelName, capitalizedModelName, capitalizedModelName))
-		sb.WriteString(fmt.Sprintf("    rpc Remove%s(Remove%sRequest) returns (Remove%sResponse) {}\n", capitalizedModelName, capitalizedModelName, capitalizedModelName))
+		fmt.Fprintf(&sb, "service %sService {\n", capitalizedModelName)
+		fmt.Fprintf(&sb, "    rpc GetAll%s(GetAll%sRequest) returns (stream GetAll%sResponse) {}\n", pluralCap, pluralCap, pluralCap)
+		fmt.Fprintf(&sb, "    rpc Get%sByID(Get%sByIDRequest) returns (Get%sByIDResponse) {}\n", capitalizedModelName, capitalizedModelName, capitalizedModelName)
+		fmt.Fprintf(&sb, "    rpc Create%s(Create%sRequest) returns (Create%sResponse) {}\n", capitalizedModelName, capitalizedModelName, capitalizedModelName)
+		fmt.Fprintf(&sb, "    rpc Edit%s(Edit%sRequest) returns (Edit%sResponse) {}\n", capitalizedModelName, capitalizedModelName, capitalizedModelName)
+		fmt.Fprintf(&sb, "    rpc Remove%s(Remove%sRequest) returns (Remove%sResponse) {}\n", capitalizedModelName, capitalizedModelName, capitalizedModelName)
 		sb.WriteString("}\n")
 
 		mainContent = mainContent + sb.String()

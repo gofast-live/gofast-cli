@@ -156,30 +156,30 @@ func GenerateClientE2ETest(modelName string, columns []Column) error {
 	}
 
 	var configB strings.Builder
-	configB.WriteString(fmt.Sprintf("\tname: '%s',\n", capitalizedModelName))
-	configB.WriteString(fmt.Sprintf("\tplural: '%s',\n", pluralCap))
-	configB.WriteString(fmt.Sprintf("\troute: '/models/%s',\n", pluralLower))
-	configB.WriteString(fmt.Sprintf("\tcreateRoute: '/models/%s/new',\n", pluralLower))
-	configB.WriteString(fmt.Sprintf("\tcreateLinkLabel: 'Create New %s',\n", capitalizedModelName))
+	fmt.Fprintf(&configB, "\tname: '%s',\n", capitalizedModelName)
+	fmt.Fprintf(&configB, "\tplural: '%s',\n", pluralCap)
+	fmt.Fprintf(&configB, "\troute: '/models/%s',\n", pluralLower)
+	fmt.Fprintf(&configB, "\tcreateRoute: '/models/%s/new',\n", pluralLower)
+	fmt.Fprintf(&configB, "\tcreateLinkLabel: 'Create New %s',\n", capitalizedModelName)
 	configB.WriteString("\tsaveButtonLabel: 'Save',\n")
 	configB.WriteString("\tdeleteButtonLabel: 'Delete',\n")
 	configB.WriteString("\tlistHeaders: [\n")
 	for _, header := range headers {
-		configB.WriteString(fmt.Sprintf("\t\t'%s',\n", header))
+		fmt.Fprintf(&configB, "\t\t'%s',\n", header)
 	}
 	configB.WriteString("\t],\n")
 	configB.WriteString("\ttoastMessages: {\n")
-	configB.WriteString(fmt.Sprintf("\t\tupdateSuccess: '%s updated successfully.',\n", capitalizedModelName))
+	fmt.Fprintf(&configB, "\t\tupdateSuccess: '%s updated successfully.',\n", capitalizedModelName)
 	configB.WriteString("\t},\n")
 	configB.WriteString("\tfields: [\n")
 	for _, meta := range fieldMetas {
 		configB.WriteString("\t\t{\n")
-		configB.WriteString(fmt.Sprintf("\t\t\tname: '%s',\n", meta.name))
-		configB.WriteString(fmt.Sprintf("\t\t\tlabel: '%s',\n", meta.label))
-		configB.WriteString(fmt.Sprintf("\t\t\ttype: %s,\n", meta.typeLiteral))
-		configB.WriteString(fmt.Sprintf("\t\t\tcreateValue: %s,\n", meta.createLiteral))
+		fmt.Fprintf(&configB, "\t\t\tname: '%s',\n", meta.name)
+		fmt.Fprintf(&configB, "\t\t\tlabel: '%s',\n", meta.label)
+		fmt.Fprintf(&configB, "\t\t\ttype: %s,\n", meta.typeLiteral)
+		fmt.Fprintf(&configB, "\t\t\tcreateValue: %s,\n", meta.createLiteral)
 		if meta.validation != "" {
-			configB.WriteString(fmt.Sprintf("\t\t\tvalidationMessage: %s,\n", meta.validation))
+			fmt.Fprintf(&configB, "\t\t\tvalidationMessage: %s,\n", meta.validation)
 		}
 		if meta.useTimestamp {
 			configB.WriteString("\t\t\tuseTimestamp: true,\n")
@@ -187,10 +187,10 @@ func GenerateClientE2ETest(modelName string, columns []Column) error {
 		configB.WriteString("\t\t},\n")
 	}
 	configB.WriteString("\t],\n")
-	configB.WriteString(fmt.Sprintf("\tcreateAssertField: '%s',\n", createAssertField))
+	fmt.Fprintf(&configB, "\tcreateAssertField: '%s',\n", createAssertField)
 	configB.WriteString("\teditScenario: {\n")
-	configB.WriteString(fmt.Sprintf("\t\tfieldName: '%s',\n", editMeta.name))
-	configB.WriteString(fmt.Sprintf("\t\tnewValue: %s,\n", editValueLiteral))
+	fmt.Fprintf(&configB, "\t\tfieldName: '%s',\n", editMeta.name)
+	fmt.Fprintf(&configB, "\t\tnewValue: %s,\n", editValueLiteral)
 	configB.WriteString("\t},\n")
 
 	replaceRegion := func(content, startMarker, endMarker, replacement string) (string, error) {
