@@ -62,7 +62,7 @@
         </h1>
 
         <p class="text-xl text-muted mb-12 max-w-xl">
-            Generate production-ready Go apps with ConnectRPC, SvelteKit, and
+            Generate production-ready Go apps with ConnectRPC, SvelteKit / TanStack Start, and
             PostgreSQL.
         </p>
 
@@ -74,7 +74,7 @@
                 >Go 1.25+</span
             >
             <span class="px-3 py-1 bg-surface border border-border rounded-full"
-                >SvelteKit V5</span
+                >SvelteKit / TanStack Start</span
             >
             <span class="px-3 py-1 bg-surface border border-border rounded-full"
                 >ConnectRPC</span
