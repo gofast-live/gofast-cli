@@ -345,11 +345,12 @@
                             >
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="text-orange-400">Metric</span>
-                            <span class="text-muted">→</span>
-                            <span class="text-red-400">Exemplar</span>
-                            <span class="text-muted">→</span>
-                            <span class="text-red-400">Trace</span>
+                            <span class="text-amber-400">Logs</span>
+                            <span class="text-muted">↔</span>
+                            <span class="text-red-400">Traces</span>
+                            <span class="text-success text-xs"
+                                >(correlated)</span
+                            >
                         </div>
                     </div>
                 </div>
@@ -357,7 +358,7 @@
 
             <!-- What's included -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto">
-                {#each [{ name: "RED Metrics", desc: "Rate, Errors, Duration" }, { name: "Service Graph", desc: "Auto-mapped dependencies" }, { name: "Exemplars", desc: "Metrics → Traces" }, { name: "Pre-built Dashboards", desc: "Ready to use" }] as feature, i}
+                {#each [{ name: "RED Metrics", desc: "Rate, Errors, Duration" }, { name: "Service Graph", desc: "Auto-mapped dependencies" }, { name: "Logs ↔ Traces", desc: "Correlated navigation" }, { name: "Pre-built Dashboards", desc: "Ready to use" }] as feature, i}
                     <div
                         class="bg-surface/50 border border-border rounded-xl p-3 text-left hover:border-cyan-400/30 transition-colors {!hasMon
                             ? 'opacity-50'

@@ -6,12 +6,21 @@
 	/** @type {{ onSelect: (cmd: { id: string, variant?: any }) => void }} */
 	let { onSelect } = $props();
 
-	let showModelVariants = $state(false);
+	/** @type {import('$lib/data/commands.js').Command | null} */
+	let activeSubPicker = $state(null);
 
-	/** @param {{ id: string }} cmd */
+	let availableVariants = $derived.by(() => {
+		if (!activeSubPicker) return [];
+		if (activeSubPicker.id === 'model') {
+			return appState.availableModelVariants;
+		}
+		return activeSubPicker.variants ?? [];
+	});
+
+	/** @param {import('$lib/data/commands.js').Command} cmd */
 	function handleCommandClick(cmd) {
-		if (cmd.id === 'model') {
-			showModelVariants = true;
+		if (cmd.hasSubPicker) {
+			activeSubPicker = cmd;
 		} else {
 			onSelect({ id: cmd.id });
 		}
@@ -19,8 +28,9 @@
 
 	/** @param {any} variant */
 	function handleVariantClick(variant) {
-		onSelect({ id: 'model', variant });
-		showModelVariants = false;
+		if (!activeSubPicker) return;
+		onSelect({ id: activeSubPicker.id, variant });
+		activeSubPicker = null;
 	}
 
     function handleFinish() {
@@ -31,16 +41,16 @@
 
 <div class="w-full max-w-3xl mx-auto mt-8 bg-surface/50 border border-border rounded-xl p-6 backdrop-blur-sm" in:fade={{ duration: 200 }}>
 	<div class="text-sm text-muted mb-4 font-mono">
-		{#if showModelVariants}
-			Select a data model:
+		{#if activeSubPicker}
+			Select a {activeSubPicker.id === 'model' ? 'data model' : activeSubPicker.label}:
 		{:else}
 			$ What's next? (More options coming soon!)
 		{/if}
 	</div>
 
 	<div class="flex flex-wrap gap-3">
-		{#if showModelVariants}
-			{#each appState.availableModelVariants as variant}
+		{#if activeSubPicker}
+			{#each availableVariants as variant}
 				<button
 					class="flex flex-col items-start p-4 bg-surface border border-border hover:border-primary/50 hover:bg-surface-hover rounded-lg transition-all text-left min-w-[200px]"
 					onclick={() => handleVariantClick(variant)}
@@ -52,7 +62,7 @@
 			{/each}
             <button
                 class="px-4 py-2 text-sm text-muted hover:text-white transition-colors flex items-center gap-2"
-                onclick={() => showModelVariants = false}
+                onclick={() => activeSubPicker = null}
             >
                 <ArrowLeft size={16} /> Back
             </button>

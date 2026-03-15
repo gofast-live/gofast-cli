@@ -4,6 +4,7 @@ import { commands } from '$lib/data/commands.js';
  * @typedef {Object} State
  * @property {Set<string>} completed
  * @property {string[]} models
+ * @property {string} frontend
  * @property {boolean} initialized
  * @property {boolean} finished
  * @property {(id: string) => boolean} has
@@ -11,6 +12,7 @@ import { commands } from '$lib/data/commands.js';
  * @property {() => void} init
  * @property {(id: string) => void} add
  * @property {(name: string) => void} addModel
+ * @property {(name: string) => void} setFrontend
  * @property {() => void} finish
  * @property {() => void} reset
  * @property {import('$lib/data/commands.js').Command[]} availableCommands
@@ -24,6 +26,9 @@ let completed = $state(new Set());
 /** @type {string[]} */
 let models = $state([]);
 
+/** @type {string} */
+let frontend = $state('');
+
 /** @type {boolean} */
 let initialized = $state(false);
 
@@ -36,6 +41,9 @@ export const state = {
 	},
 	get models() {
 		return models;
+	},
+	get frontend() {
+		return frontend;
 	},
 	get initialized() {
 		return initialized;
@@ -85,6 +93,14 @@ export const state = {
 		}
 	},
 
+	/**
+	 * Set the selected frontend
+	 * @param {string} name
+	 */
+	setFrontend(name) {
+		frontend = name;
+	},
+
 	/** Mark as finished */
 	finish() {
 		finished = true;
@@ -94,6 +110,7 @@ export const state = {
 	reset() {
 		completed = new Set();
 		models = [];
+		frontend = '';
 		initialized = false;
 		finished = false;
 	},
@@ -120,7 +137,7 @@ export const state = {
 	/** Get summary of what was built */
 	get stackSummary() {
 		const parts = ['Go', 'ConnectRPC'];
-		if (completed.has('client')) parts.push('Svelte');
+		if (completed.has('client')) parts.push(frontend === 'tanstack' ? 'TanStack' : 'Svelte');
 		if (completed.has('stripe')) parts.push('Stripe');
 		if (completed.has('s3')) parts.push('S3');
 		if (completed.has('postmark')) parts.push('Postmark');

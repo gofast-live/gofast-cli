@@ -62,6 +62,9 @@
 			appState.addModel(cmd.variant.name);
 		} else {
 			appState.add(cmd.id);
+			if (cmd.id === 'client' && cmd.variant) {
+				appState.setFrontend(cmd.variant.name);
+			}
 		}
 
 		history = [...history, cmd];

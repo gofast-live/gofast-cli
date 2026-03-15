@@ -23,11 +23,13 @@
 	// Snapshot state at creation time to prevent retroactive updates (CLI history style)
 	const snapshotCompleted = new Set(appState.completed);
 	const snapshotModels = [...appState.models];
+	const snapshotFrontend = appState.frontend;
 
 	/** @type {import('$lib/stores/state.svelte.js').State} */
 	const snapshotState = {
 		completed: snapshotCompleted,
 		models: snapshotModels,
+		frontend: snapshotFrontend,
 		/** @param {string} id */
 		has: (id) => snapshotCompleted.has(id),
 		/** @param {string} name */
@@ -37,6 +39,7 @@
 		init: () => {},
 		add: () => {},
 		addModel: () => {},
+		setFrontend: () => {},
 		finish: () => {},
 		reset: () => {},
 		get availableCommands() { return []; },

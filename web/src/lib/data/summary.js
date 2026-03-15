@@ -131,10 +131,41 @@ export const wallSections = [
     },
     {
         category: 'Frontend (SvelteKit)',
-        showIf: (s) => s.has('client'),
+        showIf: (s) => s.has('client') && s.frontend === 'svelte',
         source: 'client',
         items: [
             'SvelteKit 2 + Vite',
+            'Tailwind CSS 4 + DaisyUI',
+            'ConnectRPC client',
+            'Auth interceptor',
+            'Toast notifications',
+            'Protected layout'
+        ],
+        dynamicItems: [
+            {
+                showIf: (s) => s.models.length > 0,
+                items: (s) => s.models.map((m) => ({ text: `${m} CRUD pages`, source: 'model' }))
+            },
+            {
+                showIf: (s) => s.has('stripe'),
+                items: () => [{ text: 'Billing UI', source: 'stripe' }]
+            },
+            {
+                showIf: (s) => s.has('s3'),
+                items: () => [{ text: 'File manager', source: 's3' }]
+            },
+            {
+                showIf: (s) => s.has('postmark'),
+                items: () => [{ text: 'Email dashboard', source: 'postmark' }]
+            }
+        ]
+    },
+    {
+        category: 'Frontend (TanStack Start)',
+        showIf: (s) => s.has('client') && s.frontend === 'tanstack',
+        source: 'client',
+        items: [
+            'TanStack Start + React 19',
             'Tailwind CSS 4 + DaisyUI',
             'ConnectRPC client',
             'Auth interceptor',

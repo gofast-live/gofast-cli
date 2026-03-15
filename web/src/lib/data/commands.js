@@ -245,13 +245,13 @@ export const commands = [
         ],
         contextOutputs: [
             {
-                text: 'Svelte CRUD pages',
+                text: (s) => s.frontend === 'tanstack' ? 'TanStack CRUD pages' : 'Svelte CRUD pages',
                 showIf: (s) => s.has('client'),
                 dependency: 'Frontend',
                 details: {
                     files: [
-                        'routes/(app)/models/+page.svelte',
-                        'routes/(app)/models/[id]/+page.svelte'
+                        'routes/models/+page',
+                        'routes/models/[id]/+page'
                     ],
                     features: ['List with pagination', 'Create/Edit forms', 'Delete with confirmation']
                 }
@@ -273,15 +273,29 @@ export const commands = [
     },
     {
         id: 'client',
-        label: 'svelte',
-        command: () => 'gof client svelte',
-        description: 'Adding Svelte frontend...',
+        label: 'frontend',
+        hasSubPicker: true,
+        variants: [
+            {
+                id: 'client:svelte',
+                name: 'svelte',
+                command: 'gof client svelte',
+                tagline: 'SvelteKit 2 + Svelte 5'
+            },
+            {
+                id: 'client:tanstack',
+                name: 'tanstack',
+                command: 'gof client tanstack',
+                tagline: 'TanStack Start + React 19'
+            }
+        ],
+        description: 'Adding frontend...',
         baseOutputs: [
             {
-                text: 'SvelteKit 2 + Vite',
+                text: (s) => s.frontend === 'tanstack' ? 'TanStack Start + React 19' : 'SvelteKit 2 + Vite',
                 details: {
-                    files: ['svelte.config.js', 'vite.config.js', 'src/app.html'],
-                    features: ['SSR/CSR hydration', 'File-based routing', 'TypeScript 5.9']
+                    files: ['app.config.ts / svelte.config.js', 'vite.config.js'],
+                    features: ['File-based routing', 'TypeScript 5.9', 'SSR disabled']
                 }
             },
             {
@@ -320,7 +334,7 @@ export const commands = [
             {
                 text: 'Docker container ready',
                 details: {
-                    files: ['Dockerfile', 'svelte.config.js'],
+                    files: ['Dockerfile'],
                     features: [
                         'Node.js adapter',
                         'Multi-stage Docker build',
@@ -335,7 +349,7 @@ export const commands = [
                 showIf: (s) => s.models.length > 0,
                 dependency: 'Models',
                 details: {
-                    files: ['src/routes/(app)/[model]/'],
+                    files: ['src/routes/models/'],
                     features: ['Auto-generated list/detail views', 'Form validation', 'Toast notifications']
                 }
             },
@@ -344,7 +358,7 @@ export const commands = [
                 showIf: (s) => s.has('stripe'),
                 dependency: 'Stripe',
                 details: {
-                    files: ['src/routes/(app)/billing/+page.svelte'],
+                    files: ['src/routes/billing/'],
                     features: ['Plan selection', 'Checkout redirect', 'Portal link']
                 }
             },
@@ -353,7 +367,7 @@ export const commands = [
                 showIf: (s) => s.has('s3'),
                 dependency: 'S3 Storage',
                 details: {
-                    files: ['src/routes/(app)/files/+page.svelte'],
+                    files: ['src/routes/files/'],
                     features: ['Upload with progress', 'File listing', 'Download/delete actions']
                 }
             },
@@ -362,7 +376,7 @@ export const commands = [
                 showIf: (s) => s.has('postmark'),
                 dependency: 'Postmark',
                 details: {
-                    files: ['src/routes/(app)/emails/+page.svelte'],
+                    files: ['src/routes/emails/'],
                     features: ['Send history', 'Compose form', 'Attachment support']
                 }
             }
@@ -751,7 +765,7 @@ export const commands = [
                     files: ['monitoring/prometheus.yml'],
                     features: [
                         'Metrics scraping from Alloy',
-                        'Exemplar storage (trace links)',
+                        'Logs → Traces correlation',
                         'Remote write receiver'
                     ]
                 }

@@ -242,7 +242,7 @@
                         <code
                             class="text-primary bg-primary/10 px-4 py-2 rounded-lg font-mono"
                         >
-                            https://pr-42.yourapp.com
+                            https://pr-42.app.com
                         </code>
                     </div>
                     <p class="text-muted text-sm mt-2">
