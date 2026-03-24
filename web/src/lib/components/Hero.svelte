@@ -74,7 +74,7 @@
                 >Go 1.25+</span
             >
             <span class="px-3 py-1 bg-surface border border-border rounded-full"
-                >SvelteKit / TanStack Start</span
+                >SvelteKit V5 / TanStack Start R19</span
             >
             <span class="px-3 py-1 bg-surface border border-border rounded-full"
                 >ConnectRPC</span
