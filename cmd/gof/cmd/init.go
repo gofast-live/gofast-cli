@@ -16,7 +16,10 @@ import (
 
 func init() {
 	rootCmd.AddCommand(initCmd)
+	initCmd.Flags().IntVar(&postgresPort, "postgres-port", defaultPostgresHostPort, "Host port published for PostgreSQL")
 }
+
+var postgresPort int
 
 var initCmd = &cobra.Command{
 	Use:   "init [project_name]",
@@ -39,7 +42,6 @@ var initCmd = &cobra.Command{
 			}
 		}
 
-		// Check for docker-compose
 		if _, err := exec.LookPath("docker"); err == nil {
 			if err := exec.Command("docker", "compose", "version").Run(); err != nil {
 				missingDeps = append(missingDeps, "docker compose")
@@ -60,84 +62,121 @@ var initCmd = &cobra.Command{
 			cmd.Printf("Authentication failed: %v.\n", err)
 			return
 		}
-		projectName := args[0]
-		if projectName == "" {
-			cmd.Println("Project name cannot be empty.")
+
+		projectDir, projectName, err := parseProjectArg(args[0])
+		if err != nil {
+			cmd.Printf("%v\n", err)
 			return
 		}
-		// check if the project directory already exists
-		_, err = os.Stat(projectName)
-		if err == nil {
-			cmd.Printf("Project directory '%s' already exists. Please choose a different name.\n", projectName)
+
+		if _, err = os.Stat(projectDir); err == nil {
+			cmd.Printf("Project directory '%s' already exists. Please choose a different name.\n", projectDir)
 			return
 		}
-		// download the repository
-		err = repo.DownloadRepo(email, apiKey, projectName)
+
+		if postgresPort < 1 || postgresPort > 65535 {
+			cmd.Printf("Invalid --postgres-port %d: must be between 1 and 65535.\n", postgresPort)
+			return
+		}
+		if hostPortInUse(postgresPort) {
+			suggested := suggestFreePostgresPort()
+			cmd.Printf("Port %d is already in use.\n", postgresPort)
+			cmd.Printf("Retry with: gof init %s --postgres-port %d\n", args[0], suggested)
+			return
+		}
+
+		err = repo.DownloadRepo(email, apiKey, projectDir)
 		if err != nil {
 			cmd.Printf("Error downloading repository: %v\n", err)
 			return
 		}
-		if err := os.RemoveAll(filepath.Join(projectName, ".git")); err != nil {
+
+		success := false
+		defer func() {
+			if !success {
+				rollbackProject(projectDir)
+				cmd.Printf("Removed partial project at '%s'.\n", projectDir)
+			}
+		}()
+
+		if err := os.RemoveAll(filepath.Join(projectDir, ".git")); err != nil {
 			cmd.Printf("Warning: could not remove template git metadata: %v\n", err)
 		}
 		// remove template-only folders and files
 		for _, client := range clients.All() {
-			if err := os.RemoveAll(filepath.Join(projectName, "app", client.ServiceDir)); err != nil {
+			if err := os.RemoveAll(filepath.Join(projectDir, "app", client.ServiceDir)); err != nil {
 				cmd.Printf("Warning: could not remove initial %s client folder: %v\n", client.DisplayName, err)
 			}
 		}
-		if err := os.RemoveAll(filepath.Join(projectName, "monitoring")); err != nil {
+		if err := os.RemoveAll(filepath.Join(projectDir, "monitoring")); err != nil {
 			cmd.Printf("Warning: could not remove monitoring folder: %v\n", err)
 		}
-		if err := os.RemoveAll(filepath.Join(projectName, "infra")); err != nil {
+		if err := os.RemoveAll(filepath.Join(projectDir, "infra")); err != nil {
 			cmd.Printf("Warning: could not remove infra folder: %v\n", err)
 		}
-		if err := os.Remove(filepath.Join(projectName, "docker-compose.monitoring.yml")); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(filepath.Join(projectDir, "docker-compose.monitoring.yml")); err != nil && !os.IsNotExist(err) {
 			cmd.Printf("Warning: could not remove monitoring docker compose file: %v\n", err)
 		}
 		for _, client := range clients.All() {
-			if err := os.Remove(filepath.Join(projectName, client.ComposeFile)); err != nil && !os.IsNotExist(err) {
+			if err := os.Remove(filepath.Join(projectDir, client.ComposeFile)); err != nil && !os.IsNotExist(err) {
 				cmd.Printf("Warning: could not remove %s docker compose file: %v\n", client.DisplayName, err)
 			}
 		}
-		if err := os.RemoveAll(filepath.Join(projectName, "e2e")); err != nil {
+		if err := os.RemoveAll(filepath.Join(projectDir, "e2e")); err != nil {
 			cmd.Printf("Warning: could not remove e2e folder: %v\n", err)
 		}
-		if err := os.RemoveAll(filepath.Join(projectName, ".github")); err != nil {
+		if err := os.RemoveAll(filepath.Join(projectDir, ".github")); err != nil {
 			cmd.Printf("Warning: could not remove .github folder: %v\n", err)
 		}
 		// Strip optional integrations - user can add them back with 'gof add <integration>'
-		if err := integrations.StripeStrip(projectName); err != nil {
+		if err := integrations.StripeStrip(projectDir); err != nil {
 			cmd.Printf("Error stripping stripe: %v\n", err)
 			return
 		}
-		if err := integrations.S3Strip(projectName); err != nil {
+		if err := integrations.S3Strip(projectDir); err != nil {
 			cmd.Printf("Error stripping s3: %v\n", err)
 			return
 		}
-		if err := integrations.PostmarkStrip(projectName); err != nil {
+		if err := integrations.PostmarkStrip(projectDir); err != nil {
 			cmd.Printf("Error stripping postmark: %v\n", err)
 			return
 		}
-		dcPath := filepath.Join(projectName, "docker-compose.yml")
+
+		dcPath := filepath.Join(projectDir, "docker-compose.yml")
 		dcContent, err := os.ReadFile(dcPath)
 		if err != nil {
 			cmd.Printf("Error reading %s: %v\n", dcPath, err)
 			return
 		}
-		newDcContent := strings.ReplaceAll(string(dcContent), "gofast", projectName)
+		makefilePath := filepath.Join(projectDir, "Makefile")
+		makefileContent, err := os.ReadFile(makefilePath)
+		if err != nil {
+			cmd.Printf("Error reading %s: %v\n", makefilePath, err)
+			return
+		}
+
+		newDcContent := applyProjectName(string(dcContent), projectName)
+		newDcContent, newMakefileContent, err := applyHostPostgresPort(newDcContent, string(makefileContent), postgresPort)
+		if err != nil {
+			cmd.Printf("Error applying Postgres host port: %v\n", err)
+			return
+		}
 		if err := os.WriteFile(dcPath, []byte(newDcContent), 0644); err != nil {
 			cmd.Printf("Error writing to %s: %v\n", dcPath, err)
 			return
 		}
+		if postgresPort != defaultPostgresHostPort {
+			if err := os.WriteFile(makefilePath, []byte(newMakefileContent), 0644); err != nil {
+				cmd.Printf("Error writing to %s: %v\n", makefilePath, err)
+				return
+			}
+		}
 
-		// create gofast.json config using the config package
-		if err := config.Initialize(projectName); err != nil {
+		if err := config.Initialize(projectDir, projectName); err != nil {
 			cmd.Printf("Error creating gofast.json file: %v\n", err)
 			return
 		}
 
-		// run scripts to set up the project
 		cmd.Println("")
 		cmd.Printf("Initializing project '%s'...\n", projectName)
 		scripts := []string{
@@ -160,47 +199,47 @@ var initCmd = &cobra.Command{
 			cmd.Printf("%s\n", messages[i])
 			parts := strings.Fields(script)
 			cmdExec := exec.Command(parts[0], parts[1:]...)
-			cmdExec.Dir = projectName
-			output, err := cmdExec.CombinedOutput()
-			if err != nil {
-				cmd.Printf("Error running '%s': %v\nOutput: %s\n", script, err, output)
+			cmdExec.Dir = projectDir
+			output, runErr := cmdExec.CombinedOutput()
+			if runErr != nil {
+				cmd.Printf("Error running '%s': %v\nOutput: %s\n", script, runErr, output)
 				return
 			}
 		}
 
-		// Format Go code
 		gofmtCmd := exec.Command("go", "fmt", "./...")
-		gofmtCmd.Dir = filepath.Join(projectName, "app", "service-core")
+		gofmtCmd.Dir = filepath.Join(projectDir, "app", "service-core")
 		if output, err := gofmtCmd.CombinedOutput(); err != nil {
 			cmd.Printf("Warning: go fmt failed: %v\nOutput: %s\n", err, output)
 		}
 
-		// Initialize git repo with initial commit
 		gitInitCmd := exec.Command("git", "init")
-		gitInitCmd.Dir = projectName
+		gitInitCmd.Dir = projectDir
 		if output, err := gitInitCmd.CombinedOutput(); err != nil {
 			cmd.Printf("Warning: git init failed: %v\nOutput: %s\n", err, output)
 		}
 		gitAddCmd := exec.Command("git", "add", ".")
-		gitAddCmd.Dir = projectName
+		gitAddCmd.Dir = projectDir
 		if output, err := gitAddCmd.CombinedOutput(); err != nil {
 			cmd.Printf("Warning: git add failed: %v\nOutput: %s\n", err, output)
 		}
 		gitCommitCmd := exec.Command("git", "commit", "-m", "Initial commit")
-		gitCommitCmd.Dir = projectName
+		gitCommitCmd.Dir = projectDir
 		if output, err := gitCommitCmd.CombinedOutput(); err != nil {
 			cmd.Printf("Warning: git commit failed: %v\nOutput: %s\n", err, output)
 		}
+
+		success = true
 
 		cmd.Println("")
 		cmd.Println(config.SuccessStyle.Render("Project '" + projectName + "' initialized successfully!"))
 		cmd.Println("")
 		cmd.Println("Next steps:")
-		cmd.Printf("  1. Run %s\n", config.SuccessStyle.Render("'cd "+projectName+"'"))
+		cmd.Printf("  1. Run %s\n", config.SuccessStyle.Render("'cd "+projectDir+"'"))
 		cmd.Printf("  2. Run %s to start the server\n", config.SuccessStyle.Render("'make start'"))
 		cmd.Println("")
 		cmd.Println("To create a GitHub repo:")
-		cmd.Printf("  %s\n", config.SuccessStyle.Render("gh repo create "+projectName+" --private --source="+projectName+" --push"))
+		cmd.Printf("  %s\n", config.SuccessStyle.Render("gh repo create "+projectName+" --private --source="+projectDir+" --push"))
 		cmd.Println("")
 	},
 }
