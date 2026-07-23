@@ -3,7 +3,7 @@
 ## Metadata
 - Domain: `gof` CLI - Go application code generator
 - Primary audience: LLM agents working on CLI development
-- Last updated: 2026-03-10
+- Last updated: 2026-07-23
 - Status: Active
 - Stability note: Sections marked `[STABLE]` should change rarely. Sections marked `[VOLATILE]` are expected to change often.
 
@@ -325,6 +325,7 @@ cmd/gof/
 ├── cmd/
 │   ├── root.go                # Root Cobra command
 │   ├── init.go                # gof init - project scaffolding
+│   ├── init_helpers.go        # init path/name parse, postgres port, rollback helpers
 │   ├── model.go               # gof model - CRUD generation orchestrator (560 lines)
 │   ├── model_db.go            # Proto, SQL migration, SQLC query generation
 │   ├── model_service.go       # Service + transport + validation generation
@@ -370,7 +371,7 @@ Related files outside `cmd/gof/`:
 
 | Command | Purpose |
 |---------|---------|
-| `gof init <name>` | Scaffold new project |
+| `gof init <path-or-name> [--postgres-port N]` | Scaffold new project |
 | `gof model <name> <col:type...>` | Generate CRUD model with all layers |
 | `gof client svelte` | Add Svelte frontend |
 | `gof client tanstack` | Add TanStack frontend |
@@ -640,7 +641,7 @@ Known gaps:
 ```go
 // Config
 config.ParseConfig() (*Config, error)
-config.Initialize(projectName string) error
+config.Initialize(projectDir, projectName string) error
 config.AddModel(name string, columns []Column) error
 config.AddIntegration(name string) error
 config.HasService(name string) bool
@@ -660,7 +661,7 @@ integrations.MergeConfigMarkers(srcConfig, dstConfig, integration string) error
 integrations.StripOtherIntegrations(projectPath string, keep string) error
 
 // Repo
-repo.DownloadRepo(email, apiKey, projectName string) error
+repo.DownloadRepo(email, apiKey, projectDir string) error
 
 // E2E
 e2e.GenerateClientE2ETest(modelName string, columns []config.Column) error

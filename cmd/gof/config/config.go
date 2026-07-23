@@ -5,13 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/charmbracelet/lipgloss"
 )
 
 const (
 	SERVER_URL     = "https://admin.gofast.live"
-	VERSION        = "v2.17.0"
+	VERSION        = "v2.18.1"
 	ConfigFileName = "gofast.json"
 )
 
@@ -94,7 +95,7 @@ func AddModel(modelName string, columns []Column) error {
 	return writeConfig(config)
 }
 
-func Initialize(projectName string) error {
+func Initialize(projectDir, projectName string) error {
 	cfg := Config{
 		ProjectName:         projectName,
 		InfraPopulated:      false,
@@ -121,7 +122,7 @@ func Initialize(projectName string) error {
 		return err
 	}
 
-	return os.WriteFile(projectName+"/"+ConfigFileName, data, 0644)
+	return os.WriteFile(filepath.Join(projectDir, ConfigFileName), data, 0644)
 }
 
 func IsSvelte() bool {
