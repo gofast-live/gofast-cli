@@ -41,8 +41,8 @@ func initialModel() model {
 	ei.Placeholder = "Enter your email address"
 	ei.Focus()
 	ei.CharLimit = 156
-	ei.PromptStyle = config.FocusedStyle
-	ei.TextStyle = config.FocusedStyle
+	ei.PromptStyle = config.FocusedStyle()
+	ei.TextStyle = config.FocusedStyle()
 
 	ai := textinput.New()
 	ai.Placeholder = "Enter your API key"
@@ -66,21 +66,23 @@ func (m model) Init() tea.Cmd {
 	return textinput.Blink
 }
 
+//nolint:ireturn // tea.Model requires Update to return the interface
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		//nolint:exhaustive // only submit, focus and quit keys are handled here, the rest go to the inputs
 		switch msg.Type {
 		case tea.KeyEnter:
-			m.err = errMsg{}
+			m.err = errMsg{err: nil, msg: ""}
 			m.loading = true
 			email := m.emailInput.Value()
 			apiKey := m.apiKeyInput.Value()
 			return m, tea.Batch(m.spinner.Tick, checkConfig(email, apiKey))
 
 		case tea.KeyTab, tea.KeyShiftTab, tea.KeyDown, tea.KeyUp:
-			cmd := m.toggleFocus()
+			m, cmd = m.toggleFocus()
 			return m, cmd
 
 		case tea.KeyCtrlC, tea.KeyEsc:
@@ -90,7 +92,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case authMsg:
 		m.authenticated = true
 		m.loading = false
-		m.err = errMsg{}
+		m.err = errMsg{err: nil, msg: ""}
 		return m, tea.Quit
 	case errMsg:
 		m.err = msg
@@ -102,7 +104,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
-	cmd = m.updateInputs(msg)
+	m, cmd = m.updateInputs(msg)
 	return m, cmd
 }
 
@@ -121,28 +123,27 @@ func (m model) View() string {
 	b.WriteRune('\n')
 
 	if m.err.msg != "" {
-		b.WriteString(config.ErrStyle.Render(m.err.msg))
+		b.WriteString(config.ErrStyle().Render(m.err.msg))
 		b.WriteRune('\n')
 		if m.err.err != nil {
-			b.WriteString(config.ErrStyle.Render(m.err.err.Error()))
+			b.WriteString(config.ErrStyle().Render(m.err.err.Error()))
 			b.WriteRune('\n')
 		}
 		b.WriteRune('\n')
-
 	}
 
-	b.WriteString(config.HelpStyle.Render("enter: submit • tab: switch input • ctrl+c: quit"))
+	b.WriteString(config.HelpStyle().Render("enter: submit • tab: switch input • ctrl+c: quit"))
 	return b.String()
 }
 
-func (m *model) updateInputs(msg tea.Msg) tea.Cmd {
+func (m model) updateInputs(msg tea.Msg) (model, tea.Cmd) {
 	cmds := make([]tea.Cmd, 2)
 	m.emailInput, cmds[0] = m.emailInput.Update(msg)
 	m.apiKeyInput, cmds[1] = m.apiKeyInput.Update(msg)
-	return tea.Batch(cmds...)
+	return m, tea.Batch(cmds...)
 }
 
-func (m *model) toggleFocus() tea.Cmd {
+func (m model) toggleFocus() (model, tea.Cmd) {
 	inputs := []*textinput.Model{&m.emailInput, &m.apiKeyInput}
 	m.focusIndex++
 	if m.focusIndex >= len(inputs) {
@@ -151,13 +152,13 @@ func (m *model) toggleFocus() tea.Cmd {
 	for i := range inputs {
 		if i == m.focusIndex {
 			inputs[i].Focus()
-			inputs[i].PromptStyle = config.FocusedStyle
-			inputs[i].TextStyle = config.FocusedStyle
+			inputs[i].PromptStyle = config.FocusedStyle()
+			inputs[i].TextStyle = config.FocusedStyle()
 			continue
 		}
 		inputs[i].Blur()
-		inputs[i].PromptStyle = config.NoStyle
-		inputs[i].TextStyle = config.NoStyle
+		inputs[i].PromptStyle = config.NoStyle()
+		inputs[i].TextStyle = config.NoStyle()
 	}
-	return textinput.Blink
+	return m, textinput.Blink
 }

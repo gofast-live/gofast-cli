@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/gertd/go-pluralize"
 )
 
 func generateServiceContent(modelName string, capitalizedModelName string) (string, error) {
@@ -18,7 +21,7 @@ func generateServiceContent(modelName string, capitalizedModelName string) (stri
 	// Go naming conversions
 	goPackageName := toGoPackageName(modelName)
 	goVarName := toGoVarName(modelName)
-	pluralLower := pluralizeClient.Plural(modelName)
+	pluralLower := pluralize.NewClient().Plural(modelName)
 	pluralCap := capitalize(pluralLower)
 	pluralVarName := toGoVarName(pluralLower)
 
@@ -41,7 +44,7 @@ func generateServiceLayer(modelName string, columns []Column) error {
 	destDir := "app/service-core/domain/" + goPackageName
 	capitalizedModelName := capitalize(modelName)
 
-	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -55,20 +58,21 @@ func generateServiceLayer(modelName string, columns []Column) error {
 
 		var newContentStr string
 		var genErr error
-		if info.Name() == "service.go" {
+		switch info.Name() {
+		case "service.go":
 			newContentStr, genErr = generateServiceContent(modelName, capitalizedModelName)
-		} else if info.Name() == "service_test.go" {
+		case "service_test.go":
 			newContentStr, genErr = generateServiceTestContent(modelName, capitalizedModelName, columns)
-		} else if info.Name() == "validation.go" {
-			newContentStr, genErr = generateValidationContent(modelName, capitalizedModelName, columns)
-		} else if info.Name() == "validation_test.go" {
+		case "validation.go":
+			newContentStr = generateValidationContent(modelName, capitalizedModelName, columns)
+		case "validation_test.go":
 			newContentStr, genErr = generateValidationTestContent(modelName, capitalizedModelName, columns)
-		} else {
+		default:
 			content, err := os.ReadFile(path)
 			if err != nil {
-				return err
+				return fmt.Errorf("reading %s: %w", path, err)
 			}
-			pluralLower := pluralizeClient.Plural(modelName)
+			pluralLower := pluralize.NewClient().Plural(modelName)
 			pluralCap := capitalize(pluralLower)
 			pluralVarName := toGoVarName(pluralLower)
 			newContentStr = strings.ReplaceAll(string(content), "Skeletons", pluralCap)
@@ -84,6 +88,10 @@ func generateServiceLayer(modelName string, columns []Column) error {
 
 		return os.WriteFile(destPath, []byte(newContentStr), info.Mode())
 	})
+	if err != nil {
+		return fmt.Errorf("walking %s: %w", sourceDir, err)
+	}
+	return nil
 }
 
 // generateTransportLayer scaffolds ConnectRPC handlers by copying the transport
@@ -94,10 +102,10 @@ func generateTransportLayer(modelName string, columns []Column) error {
 	destDir := "app/service-core/transport/" + goPackageName
 
 	capitalizedModelName := capitalize(modelName)
-	pluralLower := pluralizeClient.Plural(modelName)
+	pluralLower := pluralize.NewClient().Plural(modelName)
 	pluralCap := capitalize(pluralLower)
 
-	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -119,7 +127,7 @@ func generateTransportLayer(modelName string, columns []Column) error {
 		default:
 			content, readErr := os.ReadFile(path)
 			if readErr != nil {
-				return readErr
+				return fmt.Errorf("reading %s: %w", path, readErr)
 			}
 			s := string(content)
 			goVarName := toGoVarName(modelName)
@@ -136,6 +144,10 @@ func generateTransportLayer(modelName string, columns []Column) error {
 		}
 		return os.WriteFile(destPath, []byte(newContentStr), info.Mode())
 	})
+	if err != nil {
+		return fmt.Errorf("walking %s: %w", sourceDir, err)
+	}
+	return nil
 }
 
 func generateTransportRouteContent(modelName, capitalizedModelName, pluralLower, pluralCap string, columns []Column) (string, error) {
@@ -188,12 +200,12 @@ func generateTransportRouteContent(modelName, capitalizedModelName, pluralLower,
 	// Replace the queryToProto function body
 	fnStart := strings.Index(s, "func queryToProto(")
 	if fnStart == -1 {
-		return "", fmt.Errorf("queryToProto function not found in transport template")
+		return "", errors.New("queryToProto function not found in transport template")
 	}
 	// Find function end by counting braces
 	braceIdx := strings.Index(s[fnStart:], "{")
 	if braceIdx == -1 {
-		return "", fmt.Errorf("malformed queryToProto: no opening brace")
+		return "", errors.New("malformed queryToProto: no opening brace")
 	}
 	absOpen := fnStart + braceIdx
 	depth := 0
@@ -215,7 +227,7 @@ func generateTransportRouteContent(modelName, capitalizedModelName, pluralLower,
 	return s, nil
 }
 
-func generateValidationContent(modelName string, capitalizedModelName string, columns []Column) (string, error) {
+func generateValidationContent(modelName string, capitalizedModelName string, columns []Column) string {
 	// Determine which imports are needed based on column types
 	needStrconv := false
 	needStr := false
@@ -248,7 +260,7 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 	goVarName := toGoVarName(modelName)
 
 	// Helpers
-	toFieldName := func(name string) string { return toCamelCase(name) }
+	toFieldName := toCamelCase
 	toLocalVarName := func(camel string) string {
 		if camel == "" {
 			return camel
@@ -371,5 +383,5 @@ func generateValidationContent(modelName string, capitalizedModelName string, co
 	}
 	b.WriteString("\t}, nil\n}\n")
 
-	return b.String(), nil
+	return b.String()
 }

@@ -1,6 +1,8 @@
 package integrations
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,27 +17,32 @@ import (
 // Called by init command after downloading the template.
 func StripeStrip(projectPath string) error {
 	// 1. Remove payment domain folder
-	if err := os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "domain", "payment")); err != nil {
+	err := os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "domain", "payment"))
+	if err != nil {
 		return fmt.Errorf("removing payment domain: %w", err)
 	}
 
 	// 2. Remove payment transport folder
-	if err := os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "transport", "payment")); err != nil {
+	err = os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "transport", "payment"))
+	if err != nil {
 		return fmt.Errorf("removing payment transport: %w", err)
 	}
 
 	// 3. Remove subscriptions migration
-	if err := os.Remove(filepath.Join(projectPath, "app", "service-core", "storage", "migrations", "00003_create_subscriptions.sql")); err != nil && !os.IsNotExist(err) {
+	err = os.Remove(filepath.Join(projectPath, "app", "service-core", "storage", "migrations", "00003_create_subscriptions.sql"))
+	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("removing subscriptions migration: %w", err)
 	}
 
 	// 4. Strip all GF_STRIPE marker blocks from all files
-	if err := StripIntegration(projectPath, "STRIPE"); err != nil {
+	err = StripIntegration(projectPath, "STRIPE")
+	if err != nil {
 		return fmt.Errorf("stripping stripe markers: %w", err)
 	}
 
 	// 5. Replace CheckUserAccess with simple fallback (the Stripe version was stripped)
-	if err := stripeReplaceCheckUserAccess(projectPath); err != nil {
+	err = stripeReplaceCheckUserAccess(projectPath)
+	if err != nil {
 		return fmt.Errorf("replacing CheckUserAccess: %w", err)
 	}
 
@@ -48,7 +55,7 @@ func stripeReplaceCheckUserAccess(projectPath string) error {
 
 	content, err := os.ReadFile(loginServicePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("reading %s: %w", loginServicePath, err)
 	}
 
 	// The simple fallback function to insert
@@ -62,13 +69,17 @@ func stripeReplaceCheckUserAccess(projectPath string) error {
 	s := string(content)
 	insertPoint := strings.Index(s, "func ForceRefresh(")
 	if insertPoint == -1 {
-		return fmt.Errorf("could not find ForceRefresh function")
+		return errors.New("could not find ForceRefresh function")
 	}
 
 	// Insert the fallback
 	s = s[:insertPoint] + fallback + s[insertPoint:]
 
-	return os.WriteFile(loginServicePath, []byte(s), 0644)
+	err = os.WriteFile(loginServicePath, []byte(s), 0644)
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", loginServicePath, err)
+	}
+	return nil
 }
 
 // StripeStripClient removes Stripe-related content from a generated client.
@@ -83,7 +94,7 @@ func StripeAddClient(tmpProject, clientType, clientPath string) error {
 
 // StripeAdd adds Stripe payment integration to an existing project.
 // Called by 'gof add stripe' command.
-func StripeAdd(email, apiKey string) error {
+func StripeAdd(ctx context.Context, email, apiKey string) error {
 	// 1. Download template to temp location
 	tmpDir, err := os.MkdirTemp("", "gofast-stripe-*")
 	if err != nil {
@@ -96,17 +107,20 @@ func StripeAdd(email, apiKey string) error {
 	if err != nil {
 		return fmt.Errorf("getting current dir: %w", err)
 	}
-	if err := os.Chdir(tmpDir); err != nil {
+	err = os.Chdir(tmpDir)
+	if err != nil {
 		return fmt.Errorf("changing to temp dir: %w", err)
 	}
 
-	if err := repo.DownloadRepo(email, apiKey, "template"); err != nil {
+	err = repo.DownloadRepo(ctx, email, apiKey, "template")
+	if err != nil {
 		_ = os.Chdir(cwd)
 		return fmt.Errorf("downloading template: %w", err)
 	}
 
 	// Return to original directory
-	if err := os.Chdir(cwd); err != nil {
+	err = os.Chdir(cwd)
+	if err != nil {
 		return fmt.Errorf("returning to original dir: %w", err)
 	}
 
@@ -115,24 +129,28 @@ func StripeAdd(email, apiKey string) error {
 	// 2. Copy payment domain folder
 	srcDomain := filepath.Join(tmpProject, "app", "service-core", "domain", "payment")
 	dstDomain := filepath.Join("app", "service-core", "domain", "payment")
-	if err := CopyDir(srcDomain, dstDomain); err != nil {
+	err = CopyDir(srcDomain, dstDomain)
+	if err != nil {
 		return fmt.Errorf("copying payment domain: %w", err)
 	}
 
 	// 3. Copy payment transport folder
 	srcTransport := filepath.Join(tmpProject, "app", "service-core", "transport", "payment")
 	dstTransport := filepath.Join("app", "service-core", "transport", "payment")
-	if err := CopyDir(srcTransport, dstTransport); err != nil {
+	err = CopyDir(srcTransport, dstTransport)
+	if err != nil {
 		return fmt.Errorf("copying payment transport: %w", err)
 	}
 
 	// 4. Copy and renumber subscriptions migration
-	if err := AddMigration(tmpProject, "00003_create_subscriptions.sql", "create_subscriptions.sql"); err != nil {
+	err = AddMigration(tmpProject, "00003_create_subscriptions.sql", "create_subscriptions.sql")
+	if err != nil {
 		return fmt.Errorf("adding subscriptions migration: %w", err)
 	}
 
 	// 5. Copy files with GF_STRIPE markers from template, keeping stripe markers intact
-	if err := CopyFilesWithMarkers(tmpProject, ".", "STRIPE"); err != nil {
+	err = CopyFilesWithMarkers(tmpProject, ".", "STRIPE")
+	if err != nil {
 		return fmt.Errorf("copying files with stripe markers: %w", err)
 	}
 
@@ -144,7 +162,8 @@ func StripeAdd(email, apiKey string) error {
 	enabledClients := clients.Enabled(cfg)
 	for _, client := range enabledClients {
 		clientPath := filepath.Join("app", client.ServiceDir)
-		if err := StripeAddClient(tmpProject, client.Name, clientPath); err != nil {
+		err := StripeAddClient(tmpProject, client.Name, clientPath)
+		if err != nil {
 			return fmt.Errorf("adding stripe to %s client: %w", client.DisplayName, err)
 		}
 	}

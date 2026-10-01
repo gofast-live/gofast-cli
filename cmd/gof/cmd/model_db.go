@@ -1,23 +1,27 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/gertd/go-pluralize"
 )
 
-func generateProto(modelName string, columns []Column) error {
+func generateProto(ctx context.Context, modelName string, columns []Column) error {
 	protoDir := "./proto/v1"
 
-	if err := os.MkdirAll(protoDir, 0o755); err != nil {
-		return err
+	err := os.MkdirAll(protoDir, 0o755)
+	if err != nil {
+		return fmt.Errorf("creating %s: %w", protoDir, err)
 	}
 
 	capitalizedModelName := capitalize(modelName)
-	pluralModelName := pluralizeClient.Plural(modelName)
+	pluralModelName := pluralize.NewClient().Plural(modelName)
 
 	typeMapProto := map[string]string{
 		"string": "string",
@@ -28,7 +32,8 @@ func generateProto(modelName string, columns []Column) error {
 
 	// 1) Create model proto file if missing
 	modelProtoPath := filepath.Join(protoDir, modelName+".proto")
-	if _, err := os.Stat(modelProtoPath); err != nil {
+	_, err = os.Stat(modelProtoPath)
+	if err != nil {
 		var b strings.Builder
 		b.WriteString("syntax = \"proto3\";\n")
 		b.WriteString("option go_package = \"gofast/gen/proto/v1\";\n")
@@ -49,8 +54,9 @@ func generateProto(modelName string, columns []Column) error {
 		}
 		b.WriteString("}\n")
 
-		if err := os.WriteFile(modelProtoPath, []byte(b.String()), 0o644); err != nil {
-			return err
+		err := os.WriteFile(modelProtoPath, []byte(b.String()), 0o644)
+		if err != nil {
+			return fmt.Errorf("writing %s: %w", modelProtoPath, err)
 		}
 	}
 
@@ -58,7 +64,7 @@ func generateProto(modelName string, columns []Column) error {
 	mainProtoPath := filepath.Join(protoDir, "main.proto")
 	mainBytes, err := os.ReadFile(mainProtoPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("reading %s: %w", mainProtoPath, err)
 	}
 	mainContent := string(mainBytes)
 
@@ -135,24 +141,25 @@ func generateProto(modelName string, columns []Column) error {
 		fmt.Fprintf(&sb, "    rpc Remove%s(Remove%sRequest) returns (Remove%sResponse) {}\n", capitalizedModelName, capitalizedModelName, capitalizedModelName)
 		sb.WriteString("}\n")
 
-		mainContent = mainContent + sb.String()
+		mainContent += sb.String()
 	}
 
-	if err := os.WriteFile(mainProtoPath, []byte(mainContent), 0o644); err != nil {
-		return err
+	err = os.WriteFile(mainProtoPath, []byte(mainContent), 0o644)
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", mainProtoPath, err)
 	}
 
 	// Generate protobuf stubs via Buf
-	bufCmd := exec.Command("make", "gen")
+	bufCmd := exec.CommandContext(ctx, "make", "gen")
 	bufOut, err := bufCmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("error running 'make gen': %v\nOutput: %s", err, bufOut)
+		return fmt.Errorf("error running 'make gen': %w\nOutput: %s", err, bufOut)
 	}
 	return nil
 }
 
 func generateSchema(modelName string, columns []Column) (string, error) {
-	tableName := pluralizeClient.Plural(modelName)
+	tableName := pluralize.NewClient().Plural(modelName)
 	migrationsDir := "./app/service-core/storage/migrations"
 
 	err := os.MkdirAll(migrationsDir, 0o755)
@@ -172,12 +179,12 @@ func generateSchema(modelName string, columns []Column) (string, error) {
 		}
 
 		name := entry.Name()
-		underscoreIndex := strings.Index(name, "_")
-		if underscoreIndex == -1 {
+		before, _, ok := strings.Cut(name, "_")
+		if !ok {
 			continue
 		}
 
-		numberPart := name[:underscoreIndex]
+		numberPart := before
 		parsedNumber, parseErr := strconv.Atoi(numberPart)
 		if parseErr != nil {
 			continue
@@ -208,7 +215,7 @@ func generateSchema(modelName string, columns []Column) (string, error) {
 	}
 
 	for _, col := range columns {
-		columnDefs = append(columnDefs, fmt.Sprintf("    %s %s not null", col.Name, typeMap[col.Type]))
+		columnDefs = append(columnDefs, fmt.Sprintf("    %s %s not null", col.Name, sqlColumnType(col.Type)))
 	}
 
 	migrationContent := fmt.Sprintf(`-- +goose Up
@@ -230,13 +237,15 @@ drop table if exists %s;
 }
 
 func generateQueries(modelName string, columns []Column) error {
-	tableName := pluralizeClient.Plural(modelName)
+	tableName := pluralize.NewClient().Plural(modelName)
 	modelNameSingular := capitalize(modelName)
 	modelNamePlural := capitalize(tableName)
 
 	// For insert
-	var insertColNames = []string{"user_id"}
-	var placeholders = []string{"$1"}
+	insertColNames := make([]string, 0, 1+len(columns))
+	insertColNames = append(insertColNames, "user_id")
+	placeholders := make([]string, 0, 1+len(columns))
+	placeholders = append(placeholders, "$1")
 	for i, col := range columns {
 		insertColNames = append(insertColNames, col.Name)
 		placeholders = append(placeholders, fmt.Sprintf("$%d", i+2))
@@ -245,12 +254,13 @@ func generateQueries(modelName string, columns []Column) error {
 	placeholdersStr := strings.Join(placeholders, ", ")
 
 	// For update
-	var updatePairs []string
+	updatePairs := make([]string, 0, len(columns))
 	for i, col := range columns {
 		updatePairs = append(updatePairs, fmt.Sprintf("%s = $%d", col.Name, i+1))
 	}
 	updatePairsStr := strings.Join(updatePairs, ",\n    ")
 
+	//nolint:unqueryvet // generated queries mirror the template's skeleton queries, which select *
 	queries := fmt.Sprintf(`
 -- %s --
 
