@@ -3,7 +3,10 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+
+	"github.com/gertd/go-pluralize"
 )
 
 // generateServiceTestContent generates test file by copying skeleton and replacing markers
@@ -60,7 +63,7 @@ func generateServiceTestContent(modelName, capitalizedModelName string, columns 
 	// Go naming conversions
 	goPackageName := toGoPackageName(modelName)
 	goVarName := toGoVarName(modelName)
-	pluralLower := pluralizeClient.Plural(modelName)
+	pluralLower := pluralize.NewClient().Plural(modelName)
 	pluralCap := capitalize(pluralLower)
 	pluralVarName := toGoVarName(pluralLower)
 
@@ -85,11 +88,11 @@ func buildEntityFields(columns []Column) string {
 		case "string":
 			lines = append(lines, fmt.Sprintf("%s:   \"%s \" + uuid.New().String()[:8],", field, capitalize(c.Name)))
 		case "number":
-			lines = append(lines, fmt.Sprintf("%s:    \"100\",", field))
+			lines = append(lines, field+":    \"100\",")
 		case "date":
-			lines = append(lines, fmt.Sprintf("%s:  time.Now(),", field))
+			lines = append(lines, field+":  time.Now(),")
 		case "bool":
-			lines = append(lines, fmt.Sprintf("%s: true,", field))
+			lines = append(lines, field+": true,")
 		}
 	}
 	return strings.Join(lines, "\n\t\t")
@@ -104,11 +107,11 @@ func buildCreateProtoFields(columns []Column, modelName string) string {
 		case "string":
 			lines = append(lines, fmt.Sprintf("%s:   \"Test %s\",", field, modelName))
 		case "number":
-			lines = append(lines, fmt.Sprintf("%s:    \"100\",", field))
+			lines = append(lines, field+":    \"100\",")
 		case "date":
-			lines = append(lines, fmt.Sprintf("%s:  \"2023-10-31\",", field))
+			lines = append(lines, field+":  \"2023-10-31\",")
 		case "bool":
-			lines = append(lines, fmt.Sprintf("%s: true,", field))
+			lines = append(lines, field+": true,")
 		}
 	}
 	return strings.Join(lines, "\n\t\t\t\t")
@@ -121,11 +124,11 @@ func buildInvalidProtoFields(columns []Column) string {
 		field := toCamelCase(c.Name)
 		switch c.Type {
 		case "string":
-			lines = append(lines, fmt.Sprintf("%s:  \"\",", field))
+			lines = append(lines, field+":  \"\",")
 		case "number":
-			lines = append(lines, fmt.Sprintf("%s:   \"invalid\",", field))
+			lines = append(lines, field+":   \"invalid\",")
 		case "date":
-			lines = append(lines, fmt.Sprintf("%s: \"bad-date\",", field))
+			lines = append(lines, field+": \"bad-date\",")
 		case "bool":
 			// bools don't have invalid values, skip or use false
 		}
@@ -142,11 +145,11 @@ func buildEditProtoFields(columns []Column) string {
 		case "string":
 			lines = append(lines, fmt.Sprintf("%s:   \"Updated %s\",", field, capitalize(c.Name)))
 		case "number":
-			lines = append(lines, fmt.Sprintf("%s:    \"200\",", field))
+			lines = append(lines, field+":    \"200\",")
 		case "date":
-			lines = append(lines, fmt.Sprintf("%s:  \"2024-01-01\",", field))
+			lines = append(lines, field+":  \"2024-01-01\",")
 		case "bool":
-			lines = append(lines, fmt.Sprintf("%s: false,", field))
+			lines = append(lines, field+": false,")
 		}
 	}
 	return strings.Join(lines, "\n\t\t\t\t")
@@ -200,15 +203,14 @@ func replaceMarkerRegion(content, startMarker, endMarker, replacement string) st
 		if startLineStart < startIdx {
 			linePrefix := content[startLineStart:startIdx]
 			// Extract only whitespace (tabs/spaces), not comment characters
-			tabsOnly := ""
+			var tabsOnly strings.Builder
 			for _, ch := range linePrefix {
-				if ch == '\t' || ch == ' ' {
-					tabsOnly += string(ch)
-				} else {
+				if ch != '\t' && ch != ' ' {
 					break
 				}
+				tabsOnly.WriteRune(ch)
 			}
-			indent = tabsOnly
+			indent = tabsOnly.String()
 		}
 
 		// Build replacement with proper indent
@@ -226,94 +228,12 @@ func generateValidationTestContent(modelName, capitalizedModelName string, colum
 		return "", fmt.Errorf("reading template file %s: %w", templatePath, err)
 	}
 
-	toFieldName := func(col string) string { return toCamelCase(col) }
-	toVarName := func(camel string) string {
-		if camel == "" {
-			return camel
-		}
-		return strings.ToLower(camel[:1]) + camel[1:]
-	}
-	// Build params signature and body fields for create and edit helpers
-	var createParams []string
-	var createFields []string
-	var editParams []string
-	var editFields []string
-
-	// Edit first param is id string
-	editParams = append(editParams, "id string")
-
-	for _, c := range columns {
-		field := toFieldName(c.Name)
-		varType := "string"
-		switch c.Type {
-		case "string":
-			varType = "string"
-		case "number":
-			varType = "string"
-		case "date":
-			varType = "string"
-		case "bool":
-			varType = "bool"
-		}
-		vn := toVarName(field)
-		createParams = append(createParams, fmt.Sprintf("%s %s", vn, varType))
-		editParams = append(editParams, fmt.Sprintf("%s %s", vn, varType))
-		createFields = append(createFields, fmt.Sprintf("%s: %s,", field, vn))
-		editFields = append(editFields, fmt.Sprintf("%s: %s,", field, vn))
-	}
-
-	// Render into fixtures region
-	lines := strings.Split(string(contentBytes), "\n")
-	var out []string
-	for i := 0; i < len(lines); i++ {
-		line := lines[i]
-		trimmed := strings.TrimSpace(line)
-		switch trimmed {
-		case "// GF_FIXTURES_START":
-			out = append(out, line)
-			indent := strings.Repeat("\t", strings.Count(line, "\t"))
-			// makeCreate<Model>Proto
-			out = append(out, indent+fmt.Sprintf("func makeCreate%sProto(%s) *proto.%s {", capitalizedModelName, strings.Join(createParams, ", "), capitalizedModelName))
-			out = append(out, indent+"\treturn &proto."+capitalizedModelName+"{")
-			out = append(out, indent+"\t\tId: \"\",")
-			out = append(out, indent+"\t\tCreated: \"\",")
-			out = append(out, indent+"\t\tUpdated: \"\",")
-			for _, f := range createFields {
-				out = append(out, indent+"\t\t"+f)
-			}
-			out = append(out, indent+"\t}")
-			out = append(out, indent+"}")
-			out = append(out, "")
-
-			// makeEdit<Model>Proto
-			out = append(out, indent+fmt.Sprintf("func makeEdit%sProto(%s) *proto.%s {", capitalizedModelName, strings.Join(editParams, ", "), capitalizedModelName))
-			out = append(out, indent+"\treturn &proto."+capitalizedModelName+"{")
-			out = append(out, indent+"\t\tId: id,")
-			out = append(out, indent+"\t\tCreated: \"\",")
-			out = append(out, indent+"\t\tUpdated: \"\",")
-			for _, f := range editFields {
-				out = append(out, indent+"\t\t"+f)
-			}
-			out = append(out, indent+"\t}")
-			out = append(out, indent+"}")
-
-			// Skip lines until END
-			for i+1 < len(lines) && strings.TrimSpace(lines[i+1]) != "// GF_FIXTURES_END" {
-				i++
-			}
-		case "// GF_FIXTURES_END":
-			out = append(out, line)
-		default:
-			out = append(out, line)
-		}
-	}
-
-	content := strings.Join(out, "\n")
+	content := renderValidationFixtures(string(contentBytes), capitalizedModelName, columns)
 
 	// Go naming conversions
 	goPackageName := toGoPackageName(modelName)
 	goVarName := toGoVarName(modelName)
-	pluralLower := pluralizeClient.Plural(modelName)
+	pluralLower := pluralize.NewClient().Plural(modelName)
 	pluralCap := capitalize(pluralLower)
 	pluralVarName := toGoVarName(pluralLower)
 
@@ -325,170 +245,175 @@ func generateValidationTestContent(modelName, capitalizedModelName string, colum
 	content = strings.ReplaceAll(content, "skeletons", pluralVarName)
 	content = strings.ReplaceAll(content, "skeleton", goVarName)
 
-	// Helper for building default valid args per type
-	buildValidArgs := func(boolTrue bool) []string {
-		args := []string{}
-		for _, c := range columns {
-			switch c.Type {
-			case "string":
-				args = append(args, "\"Valid\"")
-			case "number":
-				args = append(args, "\"10\"")
-			case "date":
-				args = append(args, "\"2025-01-01\"")
-			case "bool":
-				if boolTrue {
-					args = append(args, "true")
-				} else {
-					args = append(args, "false")
-				}
-			default:
-				args = append(args, "\"\"")
-			}
-		}
-		return args
+	header := "\ttestCases := []struct {\n\t\tname           string\n\t\t" + goVarName + "       *proto." + capitalizedModelName + "\n\t\texpectError    bool\n\t\texpectedErrors []pkg.ValidationError\n\t}{\n"
+	footer := "\t}\n"
+	createCall := func(args string) string {
+		return fmt.Sprintf("makeCreate%sProto(%s)", capitalizedModelName, args)
 	}
-	// Insert testCases generation
-	insertHeader := "\ttestCases := []struct {\n\t\tname           string\n\t\t" + goVarName + "       *proto." + capitalizedModelName + "\n\t\texpectError    bool\n\t\texpectedErrors []pkg.ValidationError\n\t}{\n"
+	editCall := func(args string) string {
+		return fmt.Sprintf("makeEdit%sProto(uuid.New().String(), %s)", capitalizedModelName, args)
+	}
 
 	var insertCases strings.Builder
 	// Valid case (bools true)
-	fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"valid %s\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError:    false,\n\t\t\texpectedErrors: nil,\n\t\t},\n", modelName, goVarName, capitalizedModelName, strings.Join(buildValidArgs(true), ", "))
+	fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"valid %s\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError:    false,\n\t\t\texpectedErrors: nil,\n\t\t},\n", modelName, goVarName, capitalizedModelName, strings.Join(validArgs(columns, true), ", "))
+	insertCases.WriteString(invalidColumnCases(columns, goVarName, createCall))
 
-	// Per-column invalid cases for insert
-	for _, c := range columns {
-		fieldCamel := toFieldName(c.Name)
-		// Build args default with bools false
-		args := buildValidArgs(false)
-		switch c.Type {
-		case "string":
-			// too short
-			for i := range columns {
-				if columns[i].Name == c.Name {
-					args[i] = "\"ab\""
-				}
-			}
-			fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"%s too short\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"},\n\t\t\t},\n\t\t},\n", c.Name, goVarName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
-		case "number":
-			argsNotNumber := buildValidArgs(false)
-			for i := range columns {
-				if columns[i].Name == c.Name {
-					argsNotNumber[i] = "\"ten\""
-				}
-			}
-			fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"%s is not a number\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"number\", Message: \"%s must be a number\"},\n\t\t\t},\n\t\t},\n", c.Name, goVarName, capitalizedModelName, strings.Join(argsNotNumber, ", "), c.Name, fieldCamel)
-
-			argsLess := buildValidArgs(false)
-			for i := range columns {
-				if columns[i].Name == c.Name {
-					argsLess[i] = "\"0\""
-				}
-			}
-			fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"%s less than 1\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"},\n\t\t\t},\n\t\t},\n", c.Name, goVarName, capitalizedModelName, strings.Join(argsLess, ", "), c.Name, fieldCamel)
-		case "date":
-			for i := range columns {
-				if columns[i].Name == c.Name {
-					args[i] = "\"invalid-date\""
-				}
-			}
-			fmt.Fprintf(&insertCases, "\t\t{\n\t\t\tname: \"invalid %s date\",\n\t\t\t%s: makeCreate%sProto(%s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"required\", Message: \"%s date is required and must be in YYYY-MM-DD or RFC3339 format\"},\n\t\t\t},\n\t\t},\n", c.Name, goVarName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
-		}
-	}
-	insertFooter := "\t}\n"
-
-	// Update testCases generation
-	updateHeader := "\ttestCases := []struct {\n\t\tname           string\n\t\t" + goVarName + "       *proto." + capitalizedModelName + "\n\t\texpectError    bool\n\t\texpectedErrors []pkg.ValidationError\n\t}{\n"
 	var updateCases strings.Builder
 	// Valid case
-	fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"valid %s\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError:    false,\n\t\t\texpectedErrors: nil,\n\t\t},\n", modelName, goVarName, capitalizedModelName, strings.Join(buildValidArgs(true), ", "))
+	fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"valid %s\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError:    false,\n\t\t\texpectedErrors: nil,\n\t\t},\n", modelName, goVarName, capitalizedModelName, strings.Join(validArgs(columns, true), ", "))
 	// invalid uuid case -> expect two errors
-	fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"invalid uuid\",\n\t\t\t%s: makeEdit%sProto(\"invalid-uuid\", %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"id\", Tag: \"uuid\", Message: \"ID must be a valid UUID\"},\n\t\t\t\t{Field: \"id\", Tag: \"required\", Message: \"ID is required\"},\n\t\t\t},\n\t\t},\n", goVarName, capitalizedModelName, strings.Join(buildValidArgs(false), ", "))
+	fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"invalid uuid\",\n\t\t\t%s: makeEdit%sProto(\"invalid-uuid\", %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"id\", Tag: \"uuid\", Message: \"ID must be a valid UUID\"},\n\t\t\t\t{Field: \"id\", Tag: \"required\", Message: \"ID is required\"},\n\t\t\t},\n\t\t},\n", goVarName, capitalizedModelName, strings.Join(validArgs(columns, false), ", "))
 	// nil uuid case -> required only
-	fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"nil uuid\",\n\t\t\t%s: makeEdit%sProto(uuid.Nil.String(), %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"id\", Tag: \"required\", Message: \"ID is required\"},\n\t\t\t},\n\t\t},\n", goVarName, capitalizedModelName, strings.Join(buildValidArgs(false), ", "))
-	// Per-column invalid cases for update
-	for _, c := range columns {
-		fieldCamel := toFieldName(c.Name)
-		args := buildValidArgs(false)
-		switch c.Type {
-		case "string":
-			for i := range columns {
-				if columns[i].Name == c.Name {
-					args[i] = "\"ab\""
-				}
-			}
-			fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"%s too short\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"},\n\t\t\t},\n\t\t},\n", c.Name, goVarName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
-		case "number":
-			argsNotNumber := buildValidArgs(false)
-			for i := range columns {
-				if columns[i].Name == c.Name {
-					argsNotNumber[i] = "\"ten\""
-				}
-			}
-			fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"%s is not a number\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"number\", Message: \"%s must be a number\"},\n\t\t\t},\n\t\t},\n", c.Name, goVarName, capitalizedModelName, strings.Join(argsNotNumber, ", "), c.Name, fieldCamel)
+	fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"nil uuid\",\n\t\t\t%s: makeEdit%sProto(uuid.Nil.String(), %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"id\", Tag: \"required\", Message: \"ID is required\"},\n\t\t\t},\n\t\t},\n", goVarName, capitalizedModelName, strings.Join(validArgs(columns, false), ", "))
+	updateCases.WriteString(invalidColumnCases(columns, goVarName, editCall))
 
-			argsLess := buildValidArgs(false)
-			for i := range columns {
-				if columns[i].Name == c.Name {
-					argsLess[i] = "\"0\""
-				}
-			}
-			fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"%s less than 1\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"},\n\t\t\t},\n\t\t},\n", c.Name, goVarName, capitalizedModelName, strings.Join(argsLess, ", "), c.Name, fieldCamel)
-		case "date":
-			for i := range columns {
-				if columns[i].Name == c.Name {
-					args[i] = "\"invalid-date\""
-				}
-			}
-			fmt.Fprintf(&updateCases, "\t\t{\n\t\t\tname: \"invalid %s date\",\n\t\t\t%s: makeEdit%sProto(uuid.New().String(), %s),\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"required\", Message: \"%s date is required and must be in YYYY-MM-DD or RFC3339 format\"},\n\t\t\t},\n\t\t},\n", c.Name, goVarName, capitalizedModelName, strings.Join(args, ", "), c.Name, fieldCamel)
-		}
+	content, err = replaceTestCases(content, "TestValidateAndBuildInsertParams", header+insertCases.String()+footer)
+	if err != nil {
+		return "", err
 	}
-	updateFooter := "\t}\n"
-
-	// Replace the testCases blocks in both tests
-	replaceCases := func(src string, funcName string, header string, cases string, footer string) (string, error) {
-		fnIdx := strings.Index(src, funcName)
-		if fnIdx == -1 {
-			return src, fmt.Errorf("function %s not found", funcName)
-		}
-		tcIdx := strings.Index(src[fnIdx:], "testCases := []struct {")
-		if tcIdx == -1 {
-			return src, fmt.Errorf("testCases block not found in %s", funcName)
-		}
-		tcStart := fnIdx + tcIdx
-		// Find the for-loop that iterates over testCases after tcStart
-		forIdx := strings.Index(src[tcStart:], "for _, tc := range testCases")
-		if forIdx == -1 {
-			return src, fmt.Errorf("for loop after testCases not found in %s", funcName)
-		}
-		// Walk backwards from forIdx start to find the closing brace of the slice literal
-		pre := src[:tcStart]
-		rest := src[tcStart:]
-		// Find the first '}' before the for loop start
-		beforeFor := rest[:forIdx]
-		closeIdx := strings.LastIndex(beforeFor, "}\n")
-		if closeIdx == -1 {
-			// try just '}' without newline
-			closeIdx = strings.LastIndex(beforeFor, "}")
-			if closeIdx == -1 {
-				return src, fmt.Errorf("cannot locate end of testCases in %s", funcName)
-			}
-		}
-		endPos := tcStart + closeIdx + 1
-		newBlock := header + cases + footer
-		return pre + newBlock + src[endPos:], nil
-	}
-
-	var rErr error
-	content, rErr = replaceCases(content, "TestValidateAndBuildInsertParams", insertHeader, insertCases.String(), insertFooter)
-	if rErr != nil {
-		return "", rErr
-	}
-	content, rErr = replaceCases(content, "TestValidateAndBuildUpdateParams", updateHeader, updateCases.String(), updateFooter)
-	if rErr != nil {
-		return "", rErr
+	content, err = replaceTestCases(content, "TestValidateAndBuildUpdateParams", header+updateCases.String()+footer)
+	if err != nil {
+		return "", err
 	}
 
 	return content, nil
+}
+
+// renderValidationFixtures fills the GF_FIXTURES region with makeCreate/makeEdit proto helpers.
+func renderValidationFixtures(template, capitalizedModelName string, columns []Column) string {
+	// Build params signature and body fields for create and edit helpers.
+	// Edit's first param is the id.
+	createParams := make([]string, 0, len(columns))
+	editParams := make([]string, 0, len(columns)+1)
+	editParams = append(editParams, "id string")
+	fields := make([]string, 0, len(columns))
+	for _, c := range columns {
+		field := toCamelCase(c.Name)
+		varType := "string"
+		if c.Type == "bool" {
+			varType = "bool"
+		}
+		vn := strings.ToLower(field[:1]) + field[1:]
+		createParams = append(createParams, fmt.Sprintf("%s %s", vn, varType))
+		editParams = append(editParams, fmt.Sprintf("%s %s", vn, varType))
+		fields = append(fields, fmt.Sprintf("%s: %s,", field, vn))
+	}
+
+	lines := strings.Split(template, "\n")
+	var out []string
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		if strings.TrimSpace(line) != "// GF_FIXTURES_START" {
+			out = append(out, line)
+			continue
+		}
+		out = append(out, line)
+		indent := strings.Repeat("\t", strings.Count(line, "\t"))
+		// makeCreate<Model>Proto
+		out = append(out, indent+fmt.Sprintf("func makeCreate%sProto(%s) *proto.%s {", capitalizedModelName, strings.Join(createParams, ", "), capitalizedModelName))
+		out = append(out, indent+"\treturn &proto."+capitalizedModelName+"{")
+		out = append(out, indent+"\t\tId: \"\",")
+		out = append(out, indent+"\t\tCreated: \"\",")
+		out = append(out, indent+"\t\tUpdated: \"\",")
+		for _, f := range fields {
+			out = append(out, indent+"\t\t"+f)
+		}
+		out = append(out, indent+"\t}")
+		out = append(out, indent+"}")
+		out = append(out, "")
+
+		// makeEdit<Model>Proto
+		out = append(out, indent+fmt.Sprintf("func makeEdit%sProto(%s) *proto.%s {", capitalizedModelName, strings.Join(editParams, ", "), capitalizedModelName))
+		out = append(out, indent+"\treturn &proto."+capitalizedModelName+"{")
+		out = append(out, indent+"\t\tId: id,")
+		out = append(out, indent+"\t\tCreated: \"\",")
+		out = append(out, indent+"\t\tUpdated: \"\",")
+		for _, f := range fields {
+			out = append(out, indent+"\t\t"+f)
+		}
+		out = append(out, indent+"\t}")
+		out = append(out, indent+"}")
+
+		// Skip the template's fixtures up to GF_FIXTURES_END, which the next iteration keeps
+		for i+1 < len(lines) && strings.TrimSpace(lines[i+1]) != "// GF_FIXTURES_END" {
+			i++
+		}
+	}
+	return strings.Join(out, "\n")
+}
+
+// validArgs returns one valid literal per column. Bools are all true or all false.
+func validArgs(columns []Column, boolValue bool) []string {
+	args := make([]string, 0, len(columns))
+	for _, c := range columns {
+		switch c.Type {
+		case "string":
+			args = append(args, "\"Valid\"")
+		case "number":
+			args = append(args, "\"10\"")
+		case "date":
+			args = append(args, "\"2025-01-01\"")
+		case "bool":
+			args = append(args, strconv.FormatBool(boolValue))
+		default:
+			args = append(args, "\"\"")
+		}
+	}
+	return args
+}
+
+// invalidColumnCases renders one failing test case per validation rule of each column.
+// protoCall wraps an argument list in the create or edit proto constructor.
+func invalidColumnCases(columns []Column, goVarName string, protoCall func(args string) string) string {
+	withArg := func(idx int, value string) string {
+		args := validArgs(columns, false)
+		args[idx] = value
+		return protoCall(strings.Join(args, ", "))
+	}
+	var b strings.Builder
+	for idx, c := range columns {
+		fieldCamel := toCamelCase(c.Name)
+		switch c.Type {
+		case "string":
+			fmt.Fprintf(&b, "\t\t{\n\t\t\tname: \"%s too short\",\n\t\t\t%s: %s,\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"minlength\", Message: \"%s must be at least 3 characters long\"},\n\t\t\t},\n\t\t},\n", c.Name, goVarName, withArg(idx, "\"ab\""), c.Name, fieldCamel)
+		case "number":
+			fmt.Fprintf(&b, "\t\t{\n\t\t\tname: \"%s is not a number\",\n\t\t\t%s: %s,\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"number\", Message: \"%s must be a number\"},\n\t\t\t},\n\t\t},\n", c.Name, goVarName, withArg(idx, "\"ten\""), c.Name, fieldCamel)
+			fmt.Fprintf(&b, "\t\t{\n\t\t\tname: \"%s less than 1\",\n\t\t\t%s: %s,\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"gte\", Message: \"%s must be greater than or equal to 1\"},\n\t\t\t},\n\t\t},\n", c.Name, goVarName, withArg(idx, "\"0\""), c.Name, fieldCamel)
+		case "date":
+			fmt.Fprintf(&b, "\t\t{\n\t\t\tname: \"invalid %s date\",\n\t\t\t%s: %s,\n\t\t\texpectError:    true,\n\t\t\texpectedErrors: []pkg.ValidationError{\n\t\t\t\t{Field: \"%s\", Tag: \"required\", Message: \"%s date is required and must be in YYYY-MM-DD or RFC3339 format\"},\n\t\t\t},\n\t\t},\n", c.Name, goVarName, withArg(idx, "\"invalid-date\""), c.Name, fieldCamel)
+		}
+	}
+	return b.String()
+}
+
+// replaceTestCases swaps the testCases slice literal inside funcName for block.
+func replaceTestCases(src, funcName, block string) (string, error) {
+	fnIdx := strings.Index(src, funcName)
+	if fnIdx == -1 {
+		return src, fmt.Errorf("function %s not found", funcName)
+	}
+	tcIdx := strings.Index(src[fnIdx:], "testCases := []struct {")
+	if tcIdx == -1 {
+		return src, fmt.Errorf("testCases block not found in %s", funcName)
+	}
+	tcStart := fnIdx + tcIdx
+	// Find the for-loop that iterates over testCases after tcStart
+	forIdx := strings.Index(src[tcStart:], "for _, tc := range testCases")
+	if forIdx == -1 {
+		return src, fmt.Errorf("for loop after testCases not found in %s", funcName)
+	}
+	// The slice literal closes at the last '}' before the for loop
+	beforeFor := src[tcStart : tcStart+forIdx]
+	closeIdx := strings.LastIndex(beforeFor, "}\n")
+	if closeIdx == -1 {
+		closeIdx = strings.LastIndex(beforeFor, "}")
+	}
+	if closeIdx == -1 {
+		return src, fmt.Errorf("cannot locate end of testCases in %s", funcName)
+	}
+	endPos := tcStart + closeIdx + 1
+	return src[:tcStart] + block + src[endPos:], nil
 }
 
 // removeCreateValidationErrorTest removes the "Failure - Validation Error" t.Run block

@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,22 +15,26 @@ import (
 // Called by init command after downloading the template.
 func S3Strip(projectPath string) error {
 	// 1. Remove file domain folder
-	if err := os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "domain", "file")); err != nil {
+	err := os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "domain", "file"))
+	if err != nil {
 		return fmt.Errorf("removing file domain: %w", err)
 	}
 
 	// 2. Remove file transport folder
-	if err := os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "transport", "file")); err != nil {
+	err = os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "transport", "file"))
+	if err != nil {
 		return fmt.Errorf("removing file transport: %w", err)
 	}
 
 	// 3. Remove files migration
-	if err := os.Remove(filepath.Join(projectPath, "app", "service-core", "storage", "migrations", "00004_create_files.sql")); err != nil && !os.IsNotExist(err) {
+	err = os.Remove(filepath.Join(projectPath, "app", "service-core", "storage", "migrations", "00004_create_files.sql"))
+	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("removing files migration: %w", err)
 	}
 
 	// 4. Strip all GF_FILE marker blocks from all files
-	if err := StripIntegration(projectPath, "FILE"); err != nil {
+	err = StripIntegration(projectPath, "FILE")
+	if err != nil {
 		return fmt.Errorf("stripping file markers: %w", err)
 	}
 
@@ -48,7 +53,7 @@ func S3AddClient(tmpProject, clientType, clientPath string) error {
 
 // S3Add adds S3 file storage integration to an existing project.
 // Called by 'gof add s3' command.
-func S3Add(email, apiKey string) error {
+func S3Add(ctx context.Context, email, apiKey string) error {
 	// 1. Download template to temp location
 	tmpDir, err := os.MkdirTemp("", "gofast-files-*")
 	if err != nil {
@@ -61,17 +66,20 @@ func S3Add(email, apiKey string) error {
 	if err != nil {
 		return fmt.Errorf("getting current dir: %w", err)
 	}
-	if err := os.Chdir(tmpDir); err != nil {
+	err = os.Chdir(tmpDir)
+	if err != nil {
 		return fmt.Errorf("changing to temp dir: %w", err)
 	}
 
-	if err := repo.DownloadRepo(email, apiKey, "template"); err != nil {
+	err = repo.DownloadRepo(ctx, email, apiKey, "template")
+	if err != nil {
 		_ = os.Chdir(cwd)
 		return fmt.Errorf("downloading template: %w", err)
 	}
 
 	// Return to original directory
-	if err := os.Chdir(cwd); err != nil {
+	err = os.Chdir(cwd)
+	if err != nil {
 		return fmt.Errorf("returning to original dir: %w", err)
 	}
 
@@ -80,24 +88,28 @@ func S3Add(email, apiKey string) error {
 	// 2. Copy file domain folder
 	srcDomain := filepath.Join(tmpProject, "app", "service-core", "domain", "file")
 	dstDomain := filepath.Join("app", "service-core", "domain", "file")
-	if err := CopyDir(srcDomain, dstDomain); err != nil {
+	err = CopyDir(srcDomain, dstDomain)
+	if err != nil {
 		return fmt.Errorf("copying file domain: %w", err)
 	}
 
 	// 3. Copy file transport folder
 	srcTransport := filepath.Join(tmpProject, "app", "service-core", "transport", "file")
 	dstTransport := filepath.Join("app", "service-core", "transport", "file")
-	if err := CopyDir(srcTransport, dstTransport); err != nil {
+	err = CopyDir(srcTransport, dstTransport)
+	if err != nil {
 		return fmt.Errorf("copying file transport: %w", err)
 	}
 
 	// 4. Copy and renumber files migration
-	if err := AddMigration(tmpProject, "00004_create_files.sql", "create_files.sql"); err != nil {
+	err = AddMigration(tmpProject, "00004_create_files.sql", "create_files.sql")
+	if err != nil {
 		return fmt.Errorf("adding files migration: %w", err)
 	}
 
 	// 5. Copy files with GF_FILE markers from template
-	if err := CopyFilesWithMarkers(tmpProject, ".", "FILE"); err != nil {
+	err = CopyFilesWithMarkers(tmpProject, ".", "FILE")
+	if err != nil {
 		return fmt.Errorf("copying files with FILE markers: %w", err)
 	}
 
@@ -106,10 +118,17 @@ func S3Add(email, apiKey string) error {
 		return fmt.Errorf("parsing config: %w", err)
 	}
 
+	// 6. Add the local rustfs (S3-compatible) services to docker-compose.yml
+	err = AppendComposeBlock(tmpProject, "FILE", cfg.ProjectName)
+	if err != nil {
+		return fmt.Errorf("adding rustfs to docker compose: %w", err)
+	}
+
 	enabledClients := clients.Enabled(cfg)
 	for _, client := range enabledClients {
 		clientPath := filepath.Join("app", client.ServiceDir)
-		if err := S3AddClient(tmpProject, client.Name, clientPath); err != nil {
+		err := S3AddClient(tmpProject, client.Name, clientPath)
+		if err != nil {
 			return fmt.Errorf("adding files to %s client: %w", client.DisplayName, err)
 		}
 	}

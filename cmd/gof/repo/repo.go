@@ -2,6 +2,8 @@ package repo
 
 import (
 	"archive/zip"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,60 +20,48 @@ const (
 	extractedPrefix = "gofast-live-gofast-app-"
 )
 
-func DownloadRepo(email string, apiKey string, projectDir string) error {
-	parent := filepath.Dir(projectDir)
-	if err := os.MkdirAll(parent, 0o755); err != nil {
-		return fmt.Errorf("error creating parent directory %q: %w", parent, err)
-	}
-
+// DownloadRepo fetches the template and places it at projectDir, whose parent must already exist.
+// The archive is extracted in a temporary directory next to projectDir, so the final rename
+// never crosses filesystems and a failed download leaves nothing behind.
+func DownloadRepo(ctx context.Context, email string, apiKey string, projectDir string) error {
 	if os.Getenv("TEST") == "true" {
-		cmd := exec.Command("cp", "-r", "/home/mat/projects/gofast-app", projectDir)
-		if err := cmd.Run(); err != nil {
+		cmd := exec.CommandContext(ctx, "cp", "-r", "/home/mat/projects/gofast-app", projectDir)
+		err := cmd.Run()
+		if err != nil {
 			return fmt.Errorf("error copying test app: %w", err)
 		}
 		return nil
 	}
 
-	succeeded := false
+	workDir, err := os.MkdirTemp(filepath.Dir(projectDir), ".gof-download-*")
+	if err != nil {
+		return fmt.Errorf("creating download directory: %w", err)
+	}
 	defer func() {
-		if !succeeded {
-			cleanupDownloadArtifacts(".")
+		err := os.RemoveAll(workDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error removing download directory: %v\n", err)
 		}
 	}()
 
-	if err := getFile(email, apiKey); err != nil {
+	zipPath := filepath.Join(workDir, zipFileName)
+	err = getFile(ctx, email, apiKey, zipPath)
+	if err != nil {
 		return fmt.Errorf("error getting file: %w", err)
 	}
-	if err := unzipFile(); err != nil {
+	err = unzipFile(zipPath, workDir)
+	if err != nil {
 		return fmt.Errorf("error unzipping file: %w", err)
 	}
-	if err := os.Remove(zipFileName); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("error removing zip file: %w", err)
-	}
-
-	extracted, err := findExtractedDir(".")
+	extracted, err := findExtractedDir(workDir)
 	if err != nil {
 		return err
 	}
-	if err := os.Rename(extracted, projectDir); err != nil {
-		return fmt.Errorf("error renaming template to %q: %w", projectDir, err)
-	}
-
-	succeeded = true
-	return nil
-}
-
-func cleanupDownloadArtifacts(dir string) {
-	_ = os.Remove(filepath.Join(dir, zipFileName))
-	entries, err := os.ReadDir(dir)
+	err = os.Rename(extracted, projectDir)
 	if err != nil {
-		return
+		return fmt.Errorf("renaming %s to %s: %w", extracted, projectDir, err)
 	}
-	for _, entry := range entries {
-		if entry.IsDir() && strings.HasPrefix(entry.Name(), extractedPrefix) {
-			_ = os.RemoveAll(filepath.Join(dir, entry.Name()))
-		}
-	}
+	return nil
 }
 
 func findExtractedDir(dir string) (string, error) {
@@ -87,9 +77,9 @@ func findExtractedDir(dir string) (string, error) {
 	return "", fmt.Errorf("extracted template directory with prefix %q not found", extractedPrefix)
 }
 
-func getFile(email string, apiKey string) error {
+func getFile(ctx context.Context, email string, apiKey string, zipPath string) error {
 	client := http.Client{}
-	req, err := http.NewRequest("GET", config.SERVER_URL+"/v2?email="+email, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, config.ServerURL+"/v2?email="+email, nil)
 	if err != nil {
 		return fmt.Errorf("error creating request: %w", err)
 	}
@@ -102,78 +92,101 @@ func getFile(email string, apiKey string) error {
 		return fmt.Errorf("error downloading file: %s", resp.Status)
 	}
 	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			fmt.Printf("error closing response body: %v\n", err)
+		err := resp.Body.Close()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error closing response body: %v\n", err)
 		}
 	}()
 
-	file, err := os.OpenFile(zipFileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(zipPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("error creating file: %w", err)
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			fmt.Printf("error closing file: %v\n", err)
+		err := file.Close()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error closing file: %v\n", err)
 		}
 	}()
-	if _, err = io.Copy(file, resp.Body); err != nil {
+	_, err = io.Copy(file, resp.Body)
+	if err != nil {
 		return fmt.Errorf("error copying response body to file: %w", err)
 	}
 	return nil
 }
 
-func unzipFile() error {
+// maxZipEntrySize caps each extracted file so a malformed archive cannot fill the disk.
+const maxZipEntrySize = 512 << 20
+
+func unzipFile(zipPath string, destDir string) error {
 	if os.Getenv("TEST") == "true" {
 		return nil
 	}
-	archive, err := zip.OpenReader(zipFileName)
+	archive, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return fmt.Errorf("error opening zip file: %w", err)
 	}
 	defer func() {
-		if err := archive.Close(); err != nil {
-			fmt.Printf("error closing archive: %v\n", err)
+		err := archive.Close()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error closing archive: %v\n", err)
 		}
 	}()
 	for _, file := range archive.File {
-		src, err := file.Open()
+		err := extractZipEntry(file, destDir)
 		if err != nil {
-			return fmt.Errorf("error opening file in zip: %w", err)
+			return err
 		}
+	}
+	return nil
+}
 
-		if file.FileInfo().IsDir() {
-			if err := src.Close(); err != nil {
-				fmt.Printf("error closing source file: %v\n", err)
-			}
-			if err := os.MkdirAll(file.Name, os.ModePerm); err != nil {
-				return fmt.Errorf("error creating directory: %w", err)
-			}
-			continue
-		}
-
-		if err := os.MkdirAll(filepath.Dir(file.Name), os.ModePerm); err != nil {
-			_ = src.Close()
-			return fmt.Errorf("error creating parent directory: %w", err)
-		}
-
-		dst, err := os.Create(file.Name)
+// extractZipEntry writes one archive entry under destDir.
+func extractZipEntry(file *zip.File, destDir string) error {
+	if !filepath.IsLocal(file.Name) {
+		return fmt.Errorf("zip entry %q escapes the project directory", file.Name)
+	}
+	target := filepath.Join(destDir, file.Name)
+	if file.FileInfo().IsDir() {
+		err := os.MkdirAll(target, os.ModePerm)
 		if err != nil {
-			_ = src.Close()
-			return fmt.Errorf("error creating destination file: %w", err)
+			return fmt.Errorf("error creating directory: %w", err)
 		}
+		return nil
+	}
 
-		_, copyErr := io.Copy(dst, src)
-		closeSrcErr := src.Close()
-		closeDstErr := dst.Close()
-		if copyErr != nil {
-			return fmt.Errorf("error copying file from zip: %w", copyErr)
+	src, err := file.Open()
+	if err != nil {
+		return fmt.Errorf("error opening file in zip: %w", err)
+	}
+	defer func() {
+		err := src.Close()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error closing source file: %v\n", err)
 		}
-		if closeSrcErr != nil {
-			fmt.Printf("error closing source file: %v\n", closeSrcErr)
+	}()
+
+	err = os.MkdirAll(filepath.Dir(target), os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("error creating parent directory: %w", err)
+	}
+	dst, err := os.Create(target)
+	if err != nil {
+		return fmt.Errorf("error creating destination file: %w", err)
+	}
+	defer func() {
+		err := dst.Close()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error closing destination file: %v\n", err)
 		}
-		if closeDstErr != nil {
-			fmt.Printf("error closing destination file: %v\n", closeDstErr)
-		}
+	}()
+
+	written, err := io.CopyN(dst, src, maxZipEntrySize+1)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return fmt.Errorf("error copying file from zip: %w", err)
+	}
+	if written > maxZipEntrySize {
+		return fmt.Errorf("zip entry %q is larger than %d bytes", file.Name, maxZipEntrySize)
 	}
 	return nil
 }

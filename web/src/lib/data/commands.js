@@ -338,7 +338,7 @@ export const commands = [
                     features: [
                         'Node.js adapter',
                         'Multi-stage Docker build',
-                        'PR preview environments'
+                        'E2E on every PR in the CI runner'
                     ]
                 }
             }
@@ -658,11 +658,13 @@ export const commands = [
                     files: [
                         '.github/workflows/build.yml',
                         '.github/workflows/deploy.yml',
+                        '.github/workflows/pr.yml',
                         '.github/workflows/pr-deploy.yml'
                     ],
                     features: [
                         'Docker build & push to GHCR',
-                        'PR preview environments',
+                        'PR checks: lint, tests, E2E',
+                        'Opt-in PR preview environments',
                         'Migration pipeline'
                     ]
                 }
@@ -674,8 +676,8 @@ export const commands = [
                 showIf: (s) => s.has('client'),
                 dependency: 'Frontend',
                 details: {
-                    files: ['infra/service-client.tf'],
-                    features: ['In-cluster Node.js hosting', 'PR preview environments']
+                    files: ['infra/service-svelte.tf', 'infra/service-tanstack.tf'],
+                    features: ['In-cluster Node.js hosting', 'Opt-in PR preview environments']
                 }
             },
             {

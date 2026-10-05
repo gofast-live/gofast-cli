@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -50,13 +52,14 @@ func parseProjectArg(arg string) (projectDir string, projectName string, err err
 	return projectDir, projectName, nil
 }
 
-func hostPortInUse(port int) bool {
+func hostPortInUse(ctx context.Context, port int) bool {
+	dialer := net.Dialer{Timeout: portProbeTimeout}
 	addrs := []string{
 		net.JoinHostPort("127.0.0.1", strconv.Itoa(port)),
 		net.JoinHostPort("::1", strconv.Itoa(port)),
 	}
 	for _, addr := range addrs {
-		conn, err := net.DialTimeout("tcp", addr, portProbeTimeout)
+		conn, err := dialer.DialContext(ctx, "tcp", addr)
 		if err == nil {
 			_ = conn.Close()
 			return true
@@ -66,9 +69,9 @@ func hostPortInUse(port int) bool {
 }
 
 // suggestFreePostgresPort finds a free host port to recommend in error messages.
-func suggestFreePostgresPort() int {
+func suggestFreePostgresPort(ctx context.Context) int {
 	for port := defaultPostgresHostPort + 1; port <= defaultPostgresHostPort+100; port++ {
-		if !hostPortInUse(port) {
+		if !hostPortInUse(ctx, port) {
 			return port
 		}
 	}
@@ -114,9 +117,46 @@ func applyHostPostgresPort(composeContent, makefileContent string, hostPort int)
 	return composeContent, makefileContent, nil
 }
 
-func rollbackProject(projectDir string) {
-	down := exec.Command("docker", "compose", "down", "-v")
-	down.Dir = projectDir
-	_ = down.Run()
-	_ = os.RemoveAll(projectDir)
+// composeProjectExists reports whether Docker already has containers for a Compose project
+// with this name. Compose derives the project name from the lowercased directory basename,
+// so a new project would share containers and volumes with the existing one.
+func composeProjectExists(ctx context.Context, projectName string) (bool, error) {
+	filter := "label=com.docker.compose.project=" + strings.ToLower(projectName)
+	list := exec.CommandContext(ctx, "docker", "ps", "--all", "--quiet", "--filter", filter) //nolint:gosec // G204: projectName is validated by projectNamePattern
+	output, err := list.Output()
+	if err != nil {
+		return false, fmt.Errorf("listing docker containers: %w", err)
+	}
+	return strings.TrimSpace(string(output)) != "", nil
+}
+
+// topmostMissingDir returns the highest ancestor of path (or path itself) that does not exist yet.
+func topmostMissingDir(path string) string {
+	for {
+		parent := filepath.Dir(path)
+		_, err := os.Stat(parent)
+		if err == nil || parent == path {
+			return path
+		}
+		path = parent
+	}
+}
+
+// rollbackProject removes what a failed init created: the compose resources when a compose
+// step was reached, then rollbackRoot (the project directory, or the topmost parent init created).
+func rollbackProject(ctx context.Context, projectDir, rollbackRoot string, composeStarted bool) error {
+	var downErr error
+	if composeStarted {
+		down := exec.CommandContext(ctx, "docker", "compose", "down", "-v")
+		down.Dir = projectDir
+		output, err := down.CombinedOutput()
+		if err != nil {
+			downErr = fmt.Errorf("removing compose resources: %w\nOutput: %s", err, output)
+		}
+	}
+	removeErr := os.RemoveAll(rollbackRoot)
+	if removeErr != nil {
+		removeErr = fmt.Errorf("removing %s: %w", rollbackRoot, removeErr)
+	}
+	return errors.Join(downErr, removeErr)
 }

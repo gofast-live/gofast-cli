@@ -1,0 +1,62 @@
+version: "2"
+linters:
+  default: all
+  disable:
+    - cyclop
+    - depguard
+    - err113
+    - funlen
+    - gocognit
+    - goconst
+    - godot
+    - lll
+    - mnd
+    - nlreturn
+    - tagliatelle
+    - varnamelen
+    - wsl
+    - dupword
+    - nonamedreturns
+    - funcorder
+    - wsl_v5
+    - tagalign
+    - dupl
+    - exhaustruct # deprecated, replaced by exhaustruct_v5
+    - gomodguard # deprecated, replaced by gomodguard_v2
+  settings:
+    exhaustive:
+      ignore-enum-members: stripe.*
+    exhaustruct_v5:
+      ignore-patterns:
+        - net/.*
+        - github.com/stripe/stripe-go/.*
+        - github.com/aws/aws-sdk-go-v2/.*
+        - github.com/Azure/azure-sdk-for-go/sdk/storage/.*
+        - github.com/twilio/twilio-go/.*
+        - golang.org/x/.*
+        - github.com/spf13/cobra\..*
+        - github.com/charmbracelet/.*
+    gosec:
+      excludes:
+        - G306 # generated project files are source code, 0644 is intended
+        - G122 # walks run over the user's own project, not an attacker-controlled tree
+        - G703 # same: paths come from the local project the user runs gof in
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - cmd/gofast/ # legacy v1 CLI
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

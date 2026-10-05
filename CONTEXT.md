@@ -3,7 +3,6 @@
 ## Metadata
 - Domain: `gof` CLI - Go application code generator
 - Primary audience: LLM agents working on CLI development
-- Last updated: 2026-07-23
 - Status: Active
 - Stability note: Sections marked `[STABLE]` should change rarely. Sections marked `[VOLATILE]` are expected to change often.
 
@@ -18,7 +17,6 @@ This file is the primary working context for the `gof` CLI tool.
 - Temporary or branch-specific behavior should be documented here with clear cleanup notes.
 
 ### Quick update checklist
-- Refresh `Last updated` date
 - Review `Current Work` and `Future Work`
 - Validate `Critical Invariants`
 - Update marker references if any markers renamed or added
@@ -80,7 +78,7 @@ Testing is the most critical part of this CLI. Every change must be verified by 
 ### Scope and intent
 - The CLI itself has no unit tests - it is tested by **generating projects and running their tests**
 - Generated projects include Go unit tests, integration tests, and Playwright e2e tests
-- CI runs `golangci-lint` on the CLI code itself (`.github/workflows/lint.yml`)
+- CI runs `golangci-lint` on the CLI code itself (`.github/workflows/lint.yml`). `.golangci.yml` is the template's strict `app/service-core` config plus CLI-only exceptions (cobra/charmbracelet structs, gosec G306/G122/G703, legacy `cmd/gofast/` excluded), each with its reason inline. Run it locally with `golangci-lint run ./...`; it must report 0 issues.
 
 ### LLM default policy
 - On every code change, regenerate a demo project and verify Go builds + tests pass
@@ -123,28 +121,22 @@ goose -dir app/service-core/storage/migrations postgres \
   "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" up
 cd app/service-core && go test -race ./...
 
-# 3. Full test suite (requires secrets - ask user for them)
-# Run from demo directory
-CONTEXT=gofast-rc \
-GITHUB_CLIENT_ID=<ask_user> \
-GITHUB_CLIENT_SECRET=<ask_user> \
-GOOGLE_CLIENT_ID=<ask_user> \
-GOOGLE_CLIENT_SECRET=<ask_user> \
-TWILIO_ACCOUNT_SID=<ask_user> \
-TWILIO_AUTH_TOKEN=<ask_user> \
-TWILIO_SERVICE_SID=<ask_user> \
-PAYMENT_PROVIDER=stripe \
-STRIPE_API_KEY=<ask_user> \
-STRIPE_PRICE_ID_BASIC=<ask_user> \
-STRIPE_PRICE_ID_PRO=<ask_user> \
-STRIPE_WEBHOOK_SECRET=<ask_user> \
-BUCKET_NAME=gofast \
-R2_ACCESS_KEY=<ask_user> \
-R2_SECRET_KEY=<ask_user> \
-R2_ENDPOINT=<ask_user> \
-EMAIL_FROM=admin@gofast.live \
-POSTMARK_API_KEY=<ask_user> \
-bash scripts/run_tests.sh
+# 3. Full test suite (Stripe/Postmark need secrets - ask user for them; S3 runs on local RustFS)
+# Run from demo directory, after adding a client and integrations.
+# Stripe/Postmark env must reach the core (compose interpolates it) and Playwright.
+export STRIPE_API_KEY=<ask_user> STRIPE_PRICE_ID_BASIC=<ask_user> STRIPE_PRICE_ID_PRO=<ask_user> STRIPE_WEBHOOK_SECRET=<ask_user>
+export EMAIL_FROM=admin@gofast.live POSTMARK_API_KEY=<ask_user>
+# Do NOT export S3_*: the core's compose defaults point at http://rustfs:9000 inside the network.
+docker compose -f docker-compose.yml -f docker-compose.svelte.yml up --build -d   # or docker-compose.tanstack.yml
+make migrate
+cd e2e && npm ci && \
+PLAYWRIGHT_BASE_URL=http://localhost:3000 \
+PUBLIC_CORE_URL=http://localhost:4000 \
+E2E_TEST_SECRET=super-secret \
+S3_ACCESS_KEY_ID=rustfsadmin S3_SECRET_ACCESS_KEY=rustfsadmin \
+S3_ENDPOINT=http://localhost:9000 BUCKET_NAME=files \
+npx playwright test   # S3_* here only un-skip the files tests
+cd ..
 
 # 4. Check e2e results
 cat e2e/test-results/.last-run.json
@@ -202,16 +194,16 @@ TEST=true go run ../cmd/gof/... model article title:string body:string author:st
 # All numbers
 TEST=true go run ../cmd/gof/... model metric count:number value:number score:number
 # All dates
-TEST=true go run ../cmd/gof/... model event start:date end:date reminder:date
+TEST=true go run ../cmd/gof/... model event starts_at:date ends_at:date reminder:date
 # All bools
-TEST=true go run ../cmd/gof/... model settings dark_mode:bool notifications:bool auto_save:bool
+TEST=true go run ../cmd/gof/... model setting dark_mode:bool notifications:bool auto_save:bool
 # Mixed (classic)
 TEST=true go run ../cmd/gof/... model post title:string views:number published_at:date is_active:bool
-# Single column each type
-TEST=true go run ../cmd/gof/... model tag name:string
-TEST=true go run ../cmd/gof/... model counter value:number
-TEST=true go run ../cmd/gof/... model deadline due:date
-TEST=true go run ../cmd/gof/... model toggle enabled:bool
+# Minimum (2 columns)
+TEST=true go run ../cmd/gof/... model tag name:string color:string
+TEST=true go run ../cmd/gof/... model counter value:number step:number
+TEST=true go run ../cmd/gof/... model deadline due:date notified:bool
+TEST=true go run ../cmd/gof/... model toggle enabled:bool label:string
 # Snake_case names
 TEST=true go run ../cmd/gof/... model user_profile display_name:string bio:string
 TEST=true go run ../cmd/gof/... model event_log event_type:string occurred_at:date
@@ -310,7 +302,8 @@ flowchart TD
   C --> D[Copy integration files<br/>domain, transport, migrations]
   D --> E[Merge markers into main.go, config.go]
   E --> F[Strip OTHER integrations' markers]
-  F --> G[Add client pages for each enabled frontend]
+  F --> F2[s3 only: append # GF_FILE block to docker-compose.yml]
+  F2 --> G[Add client pages for each enabled frontend]
   G --> H[Update gofast.json]
 ```
 
@@ -323,13 +316,13 @@ cmd/gof/
 ├── main.go                    # Entry point -> cmd.Execute()
 ├── build.sh                   # Cross-platform build (linux, darwin, windows)
 ├── cmd/
-│   ├── root.go                # Root Cobra command
+│   ├── root.go                # Root Cobra command; Execute() builds the whole command tree (no init())
 │   ├── init.go                # gof init - project scaffolding
 │   ├── init_helpers.go        # init path/name parse, postgres port, rollback helpers
-│   ├── model.go               # gof model - CRUD generation orchestrator (560 lines)
+│   ├── model.go               # gof model - CRUD generation orchestrator
 │   ├── model_db.go            # Proto, SQL migration, SQLC query generation
 │   ├── model_service.go       # Service + transport + validation generation
-│   ├── model_test_gen.go      # Test generation for service/transport/validation (542 lines)
+│   ├── model_test_gen.go      # Test generation for service/transport/validation
 │   ├── add.go                 # gof add - integration dispatcher
 │   ├── client.go              # gof client - frontend scaffolding
 │   ├── infra.go               # gof infra - Terraform/deployment files
@@ -358,7 +351,7 @@ cmd/gof/
 ```
 
 Related files outside `cmd/gof/`:
-- `go.mod` - Module: `github.com/gofast-live/gofast-cli/v2`, Go 1.25
+- `go.mod` - Module: `github.com/gofast-live/gofast-cli/v2`, Go 1.27
 - `.github/workflows/lint.yml` - golangci-lint CI
 - `web/` - Marketing website (SvelteKit on Cloudflare Workers) - not part of CLI
 - `cmd/gofast/` - Legacy v1 CLI - ignore
@@ -379,9 +372,13 @@ Related files outside `cmd/gof/`:
 | `gof add s3` | Add S3 file storage |
 | `gof add postmark` | Add Postmark email |
 | `gof infra` | Add Terraform/deployment files |
-| `gof mon` | Add monitoring stack (Grafana, Loki, Tempo, Prometheus) |
+| `gof mon` | Add monitoring stack (OTel Collector, VictoriaMetrics, VictoriaLogs, VictoriaTraces, Grafana) |
 | `gof auth` | Authenticate with GoFast |
 | `gof version` | Print version (v2.17.0) |
+
+`gof init` takes a path or a name: the directory basename is the project name (letters, numbers, `_`, `-`, starting with a letter) and missing parent directories are created. It refuses to start when the Postgres host port is in use (remap with `--postgres-port`) or when Docker already has containers for a Compose project of that name. A run that fails after that removes everything it created, including its compose resources.
+
+Running a generator twice is refused, not repeated: `gof add` and `gof client` check `integrations` / `services` in `gofast.json`, `gof infra` / `gof mon` check their `*_populated` flags, and `gof model` checks for an existing `app/service-core/domain/<name>`.
 
 **Prerequisites for `gof init`:** buf, sqlc, goose, docker, docker-compose
 
@@ -392,6 +389,7 @@ Related files outside `cmd/gof/`:
 **Model name rules:**
 - Lowercase letters and underscores only (e.g., `user_profile`, `event_log`)
 - Must be singular - plural names rejected with suggestion (e.g., `trucks` -> use `truck`)
+- Must not match an existing `app/service-core/domain/<name>` (`user`, `skeleton`, `login`, enabled integrations, earlier models); generating over one would overwrite its code
 - Minimum 2 columns required
 
 **Column name rules:**
@@ -469,6 +467,7 @@ Code in `../gofast-app` is wrapped with markers for optional features. On `gof i
 
 **Go files:** `// GF_<INTEGRATION>_START` / `// GF_<INTEGRATION>_END`
 **SQL files:** `-- GF_<INTEGRATION>_START` / `-- GF_<INTEGRATION>_END`
+**`docker-compose.yml`:** `# GF_<INTEGRATION>_START` / `# GF_<INTEGRATION>_END` (currently only `GF_FILE`, wrapping the local `rustfs` + `rustfs-init` services). `StripIntegration` removes it on init; `AppendComposeBlock` appends it on `gof add s3`, renaming `gofast` to the project name inside the block only. The block must stay last in the file, since services are the last top-level key.
 
 | Integration | Marker prefix |
 |-------------|---------------|
@@ -483,6 +482,7 @@ Code in `../gofast-app` is wrapped with markers for optional features. On `gof i
 - `app/service-core/storage/migrations/` - integration tables
 - `proto/v1/main.proto` - service definitions
 - `app/service-core/domain/login/service.go` - `CheckUserAccess()` (Stripe-specific)
+- `docker-compose.yml` - local RustFS services (`GF_FILE`)
 
 ### Model wiring markers (in generated project)
 
@@ -581,7 +581,7 @@ Client-side permission marker updates were removed. Svelte and TanStack no longe
 
 - No telemetry in the CLI itself
 - Generated projects include OpenTelemetry tracing in service layer (via `ot.StartSpan`)
-- `gof mon` adds Grafana/Loki/Tempo/Prometheus monitoring stack
+- `gof mon` adds the OTel Collector + VictoriaMetrics/VictoriaLogs/VictoriaTraces + Grafana monitoring stack
 - CI: golangci-lint on push/PR to main
 
 ---
@@ -653,6 +653,7 @@ config.MarkMonitoringPopulated() error
 // Integrations
 integrations.StripIntegration(projectPath, integration string) error
 integrations.RemoveMarkerBlocks(content, startMarker, endMarker string) string
+integrations.AppendComposeBlock(tmpProject, integration, projectName string) error
 integrations.CopyDir(src, dst string) error
 integrations.CopyFile(src, dst string) error
 integrations.GetNextMigrationNumber(migrationsDir string) (int, error)
@@ -661,7 +662,7 @@ integrations.MergeConfigMarkers(srcConfig, dstConfig, integration string) error
 integrations.StripOtherIntegrations(projectPath string, keep string) error
 
 // Repo
-repo.DownloadRepo(email, apiKey, projectDir string) error
+repo.DownloadRepo(ctx context.Context, email, apiKey, projectDir string) error
 
 // E2E
 e2e.GenerateClientE2ETest(modelName string, columns []config.Column) error

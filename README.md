@@ -131,7 +131,7 @@ make startt
 | `make start` | Start backend services |
 | `make starts` | Start with Svelte client |
 | `make startt` | Start with TanStack client |
-| `make startm` | Start with monitoring (Grafana, Alloy, Loki, Tempo, Prometheus) |
+| `make startm` | Start with monitoring (OTel Collector, VictoriaMetrics, VictoriaLogs, VictoriaTraces, Grafana) |
 | `make startsm` | Start with Svelte client + monitoring |
 | `make starttm` | Start with TanStack client + monitoring |
 | `make sql` | Regenerate SQLC queries |

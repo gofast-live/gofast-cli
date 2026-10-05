@@ -12,14 +12,19 @@ import (
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/clients"
 )
 
+// ComposeFileName is the base compose file; it carries "# GF_<integration>" blocks for integration services.
+const ComposeFileName = "docker-compose.yml"
+
 // StripIntegration removes all GF_<integration>_START/END blocks from all files in the project
 func StripIntegration(projectPath string, integration string) error {
 	startMarker := fmt.Sprintf("// GF_%s_START", integration)
 	endMarker := fmt.Sprintf("// GF_%s_END", integration)
 	sqlStartMarker := fmt.Sprintf("-- GF_%s_START", integration)
 	sqlEndMarker := fmt.Sprintf("-- GF_%s_END", integration)
+	composeStartMarker := fmt.Sprintf("# GF_%s_START", integration)
+	composeEndMarker := fmt.Sprintf("# GF_%s_END", integration)
 
-	return filepath.Walk(projectPath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(projectPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -28,34 +33,43 @@ func StripIntegration(projectPath string, integration string) error {
 		}
 
 		ext := filepath.Ext(path)
-		if ext != ".go" && ext != ".sql" {
+		isCompose := filepath.Base(path) == ComposeFileName
+		if ext != ".go" && ext != ".sql" && !isCompose {
 			return nil
 		}
 
 		content, err := os.ReadFile(path)
 		if err != nil {
-			return err
+			return fmt.Errorf("reading %s: %w", path, err)
 		}
 
 		s := string(content)
 		original := s
 
 		// Use appropriate markers based on file type
-		if ext == ".sql" {
+		switch {
+		case isCompose:
+			s = RemoveMarkerBlocks(s, composeStartMarker, composeEndMarker)
+		case ext == ".sql":
 			s = RemoveMarkerBlocks(s, sqlStartMarker, sqlEndMarker)
-		} else {
+		default:
 			s = RemoveMarkerBlocks(s, startMarker, endMarker)
 		}
 
 		// Only write if changed
 		if s != original {
-			if err := os.WriteFile(path, []byte(s), 0644); err != nil {
-				return err
+			err := os.WriteFile(path, []byte(s), 0644)
+			if err != nil {
+				return fmt.Errorf("writing %s: %w", path, err)
 			}
 		}
 
 		return nil
 	})
+	if err != nil {
+		return fmt.Errorf("walking %s: %w", projectPath, err)
+	}
+	return nil
 }
 
 // RemoveMarkerBlocks removes all blocks between startMarker and endMarker (inclusive of markers)
@@ -93,14 +107,14 @@ func RemoveMarkerBlocks(content, startMarker, endMarker string) string {
 
 // CopyDir copies a directory recursively
 func CopyDir(src, dst string) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
 		relPath, err := filepath.Rel(src, path)
 		if err != nil {
-			return err
+			return fmt.Errorf("resolving %s relative to %s: %w", path, src, err)
 		}
 		dstPath := filepath.Join(dst, relPath)
 
@@ -110,23 +124,32 @@ func CopyDir(src, dst string) error {
 
 		content, err := os.ReadFile(path)
 		if err != nil {
-			return err
+			return fmt.Errorf("reading %s: %w", path, err)
 		}
 		return os.WriteFile(dstPath, content, info.Mode())
 	})
+	if err != nil {
+		return fmt.Errorf("walking %s: %w", src, err)
+	}
+	return nil
 }
 
 // CopyFile copies a single file from src to dst
 func CopyFile(src, dst string) error {
 	content, err := os.ReadFile(src)
 	if err != nil {
-		return err
+		return fmt.Errorf("reading %s: %w", src, err)
 	}
 	// Ensure destination directory exists
-	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
-		return err
+	err = os.MkdirAll(filepath.Dir(dst), 0755)
+	if err != nil {
+		return fmt.Errorf("creating directory for %s: %w", dst, err)
 	}
-	return os.WriteFile(dst, content, 0644)
+	err = os.WriteFile(dst, content, 0644)
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", dst, err)
+	}
+	return nil
 }
 
 // GetNextMigrationNumber returns the next available migration number
@@ -134,7 +157,7 @@ func GetNextMigrationNumber() (int, error) {
 	migrationsDir := filepath.Join("app", "service-core", "storage", "migrations")
 	entries, err := os.ReadDir(migrationsDir)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("reading %s: %w", migrationsDir, err)
 	}
 
 	var numbers []int
@@ -165,7 +188,7 @@ func CopyFilesWithMarkers(srcProject, dstProject, keepIntegration string) error 
 
 // copyMarkedFiles walks srcDir and copies files with markers to dstDir
 func copyMarkedFiles(srcDir, dstDir, keepIntegration string) error {
-	return filepath.Walk(srcDir, func(srcPath string, info os.FileInfo, err error) error {
+	err := filepath.Walk(srcDir, func(srcPath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -185,7 +208,7 @@ func copyMarkedFiles(srcDir, dstDir, keepIntegration string) error {
 
 		content, err := os.ReadFile(srcPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("reading %s: %w", srcPath, err)
 		}
 
 		marker := fmt.Sprintf("GF_%s_", keepIntegration)
@@ -196,13 +219,14 @@ func copyMarkedFiles(srcDir, dstDir, keepIntegration string) error {
 		// Get relative path
 		relPath, err := filepath.Rel(srcDir, srcPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("resolving %s relative to %s: %w", srcPath, srcDir, err)
 		}
 		dstPath := filepath.Join(dstDir, relPath)
 
 		// Ensure directory exists
-		if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
-			return err
+		err = os.MkdirAll(filepath.Dir(dstPath), 0755)
+		if err != nil {
+			return fmt.Errorf("creating directory for %s: %w", dstPath, err)
 		}
 
 		// For query.sql, append only the marker block instead of overwriting
@@ -226,13 +250,17 @@ func copyMarkedFiles(srcDir, dstDir, keepIntegration string) error {
 
 		return os.WriteFile(dstPath, []byte(s), 0644)
 	})
+	if err != nil {
+		return fmt.Errorf("walking %s: %w", srcDir, err)
+	}
+	return nil
 }
 
 // AppendMarkerBlock extracts the marker block from src and appends it to dst
 func AppendMarkerBlock(srcPath, dstPath, integration string) error {
 	srcContent, err := os.ReadFile(srcPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("reading %s: %w", srcPath, err)
 	}
 
 	// Determine marker style based on file extension
@@ -276,7 +304,7 @@ func AppendMarkerBlock(srcPath, dstPath, integration string) error {
 	// Read existing destination file
 	dstContent, err := os.ReadFile(dstPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("reading %s: %w", dstPath, err)
 	}
 
 	// Check if marker block already exists
@@ -291,7 +319,55 @@ func AppendMarkerBlock(srcPath, dstPath, integration string) error {
 	}
 	result += markerBlock
 
-	return os.WriteFile(dstPath, []byte(result), 0644)
+	err = os.WriteFile(dstPath, []byte(result), 0644)
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", dstPath, err)
+	}
+	return nil
+}
+
+// AppendComposeBlock copies the "# GF_<integration>" services block from the template's
+// docker-compose.yml to the end of the project's, renaming "gofast" to the project name.
+// Only the copied block is renamed, so the rest of the file is untouched.
+func AppendComposeBlock(tmpProject, integration, projectName string) error {
+	startMarker := fmt.Sprintf("# GF_%s_START", integration)
+	endMarker := fmt.Sprintf("# GF_%s_END", integration)
+
+	srcContent, err := os.ReadFile(filepath.Join(tmpProject, ComposeFileName))
+	if err != nil {
+		return fmt.Errorf("reading template compose file: %w", err)
+	}
+	src := string(srcContent)
+
+	startIdx := strings.Index(src, startMarker)
+	if startIdx == -1 {
+		return fmt.Errorf("template %s has no %s block", ComposeFileName, startMarker)
+	}
+	endIdx := strings.Index(src[startIdx:], endMarker)
+	if endIdx == -1 {
+		return fmt.Errorf("template %s has no %s marker", ComposeFileName, endMarker)
+	}
+	// Block runs from the start of the start-marker line through the end-marker line
+	lineStart := strings.LastIndex(src[:startIdx], "\n") + 1
+	blockEnd := startIdx + endIdx + len(endMarker)
+	block := strings.ReplaceAll(src[lineStart:blockEnd], "gofast", projectName) + "\n"
+
+	dstContent, err := os.ReadFile(ComposeFileName)
+	if err != nil {
+		return fmt.Errorf("reading project compose file: %w", err)
+	}
+	dst := string(dstContent)
+	if strings.Contains(dst, startMarker) {
+		return nil // Already has this integration
+	}
+
+	// Services are the last top-level key in the compose file, so the block lands inside it
+	dst = strings.TrimRight(dst, "\n") + "\n\n" + block
+	err = os.WriteFile(ComposeFileName, []byte(dst), 0644)
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", ComposeFileName, err)
+	}
+	return nil
 }
 
 func StripClientIntegration(clientType, clientPath, integration string) error {
@@ -306,7 +382,8 @@ func StripClientIntegration(clientType, clientPath, integration string) error {
 	}
 
 	targetPath := filepath.Join(clientPath, filepath.FromSlash(routeSubpath))
-	if err := os.RemoveAll(targetPath); err != nil && !os.IsNotExist(err) {
+	err = os.RemoveAll(targetPath)
+	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("removing %s route %s: %w", integration, targetPath, err)
 	}
 	return nil
@@ -331,12 +408,14 @@ func AddClientIntegration(tmpProject, clientType, clientPath, integration string
 		return fmt.Errorf("stat client integration source %s: %w", srcPath, err)
 	}
 	if info.IsDir() {
-		if err := CopyDir(srcPath, dstPath); err != nil {
+		err := CopyDir(srcPath, dstPath)
+		if err != nil {
 			return fmt.Errorf("copying client integration directory %s: %w", srcPath, err)
 		}
 		return nil
 	}
-	if err := CopyFile(srcPath, dstPath); err != nil {
+	err = CopyFile(srcPath, dstPath)
+	if err != nil {
 		return fmt.Errorf("copying client integration file %s: %w", srcPath, err)
 	}
 	return nil
@@ -361,12 +440,12 @@ func integrationRouteSubpath(spec clients.Spec, integration string) (string, err
 func MergeMainGoMarkers(srcPath, dstPath, integration string) error {
 	srcContent, err := os.ReadFile(srcPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("reading %s: %w", srcPath, err)
 	}
 
 	dstContent, err := os.ReadFile(dstPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("reading %s: %w", dstPath, err)
 	}
 
 	startMarker := fmt.Sprintf("// GF_%s_START", integration)
@@ -423,43 +502,23 @@ func MergeMainGoMarkers(srcPath, dstPath, integration string) error {
 
 	// Inject import blocks before GF_MAIN_IMPORT_SERVICES_START
 	if len(importBlocks) > 0 {
-		importMarker := "// GF_MAIN_IMPORT_SERVICES_START"
-		idx := strings.Index(dst, importMarker)
-		if idx != -1 {
-			// Find start of line
-			lineStart := strings.LastIndex(dst[:idx], "\n")
-			if lineStart == -1 {
-				lineStart = 0
-			} else {
-				lineStart++
-			}
-			insertContent := strings.Join(importBlocks, "")
-			dst = dst[:lineStart] + insertContent + dst[lineStart:]
-		}
+		dst = insertBeforeMarkerLine(dst, "// GF_MAIN_IMPORT_SERVICES_START", strings.Join(importBlocks, ""))
 	}
 
-	// Inject init blocks before GF_MAIN_INIT_SERVICES_START
+	// Inject init blocks before GF_MAIN_INIT_SERVICES_START, on their own line
 	if len(initBlocks) > 0 {
-		initMarker := "// GF_MAIN_INIT_SERVICES_START"
-		idx := strings.Index(dst, initMarker)
-		if idx != -1 {
-			// Find start of line
-			lineStart := strings.LastIndex(dst[:idx], "\n")
-			if lineStart == -1 {
-				lineStart = 0
-			} else {
-				lineStart++
-			}
-			// Add newline before if needed
-			insertContent := strings.Join(initBlocks, "")
-			if !strings.HasPrefix(insertContent, "\n") {
-				insertContent = "\n" + insertContent
-			}
-			dst = dst[:lineStart] + insertContent + dst[lineStart:]
+		insertContent := strings.Join(initBlocks, "")
+		if !strings.HasPrefix(insertContent, "\n") {
+			insertContent = "\n" + insertContent
 		}
+		dst = insertBeforeMarkerLine(dst, "// GF_MAIN_INIT_SERVICES_START", insertContent)
 	}
 
-	return os.WriteFile(dstPath, []byte(dst), 0644)
+	err = os.WriteFile(dstPath, []byte(dst), 0644)
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", dstPath, err)
+	}
+	return nil
 }
 
 // MergeConfigMarkers extracts marker blocks from src config.go and injects them into dst config.go
@@ -467,12 +526,12 @@ func MergeMainGoMarkers(srcPath, dstPath, integration string) error {
 func MergeConfigMarkers(srcPath, dstPath, integration string) error {
 	srcContent, err := os.ReadFile(srcPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("reading %s: %w", srcPath, err)
 	}
 
 	dstContent, err := os.ReadFile(dstPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("reading %s: %w", dstPath, err)
 	}
 
 	startMarker := fmt.Sprintf("// GF_%s_START", integration)
@@ -555,7 +614,11 @@ func MergeConfigMarkers(srcPath, dstPath, integration string) error {
 		}
 	}
 
-	return os.WriteFile(dstPath, []byte(dst), 0644)
+	err = os.WriteFile(dstPath, []byte(dst), 0644)
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", dstPath, err)
+	}
+	return nil
 }
 
 // StripOtherIntegrations removes marker blocks for all integrations except the specified one
@@ -572,9 +635,9 @@ func StripOtherIntegrations(content, keepIntegration string) string {
 	}
 
 	// Also check for SQL-style markers
-	reSql := regexp.MustCompile(`-- GF_([A-Z]+)_START`)
-	matchesSql := reSql.FindAllStringSubmatch(content, -1)
-	for _, match := range matchesSql {
+	reSQL := regexp.MustCompile(`-- GF_([A-Z]+)_START`)
+	matchesSQL := reSQL.FindAllStringSubmatch(content, -1)
+	for _, match := range matchesSQL {
 		if len(match) > 1 {
 			seen[match[1]] = true
 		}
@@ -601,10 +664,26 @@ func AddMigration(tmpProject, srcMigrationName, dstMigrationSuffix string) error
 	srcPath := filepath.Join(tmpProject, "app", "service-core", "storage", "migrations", srcMigrationName)
 	content, err := os.ReadFile(srcPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("reading %s: %w", srcPath, err)
 	}
 
 	dstName := fmt.Sprintf("%05d_%s", nextNum, dstMigrationSuffix)
 	dstPath := filepath.Join("app", "service-core", "storage", "migrations", dstName)
-	return os.WriteFile(dstPath, content, 0644)
+	err = os.WriteFile(dstPath, content, 0644)
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", dstPath, err)
+	}
+	return nil
+}
+
+// insertBeforeMarkerLine inserts text at the start of the line holding marker.
+// Content without the marker comes back unchanged.
+func insertBeforeMarkerLine(content, marker, insert string) string {
+	before, _, found := strings.Cut(content, marker)
+	if !found {
+		return content
+	}
+	// LastIndex returns -1 when the marker is on the first line, so +1 lands on 0 either way
+	lineStart := strings.LastIndex(before, "\n") + 1
+	return content[:lineStart] + insert + content[lineStart:]
 }

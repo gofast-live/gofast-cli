@@ -18,38 +18,40 @@ type Spec struct {
 	EmailsRouteSubpath   string
 }
 
-var specs = map[string]Spec{
-	Svelte: {
-		Name:                 Svelte,
-		DisplayName:          "Svelte",
-		ServiceDir:           "service-svelte",
-		ComposeFile:          "docker-compose.svelte.yml",
-		Port:                 "3000",
-		PaymentsRouteSubpath: "src/routes/(app)/payments",
-		FilesRouteSubpath:    "src/routes/(app)/files",
-		EmailsRouteSubpath:   "src/routes/(app)/emails",
-	},
-	Tanstack: {
-		Name:                 Tanstack,
-		DisplayName:          "TanStack",
-		ServiceDir:           "service-tanstack",
-		ComposeFile:          "docker-compose.tanstack.yml",
-		Port:                 "3000",
-		PaymentsRouteSubpath: "src/routes/_layout/payments",
-		FilesRouteSubpath:    "src/routes/_layout/files.tsx",
-		EmailsRouteSubpath:   "src/routes/_layout/emails.tsx",
-	},
+func specs() map[string]Spec {
+	return map[string]Spec{
+		Svelte: {
+			Name:                 Svelte,
+			DisplayName:          "Svelte",
+			ServiceDir:           "service-svelte",
+			ComposeFile:          "docker-compose.svelte.yml",
+			Port:                 "3000",
+			PaymentsRouteSubpath: "src/routes/(app)/payments",
+			FilesRouteSubpath:    "src/routes/(app)/files",
+			EmailsRouteSubpath:   "src/routes/(app)/emails",
+		},
+		Tanstack: {
+			Name:                 Tanstack,
+			DisplayName:          "TanStack",
+			ServiceDir:           "service-tanstack",
+			ComposeFile:          "docker-compose.tanstack.yml",
+			Port:                 "3000",
+			PaymentsRouteSubpath: "src/routes/_layout/payments",
+			FilesRouteSubpath:    "src/routes/_layout/files.tsx",
+			EmailsRouteSubpath:   "src/routes/_layout/emails.tsx",
+		},
+	}
 }
 
 func SpecFor(name string) (Spec, bool) {
-	spec, ok := specs[name]
+	spec, ok := specs()[name]
 	return spec, ok
 }
 
 func All() []Spec {
 	return []Spec{
-		specs[Svelte],
-		specs[Tanstack],
+		specs()[Svelte],
+		specs()[Tanstack],
 	}
 }
 

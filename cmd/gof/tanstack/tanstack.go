@@ -1,11 +1,14 @@
 package tanstack
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/gertd/go-pluralize"
@@ -16,15 +19,13 @@ type Column struct {
 	Type string
 }
 
-var pluralizeClient = pluralize.NewClient()
-
 func GetModelPath(modelName string) string {
-	return "/models/" + pluralizeClient.Plural(modelName)
+	return "/models/" + pluralize.NewClient().Plural(modelName)
 }
 
-func FormatProject() error {
+func FormatProject(ctx context.Context) error {
 	cmd := `cd ./app/service-tanstack && npm ci && node --input-type=module -e "import { Generator } from '@tanstack/router-generator'; import { getConfig } from '@tanstack/router-plugin'; const root = process.cwd(); const generator = new Generator({ config: getConfig({}, root), root }); await generator.run();" && npm run format`
-	execCmd := exec.Command("bash", "-c", cmd)
+	execCmd := exec.CommandContext(ctx, "bash", "-c", cmd)
 	out, err := execCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("running npm commands: %w\nOutput: %s", err, string(out))
@@ -33,13 +34,16 @@ func FormatProject() error {
 }
 
 func GenerateTanstackScaffolding(modelName string, columns []Column) error {
-	if err := generateClientConnect(modelName); err != nil {
+	err := generateClientConnect(modelName)
+	if err != nil {
 		return fmt.Errorf("generating client connect.ts: %w", err)
 	}
-	if err := generateClientListPage(modelName, columns); err != nil {
+	err = generateClientListPage(modelName, columns)
+	if err != nil {
 		return fmt.Errorf("generating client list page: %w", err)
 	}
-	if err := generateClientDetailPage(modelName, columns); err != nil {
+	err = generateClientDetailPage(modelName, columns)
+	if err != nil {
 		return fmt.Errorf("generating client detail page: %w", err)
 	}
 	return nil
@@ -91,27 +95,10 @@ func generateClientConnect(modelName string) error {
 	clientExport := "export const " + modelName + "_client = createClient(" + serviceToken + ", transport)"
 
 	if !strings.Contains(s, serviceToken) {
-		marker := "from './gen/proto/v1/main_pb'"
-		idx := strings.Index(s, marker)
-		if idx == -1 {
-			return fmt.Errorf("main_pb import not found in connect.ts")
+		s, err = addMainPbImport(s, serviceToken)
+		if err != nil {
+			return err
 		}
-		pre := s[:idx]
-		braceOpen := strings.LastIndex(pre, "{")
-		braceClose := strings.LastIndex(pre, "}")
-		if braceOpen == -1 || braceClose == -1 || braceClose < braceOpen {
-			return fmt.Errorf("malformed main_pb import in connect.ts")
-		}
-		importList := strings.TrimSpace(pre[braceOpen+1 : braceClose])
-		if importList == "" {
-			importList = serviceToken
-		} else {
-			if !strings.HasSuffix(importList, ",") {
-				importList += ","
-			}
-			importList += "\n  " + serviceToken
-		}
-		s = s[:braceOpen+1] + "\n  " + importList + "\n" + s[braceClose:]
 	}
 
 	if !strings.Contains(s, clientExport) {
@@ -128,7 +115,8 @@ func generateClientConnect(modelName string) error {
 		}
 	}
 
-	if err := os.WriteFile(path, []byte(s), 0o644); err != nil {
+	err = os.WriteFile(path, []byte(s), 0o644)
+	if err != nil {
 		return fmt.Errorf("writing connect.ts: %w", err)
 	}
 	return nil
@@ -136,12 +124,13 @@ func generateClientConnect(modelName string) error {
 
 func generateClientListPage(modelName string, columns []Column) error {
 	sourcePath := "./app/service-tanstack/src/routes/_layout/models/skeletons/index.tsx"
-	pluralLower := pluralizeClient.Plural(modelName)
+	pluralLower := pluralize.NewClient().Plural(modelName)
 	pluralCap := toPascalCase(pluralLower)
 	capitalizedModelName := toPascalCase(modelName)
 
 	destDir := filepath.Join("app/service-tanstack/src/routes/_layout/models", pluralLower)
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
+	err := os.MkdirAll(destDir, 0o755)
+	if err != nil {
 		return fmt.Errorf("creating destination directory %s: %w", destDir, err)
 	}
 	destPath := filepath.Join(destDir, "index.tsx")
@@ -235,7 +224,8 @@ func generateClientListPage(modelName string, columns []Column) error {
 	}
 	s = strings.Join(outLines, "\n")
 
-	if err := os.WriteFile(destPath, []byte(s), 0o644); err != nil {
+	err = os.WriteFile(destPath, []byte(s), 0o644)
+	if err != nil {
 		return fmt.Errorf("writing client list page %s: %w", destPath, err)
 	}
 	return nil
@@ -243,12 +233,13 @@ func generateClientListPage(modelName string, columns []Column) error {
 
 func generateClientDetailPage(modelName string, columns []Column) error {
 	sourcePath := "./app/service-tanstack/src/routes/_layout/models/skeletons/$skeleton_id.tsx"
-	pluralLower := pluralizeClient.Plural(modelName)
+	pluralLower := pluralize.NewClient().Plural(modelName)
 	pluralCap := toPascalCase(pluralLower)
 	capitalizedModelName := toPascalCase(modelName)
 
 	destDir := filepath.Join("app/service-tanstack/src/routes/_layout/models", pluralLower)
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
+	err := os.MkdirAll(destDir, 0o755)
+	if err != nil {
 		return fmt.Errorf("creating destination directory %s: %w", destDir, err)
 	}
 	destPath := filepath.Join(destDir, "$"+modelName+"_id.tsx")
@@ -267,6 +258,54 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 	s = strings.ReplaceAll(s, "skeleton: {", camelName+": {")
 	s = strings.ReplaceAll(s, "skeleton", modelName)
 
+	emptySnippet := detailEmptySnippet(columns)
+	formDataSnippet := detailFormDataSnippet(columns)
+	payloadSnippet := detailPayloadFields(columns)
+
+	fieldsSnippet := detailFieldsMarkup(modelName, columns)
+
+	replaceRegion := func(content, startMarker, endMarker, replacement string) (string, error) {
+		start := strings.Index(content, startMarker)
+		end := strings.Index(content, endMarker)
+		if start == -1 || end == -1 || end < start {
+			return content, fmt.Errorf("markers %q .. %q not found", startMarker, endMarker)
+		}
+		return content[:start] + replacement + "\n" + content[end+len(endMarker):], nil
+	}
+
+	var replaceErr error
+	s, replaceErr = replaceRegion(s, "// GF_DETAIL_EMPTY_START", "// GF_DETAIL_EMPTY_END", emptySnippet)
+	if replaceErr != nil {
+		return fmt.Errorf("replacing empty defaults: %w", replaceErr)
+	}
+	s, replaceErr = replaceRegion(s, "// GF_DETAIL_FORMDATA_START", "// GF_DETAIL_FORMDATA_END", formDataSnippet)
+	if replaceErr != nil {
+		return fmt.Errorf("replacing form data: %w", replaceErr)
+	}
+	s, replaceErr = replaceRegion(s, "// GF_DETAIL_CREATE_FIELDS_START", "// GF_DETAIL_CREATE_FIELDS_END", payloadSnippet)
+	if replaceErr != nil {
+		return fmt.Errorf("replacing create fields: %w", replaceErr)
+	}
+	s, replaceErr = replaceRegion(s, "// GF_DETAIL_EDIT_FIELDS_START", "// GF_DETAIL_EDIT_FIELDS_END", payloadSnippet)
+	if replaceErr != nil {
+		return fmt.Errorf("replacing edit fields: %w", replaceErr)
+	}
+	s, replaceErr = replaceRegion(s, "{/* GF_DETAIL_FIELDS_START */}", "{/* GF_DETAIL_FIELDS_END */}", fieldsSnippet)
+	if replaceErr != nil {
+		return fmt.Errorf("replacing UI fields: %w", replaceErr)
+	}
+
+	s = stripDetailMarkers(s, slices.ContainsFunc(columns, func(c Column) bool { return c.Type == "date" }))
+
+	err = os.WriteFile(destPath, []byte(s), 0o644)
+	if err != nil {
+		return fmt.Errorf("writing client detail page %s: %w", destPath, err)
+	}
+	return nil
+}
+
+// detailEmptySnippet builds the empty<Model> defaults, using camelCase proto field names.
+func detailEmptySnippet(columns []Column) string {
 	var emptyBuilder strings.Builder
 	emptyIndent := "  "
 	emptyBuilder.WriteString(emptyIndent + "created: '',\n")
@@ -280,8 +319,11 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 		}
 		emptyBuilder.WriteString(emptyIndent + field + ": '',\n")
 	}
-	emptySnippet := strings.TrimRight(emptyBuilder.String(), "\n")
+	return strings.TrimRight(emptyBuilder.String(), "\n")
+}
 
+// detailFormDataSnippet reads form fields (snake_case names) into camelCase variables.
+func detailFormDataSnippet(columns []Column) string {
 	var formDataBuilder strings.Builder
 	formDataIndent := "    "
 	for _, c := range columns {
@@ -292,15 +334,21 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 		}
 		formDataBuilder.WriteString(formDataIndent + "const " + field + " = formData.get('" + c.Name + "')?.toString() ?? ''\n")
 	}
-	formDataSnippet := strings.TrimRight(formDataBuilder.String(), "\n")
+	return strings.TrimRight(formDataBuilder.String(), "\n")
+}
 
+// detailPayloadFields lists the camelCase request fields for create and edit.
+func detailPayloadFields(columns []Column) string {
 	var payloadBuilder strings.Builder
 	for _, c := range columns {
 		field := toCamelCase(c.Name)
 		payloadBuilder.WriteString("            " + field + ",\n")
 	}
-	payloadSnippet := strings.TrimRight(payloadBuilder.String(), "\n")
+	return strings.TrimRight(payloadBuilder.String(), "\n")
+}
 
+// detailFieldsMarkup renders one form input per column.
+func detailFieldsMarkup(modelName string, columns []Column) string {
 	toTitle := func(name string) string {
 		parts := strings.Split(name, "_")
 		for i := range parts {
@@ -375,47 +423,11 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 			fieldsBuilder.WriteString("          </label>\n")
 		}
 	}
-	fieldsSnippet := strings.TrimRight(fieldsBuilder.String(), "\n")
+	return strings.TrimRight(fieldsBuilder.String(), "\n")
+}
 
-	replaceRegion := func(content, startMarker, endMarker, replacement string) (string, error) {
-		start := strings.Index(content, startMarker)
-		end := strings.Index(content, endMarker)
-		if start == -1 || end == -1 || end < start {
-			return content, fmt.Errorf("markers %q .. %q not found", startMarker, endMarker)
-		}
-		return content[:start] + replacement + "\n" + content[end+len(endMarker):], nil
-	}
-
-	var replaceErr error
-	s, replaceErr = replaceRegion(s, "// GF_DETAIL_EMPTY_START", "// GF_DETAIL_EMPTY_END", emptySnippet)
-	if replaceErr != nil {
-		return fmt.Errorf("replacing empty defaults: %w", replaceErr)
-	}
-	s, replaceErr = replaceRegion(s, "// GF_DETAIL_FORMDATA_START", "// GF_DETAIL_FORMDATA_END", formDataSnippet)
-	if replaceErr != nil {
-		return fmt.Errorf("replacing form data: %w", replaceErr)
-	}
-	s, replaceErr = replaceRegion(s, "// GF_DETAIL_CREATE_FIELDS_START", "// GF_DETAIL_CREATE_FIELDS_END", payloadSnippet)
-	if replaceErr != nil {
-		return fmt.Errorf("replacing create fields: %w", replaceErr)
-	}
-	s, replaceErr = replaceRegion(s, "// GF_DETAIL_EDIT_FIELDS_START", "// GF_DETAIL_EDIT_FIELDS_END", payloadSnippet)
-	if replaceErr != nil {
-		return fmt.Errorf("replacing edit fields: %w", replaceErr)
-	}
-	s, replaceErr = replaceRegion(s, "{/* GF_DETAIL_FIELDS_START */}", "{/* GF_DETAIL_FIELDS_END */}", fieldsSnippet)
-	if replaceErr != nil {
-		return fmt.Errorf("replacing UI fields: %w", replaceErr)
-	}
-
-	hasDateColumn := false
-	for _, c := range columns {
-		if c.Type == "date" {
-			hasDateColumn = true
-			break
-		}
-	}
-
+// stripDetailMarkers drops marker comment lines, and the formatDate helper when no column is a date.
+func stripDetailMarkers(s string, hasDateColumn bool) string {
 	markers := []string{
 		"// GF_DETAIL_EMPTY_START", "// GF_DETAIL_EMPTY_END",
 		"// GF_DETAIL_FORMDATA_START", "// GF_DETAIL_FORMDATA_END",
@@ -434,36 +446,58 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 				break
 			}
 		}
-		if !hasDateColumn {
-			trimmed := strings.TrimSpace(line)
-			if strings.HasPrefix(trimmed, "function formatDate(") {
-				inFormatDateFunc = true
-				braceDepth = 0
-				skip = true
-			}
-			if inFormatDateFunc {
-				skip = true
-				for _, ch := range line {
-					if ch == '{' {
-						braceDepth++
-					} else if ch == '}' {
-						braceDepth--
-						if braceDepth == 0 {
-							inFormatDateFunc = false
-							break
-						}
-					}
-				}
-			}
+		// Remove formatDate function if no date columns
+		if !hasDateColumn && strings.HasPrefix(strings.TrimSpace(line), "function formatDate(") {
+			inFormatDateFunc = true
+			braceDepth = 0
+		}
+		if !hasDateColumn && inFormatDateFunc {
+			skip = true
+			braceDepth, inFormatDateFunc = trackFunctionEnd(line, braceDepth)
 		}
 		if !skip {
 			outLines = append(outLines, line)
 		}
 	}
-	s = strings.Join(outLines, "\n")
+	return strings.Join(outLines, "\n")
+}
 
-	if err := os.WriteFile(destPath, []byte(s), 0o644); err != nil {
-		return fmt.Errorf("writing client detail page %s: %w", destPath, err)
+// trackFunctionEnd updates the brace depth for one line and reports whether the function is still open.
+func trackFunctionEnd(line string, braceDepth int) (int, bool) {
+	for _, ch := range line {
+		switch ch {
+		case '{':
+			braceDepth++
+		case '}':
+			braceDepth--
+			if braceDepth == 0 {
+				return braceDepth, false
+			}
+		}
 	}
-	return nil
+	return braceDepth, true
+}
+
+// addMainPbImport adds serviceToken to the main_pb import list in connect.ts, one import per line,
+// sorted because the TanStack eslint config enforces sort-imports on members.
+func addMainPbImport(s, serviceToken string) (string, error) {
+	marker := "from './gen/proto/v1/main_pb'"
+	pre, _, found := strings.Cut(s, marker)
+	if !found {
+		return "", errors.New("main_pb import not found in connect.ts")
+	}
+	braceOpen := strings.LastIndex(pre, "{")
+	braceClose := strings.LastIndex(pre, "}")
+	if braceOpen == -1 || braceClose == -1 || braceClose < braceOpen {
+		return "", errors.New("malformed main_pb import in connect.ts")
+	}
+	names := []string{serviceToken}
+	for name := range strings.SplitSeq(pre[braceOpen+1:braceClose], ",") {
+		name = strings.TrimSpace(name)
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+	slices.Sort(names)
+	return s[:braceOpen+1] + "\n  " + strings.Join(names, ",\n  ") + ",\n" + s[braceClose:], nil
 }

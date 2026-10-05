@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -14,332 +18,339 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func init() {
-	rootCmd.AddCommand(modelCmd)
-}
-
 type Column struct {
 	Name string
 	Type string
 }
 
-var typeMap = map[string]string{
-	"string": "text",
-	"number": "numeric",
-	"date":   "timestamptz",
-	"bool":   "boolean",
+// sqlColumnType maps a validated column type to its Postgres type.
+func sqlColumnType(colType string) string {
+	switch colType {
+	case "string":
+		return "text"
+	case "number":
+		return "numeric"
+	case "date":
+		return "timestamptz"
+	case "bool":
+		return "boolean"
+	default:
+		panic(fmt.Sprintf("unvalidated column type %q", colType))
+	}
 }
 
-var sqlKeywords = map[string]bool{
-	"all": true, "and": true, "any": true, "as": true, "asc": true,
-	"between": true, "by": true, "case": true, "check": true, "column": true,
-	"create": true, "default": true, "delete": true, "desc": true, "distinct": true,
-	"drop": true, "else": true, "end": true, "exists": true, "false": true,
-	"from": true, "full": true, "group": true, "having": true, "in": true,
-	"index": true, "inner": true, "insert": true, "into": true, "is": true,
-	"join": true, "key": true, "left": true, "like": true, "limit": true,
-	"not": true, "null": true, "offset": true, "on": true, "or": true,
-	"order": true, "outer": true, "primary": true, "references": true, "returning": true,
-	"right": true, "select": true, "set": true, "start": true, "table": true,
-	"then": true, "to": true, "true": true, "union": true, "unique": true,
-	"update": true, "user": true, "using": true, "values": true, "view": true,
-	"when": true, "where": true, "with": true,
+func isSQLKeyword(name string) bool {
+	switch name {
+	case "all", "and", "any", "as", "asc", "between", "by", "case",
+		"check", "column", "create", "default", "delete", "desc", "distinct", "drop",
+		"else", "end", "exists", "false", "from", "full", "group", "having",
+		"in", "index", "inner", "insert", "into", "is", "join", "key",
+		"left", "like", "limit", "not", "null", "offset", "on", "or",
+		"order", "outer", "primary", "references", "returning", "right", "select", "set",
+		"start", "table", "then", "to", "true", "union", "unique", "update",
+		"user", "using", "values", "view", "when", "where", "with":
+		return true
+	default:
+		return false
+	}
 }
 
-var modelCmd = &cobra.Command{
-	Use:   "model [model_name] [columns...]",
-	Short: "Create a new model",
-	Long: `Create a new model including database migrations, query generation, validation, API endpoints and UI views.
+func newModelCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "model [model_name] [columns...]",
+		Short: "Create a new model",
+		Long: `Create a new model including database migrations, query generation, validation, API endpoints and UI views.
 
-Columns are defined as name:type.
+	Columns are defined as name:type.
 
-Valid column types are:
-  - string  (PostgreSQL: text)
-  - number  (PostgreSQL: numeric)
-  - date    (PostgreSQL: timestamptz)
-  - bool    (PostgreSQL: boolean)
+	Valid column types are:
+	  - string  (PostgreSQL: text)
+	  - number  (PostgreSQL: numeric)
+	  - date    (PostgreSQL: timestamptz)
+	  - bool    (PostgreSQL: boolean)
 
-Example:
-  gof model post title:string content:string views:number published_at:date is_published:bool
-`,
-	Args: cobra.MinimumNArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
-		_, _, err := auth.CheckAuthentication()
-		if err != nil {
-			cmd.Printf("Authentication failed: %v.\n", err)
-			return
-		}
-
-		// Ensure we are inside a valid gofast project (has gofast.json)
-		con, err := config.ParseConfig()
-		if err != nil {
-			cmd.Printf("%v\n", err)
-			return
-		}
-
-		modelName := args[0]
-
-		// Validate model name: must be lowercase letters and underscores only
-		validModelName := regexp.MustCompile(`^[a-z][a-z_]*$`)
-		if !validModelName.MatchString(modelName) {
-			cmd.Println("Error: Invalid model name. Must start with a lowercase letter and contain only lowercase letters and underscores.")
-			cmd.Println("Example: gof model note title:string content:string")
-			return
-		}
-
-		// Reject plural model names to avoid generation issues
-		if pluralizeClient.IsPlural(modelName) {
-			singular := pluralizeClient.Singular(modelName)
-			cmd.Printf("Error: Model name '%s' appears to be plural. Use the singular form instead.\n", modelName)
-			cmd.Printf("Suggestion: gof model %s ...\n", singular)
-			return
-		}
-
-		columnStrings := args[1:]
-
-		var columns []Column
-		seenNames := map[string]bool{}
-		validTypes := map[string]bool{
-			"string": true,
-			"number": true,
-			"date":   true,
-			"bool":   true,
-		}
-
-		// Reserved column names that conflict with auto-generated fields
-		reservedColumns := map[string]bool{
-			"id": true, "user_id": true, "created": true, "updated": true,
-		}
-
-		// Go reserved keywords that would cause compilation errors
-		goKeywords := map[string]bool{
-			"break": true, "case": true, "chan": true, "const": true, "continue": true,
-			"default": true, "defer": true, "else": true, "fallthrough": true, "for": true,
-			"func": true, "go": true, "goto": true, "if": true, "import": true,
-			"interface": true, "map": true, "package": true, "range": true, "return": true,
-			"select": true, "struct": true, "switch": true, "type": true, "var": true,
-		}
-
-		// Column name format: same as model name (lowercase + underscores)
-		validColName := regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
-
-		var counter int
-		for _, colStr := range columnStrings {
-			parts := strings.Split(colStr, ":")
-			if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-				cmd.Printf("Error: Invalid column format '%s'. Use name:type.\n", colStr)
-				return
-			}
-
-			colName := parts[0]
-
-			// Validate column name format
-			if !validColName.MatchString(colName) {
-				cmd.Printf("Error: Invalid column name '%s'. Must start with a lowercase letter and contain only lowercase letters, numbers, and underscores.\n", colName)
-				return
-			}
-
-			// Check for reserved column names
-			if reservedColumns[colName] {
-				cmd.Printf("Error: Column name '%s' is reserved (auto-generated). Choose a different name.\n", colName)
-				return
-			}
-
-			// Check for Go keywords
-			if goKeywords[colName] {
-				cmd.Printf("Error: Column name '%s' is a Go reserved keyword. Choose a different name.\n", colName)
-				return
-			}
-
-			// Check for SQL keywords that would break generated migrations/queries
-			if sqlKeywords[colName] {
-				cmd.Printf("Error: Column name '%s' is a reserved SQL keyword. Choose a different name.\n", colName)
-				return
-			}
-
-			colType := strings.ToLower(parts[1])
-			if !validTypes[colType] {
-				cmd.Printf("Error: Invalid type '%s' for column '%s'.\n", parts[1], colName)
-				cmd.Println("Valid types are: string, number, date, bool.")
-				return
-			}
-
-			// Ensure column names are unique
-			if seenNames[colName] {
-				cmd.Printf("Error: Duplicate column name '%s'. Column names must be unique.\n", colName)
-				return
-			}
-			seenNames[colName] = true
-
-			columns = append(columns, Column{
-				Name: colName,
-				Type: colType,
-			})
-			counter++
-		}
-
-		// min 2 columns
-		if counter < 2 {
-			cmd.Printf("Error: At least 2 columns are required, got %d.\n", counter)
-			return
-		}
-
-		configColumns := make([]config.Column, len(columns))
-		for i, col := range columns {
-			configColumns[i] = config.Column{
-				Name: col.Name,
-				Type: col.Type,
-			}
-		}
-
-		cmd.Println("")
-		cmd.Printf("Generating model '%s'...\n", modelName)
-
-		err = config.AddModel(modelName, configColumns)
-		if err != nil {
-			cmd.Printf("Error adding model: %v.\n", err)
-			return
-		}
-
-		err = generateProto(modelName, columns)
-		if err != nil {
-			cmd.Printf("Error generating proto: %v.\n", err)
-			return
-		}
-
-		migrationPath, err := generateSchema(modelName, columns)
-		if err != nil {
-			cmd.Printf("Error generating schema: %v.\n", err)
-			return
-		}
-
-		err = generateQueries(modelName, columns)
-		if err != nil {
-			cmd.Printf("Error generating queries: %v.\n", err)
-			return
-		}
-
-		// Add model-specific auth permissions before generating service layer
-		err = generateAuthAccessFlags(modelName)
-		if err != nil {
-			cmd.Printf("Error updating auth permissions: %v.\n", err)
-			return
-		}
-
-		// Update seed_dev_user.sh with new permission value
-		err = e2e.UpdateSeedDevUser()
-		if err != nil {
-			cmd.Printf("Error updating seed script: %v.\n", err)
-			return
-		}
-
-		err = generateServiceLayer(modelName, columns)
-		if err != nil {
-			cmd.Printf("Error generating service layer: %v.\n", err)
-			return
-		}
-
-		// Generate ConnectRPC transport layer from skeleton template
-		err = generateTransportLayer(modelName, columns)
-		if err != nil {
-			cmd.Printf("Error generating transport layer: %v.\n", err)
-			return
-		}
-
-		// Wire new model into main.go (imports, deps init, route mounting)
-		err = wireCoreMain(modelName)
-		if err != nil {
-			cmd.Printf("Error wiring core main.go: %v.\n", err)
-			return
-		}
-
-		enabledClients := clients.Enabled(con)
-		if len(enabledClients) > 0 {
-			e2eColumns := make([]e2e.Column, len(columns))
-			for i, col := range columns {
-				e2eColumns[i] = e2e.Column{Name: col.Name, Type: col.Type}
-			}
-			err = e2e.GenerateClientE2ETest(modelName, e2eColumns)
+	Example:
+	  gof model post title:string content:string views:number published_at:date is_published:bool
+	`,
+		Args: cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			_, _, err := auth.CheckAuthentication()
 			if err != nil {
-				cmd.Printf("Error generating client e2e test: %v.\n", err)
+				cmd.Printf("Authentication failed: %v.\n", err)
 				return
 			}
-			for _, client := range enabledClients {
-				err = generateClientScaffolding(client.Name, modelName, configColumns)
-				if err != nil {
-					cmd.Printf("Error generating %s client pages: %v.\n", client.DisplayName, err)
-					return
+
+			// Ensure we are inside a valid gofast project (has gofast.json)
+			con, err := config.ParseConfig()
+			if err != nil {
+				cmd.Printf("%v\n", err)
+				return
+			}
+
+			modelName := args[0]
+
+			// Validate model name: must be lowercase letters and underscores only
+			validModelName := regexp.MustCompile(`^[a-z][a-z_]*$`)
+			if !validModelName.MatchString(modelName) {
+				cmd.Println("Error: Invalid model name. Must start with a lowercase letter and contain only lowercase letters and underscores.")
+				cmd.Println("Example: gof model note title:string content:string")
+				return
+			}
+
+			// Reject plural model names to avoid generation issues
+			if pluralize.NewClient().IsPlural(modelName) {
+				singular := pluralize.NewClient().Singular(modelName)
+				cmd.Printf("Error: Model name '%s' appears to be plural. Use the singular form instead.\n", modelName)
+				cmd.Printf("Suggestion: gof model %s ...\n", singular)
+				return
+			}
+
+			// Generating over an existing domain (user, skeleton, an integration or an earlier model) overwrites its code
+			domainPath := filepath.Join("app", "service-core", "domain", modelName)
+			_, err = os.Stat(domainPath)
+			switch {
+			case err == nil:
+				cmd.Printf("Error: '%s' already exists (%s), choose a different model name\n", modelName, domainPath)
+				return
+			case !errors.Is(err, fs.ErrNotExist):
+				cmd.Printf("Error checking %s: %v\n", domainPath, err)
+				return
+			}
+
+			columns, err := parseColumns(args[1:])
+			if err != nil {
+				cmd.Printf("Error: %v\n", err)
+				return
+			}
+
+			configColumns := make([]config.Column, len(columns))
+			for i, col := range columns {
+				configColumns[i] = config.Column{
+					Name: col.Name,
+					Type: col.Type,
 				}
 			}
-			for _, client := range enabledClients {
-				err = formatClientProject(client.Name)
-				if err != nil {
-					cmd.Printf("Error formatting %s client: %v.\n", client.DisplayName, err)
-					return
-				}
+
+			cmd.Println("")
+			cmd.Printf("Generating model '%s'...\n", modelName)
+
+			migrationPath, err := generateBackend(cmd.Context(), modelName, columns, configColumns)
+			if err != nil {
+				cmd.Printf("Error %v.\n", err)
+				return
 			}
+
+			enabledClients := clients.Enabled(con)
+			err = generateClientsForModel(cmd.Context(), modelName, columns, configColumns, enabledClients)
+			if err != nil {
+				cmd.Printf("Error %v.\n", err)
+				return
+			}
+
+			printModelSummary(cmd, modelName, columns, migrationPath, enabledClients)
+		},
+	}
+}
+
+// parseColumns validates name:type column arguments. Everything downstream trusts its output.
+func parseColumns(columnStrings []string) ([]Column, error) {
+	validTypes := map[string]bool{
+		"string": true,
+		"number": true,
+		"date":   true,
+		"bool":   true,
+	}
+
+	// Reserved column names that conflict with auto-generated fields
+	reservedColumns := map[string]bool{
+		"id": true, "user_id": true, "created": true, "updated": true,
+	}
+
+	// Go reserved keywords that would cause compilation errors
+	goKeywords := map[string]bool{
+		"break": true, "case": true, "chan": true, "const": true, "continue": true,
+		"default": true, "defer": true, "else": true, "fallthrough": true, "for": true,
+		"func": true, "go": true, "goto": true, "if": true, "import": true,
+		"interface": true, "map": true, "package": true, "range": true, "return": true,
+		"select": true, "struct": true, "switch": true, "type": true, "var": true,
+	}
+
+	// Column name format: same as model name (lowercase + underscores)
+	validColName := regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+
+	columns := make([]Column, 0, len(columnStrings))
+	seenNames := map[string]bool{}
+	for _, colStr := range columnStrings {
+		parts := strings.Split(colStr, ":")
+		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			return nil, fmt.Errorf("invalid column format '%s', use name:type", colStr)
 		}
 
-		cmd.Println("")
-		cmd.Println(config.SuccessStyle.Render("Model '" + modelName + "' created successfully!"))
-		cmd.Println("")
-		cmd.Println("Columns:")
-		for _, col := range columns {
-			cmd.Printf("  - %s: %s\n", col.Name, typeMap[col.Type])
+		colName := parts[0]
+		switch {
+		case !validColName.MatchString(colName):
+			return nil, fmt.Errorf("invalid column name '%s', it must start with a lowercase letter and contain only lowercase letters, numbers, and underscores", colName)
+		case reservedColumns[colName]:
+			return nil, fmt.Errorf("column name '%s' is reserved (auto-generated), choose a different name", colName)
+		case goKeywords[colName]:
+			return nil, fmt.Errorf("column name '%s' is a Go reserved keyword, choose a different name", colName)
+		case isSQLKeyword(colName):
+			// SQL keywords would break the generated migrations and queries
+			return nil, fmt.Errorf("column name '%s' is a reserved SQL keyword, choose a different name", colName)
+		case seenNames[colName]:
+			return nil, fmt.Errorf("duplicate column name '%s', column names must be unique", colName)
 		}
-		cmd.Println("")
-		cmd.Println("Generated files:")
-		goPackageName := toGoPackageName(modelName)
-		cmd.Printf("  - Proto:     %s\n", config.SuccessStyle.Render("proto/v1/"+modelName+".proto"))
-		cmd.Printf("  - Migration: %s\n", config.SuccessStyle.Render(migrationPath))
-		cmd.Printf("  - Queries:   %s\n", config.SuccessStyle.Render("app/service-core/storage/query.sql"))
-		cmd.Printf("  - Service:   %s\n", config.SuccessStyle.Render("app/service-core/domain/"+goPackageName))
-		cmd.Printf("  - Transport: %s\n", config.SuccessStyle.Render("app/service-core/transport/"+goPackageName))
-		for _, client := range enabledClients {
-			clientPath := "app/" + client.ServiceDir + "/src/routes"
-			switch client.Name {
-			case clients.Svelte:
-				clientPath += "/(app)/models/" + pluralizeClient.Plural(modelName)
-			case clients.Tanstack:
-				clientPath += "/_layout/models/" + pluralizeClient.Plural(modelName)
-			}
-			cmd.Printf("  - %s: %s\n", client.DisplayName+" client", config.SuccessStyle.Render(clientPath))
+
+		colType := strings.ToLower(parts[1])
+		if !validTypes[colType] {
+			return nil, fmt.Errorf("invalid type '%s' for column '%s', valid types are: string, number, date, bool", parts[1], colName)
 		}
-		cmd.Println("")
-		cmd.Println("Next steps:")
-		cmd.Printf("  1. Run %s to regenerate SQL queries\n", config.SuccessStyle.Render("'make sql'"))
-		cmd.Printf("  2. Run %s to regenerate proto code\n", config.SuccessStyle.Render("'make gen'"))
-		cmd.Printf("  3. Run %s to format generated code\n", config.SuccessStyle.Render("'make format'"))
-		cmd.Printf("  4. Run %s to apply migrations\n", config.SuccessStyle.Render("'make migrate'"))
-		cmd.Println("")
-		if len(enabledClients) > 0 {
-			cmd.Println("Add this route to your navigation:")
-			cmd.Printf("  %s\n", config.SuccessStyle.Render(clientModelPath(enabledClients[0].Name, modelName)))
-			cmd.Println("")
+		seenNames[colName] = true
+
+		columns = append(columns, Column{
+			Name: colName,
+			Type: colType,
+		})
+	}
+
+	if len(columns) < 2 {
+		return nil, fmt.Errorf("at least 2 columns are required, got %d", len(columns))
+	}
+	return columns, nil
+}
+
+// generateBackend records the model and generates its proto, migration, queries, service and transport.
+// It returns the migration path for the summary.
+func generateBackend(ctx context.Context, modelName string, columns []Column, configColumns []config.Column) (string, error) {
+	err := config.AddModel(modelName, configColumns)
+	if err != nil {
+		return "", fmt.Errorf("adding model: %w", err)
+	}
+	err = generateProto(ctx, modelName, columns)
+	if err != nil {
+		return "", fmt.Errorf("generating proto: %w", err)
+	}
+	migrationPath, err := generateSchema(modelName, columns)
+	if err != nil {
+		return "", fmt.Errorf("generating schema: %w", err)
+	}
+	err = generateQueries(modelName, columns)
+	if err != nil {
+		return "", fmt.Errorf("generating queries: %w", err)
+	}
+	// Add model-specific auth permissions before generating service layer
+	err = generateAuthAccessFlags(modelName)
+	if err != nil {
+		return "", fmt.Errorf("updating auth permissions: %w", err)
+	}
+	// Update seed_dev_user.sh with new permission value
+	err = e2e.UpdateSeedDevUser()
+	if err != nil {
+		return "", fmt.Errorf("updating seed script: %w", err)
+	}
+	err = generateServiceLayer(modelName, columns)
+	if err != nil {
+		return "", fmt.Errorf("generating service layer: %w", err)
+	}
+	// Generate ConnectRPC transport layer from skeleton template
+	err = generateTransportLayer(modelName, columns)
+	if err != nil {
+		return "", fmt.Errorf("generating transport layer: %w", err)
+	}
+	// Wire new model into main.go (imports, deps init, route mounting)
+	err = wireCoreMain(modelName)
+	if err != nil {
+		return "", fmt.Errorf("wiring core main.go: %w", err)
+	}
+	return migrationPath, nil
+}
+
+// generateClientsForModel generates e2e tests and pages for every enabled client, then formats them.
+func generateClientsForModel(ctx context.Context, modelName string, columns []Column, configColumns []config.Column, enabledClients []clients.Spec) error {
+	if len(enabledClients) == 0 {
+		return nil
+	}
+	e2eColumns := make([]e2e.Column, len(columns))
+	for i, col := range columns {
+		e2eColumns[i] = e2e.Column{Name: col.Name, Type: col.Type}
+	}
+	err := e2e.GenerateClientE2ETest(modelName, e2eColumns)
+	if err != nil {
+		return fmt.Errorf("generating client e2e test: %w", err)
+	}
+	for _, client := range enabledClients {
+		err = generateClientScaffolding(client.Name, modelName, configColumns)
+		if err != nil {
+			return fmt.Errorf("generating %s client pages: %w", client.DisplayName, err)
 		}
-	},
+	}
+	for _, client := range enabledClients {
+		err = formatClientProject(ctx, client.Name)
+		if err != nil {
+			return fmt.Errorf("formatting %s client: %w", client.DisplayName, err)
+		}
+	}
+	return nil
+}
+
+func printModelSummary(cmd *cobra.Command, modelName string, columns []Column, migrationPath string, enabledClients []clients.Spec) {
+	cmd.Println("")
+	cmd.Println(config.SuccessStyle().Render("Model '" + modelName + "' created successfully!"))
+	cmd.Println("")
+	cmd.Println("Columns:")
+	for _, col := range columns {
+		cmd.Printf("  - %s: %s\n", col.Name, sqlColumnType(col.Type))
+	}
+	cmd.Println("")
+	cmd.Println("Generated files:")
+	goPackageName := toGoPackageName(modelName)
+	cmd.Printf("  - Proto:     %s\n", config.SuccessStyle().Render("proto/v1/"+modelName+".proto"))
+	cmd.Printf("  - Migration: %s\n", config.SuccessStyle().Render(migrationPath))
+	cmd.Printf("  - Queries:   %s\n", config.SuccessStyle().Render("app/service-core/storage/query.sql"))
+	cmd.Printf("  - Service:   %s\n", config.SuccessStyle().Render("app/service-core/domain/"+goPackageName))
+	cmd.Printf("  - Transport: %s\n", config.SuccessStyle().Render("app/service-core/transport/"+goPackageName))
+	for _, client := range enabledClients {
+		clientPath := "app/" + client.ServiceDir + "/src/routes"
+		switch client.Name {
+		case clients.Svelte:
+			clientPath += "/(app)/models/" + pluralize.NewClient().Plural(modelName)
+		case clients.Tanstack:
+			clientPath += "/_layout/models/" + pluralize.NewClient().Plural(modelName)
+		}
+		cmd.Printf("  - %s: %s\n", client.DisplayName+" client", config.SuccessStyle().Render(clientPath))
+	}
+	cmd.Println("")
+	cmd.Println("Next steps:")
+	cmd.Printf("  1. Run %s to regenerate SQL queries\n", config.SuccessStyle().Render("'make sql'"))
+	cmd.Printf("  2. Run %s to regenerate proto code\n", config.SuccessStyle().Render("'make gen'"))
+	cmd.Printf("  3. Run %s to format generated code\n", config.SuccessStyle().Render("'make format'"))
+	cmd.Printf("  4. Run %s to apply migrations\n", config.SuccessStyle().Render("'make migrate'"))
+	cmd.Println("")
+	if len(enabledClients) > 0 {
+		cmd.Println("Add this route to your navigation:")
+		cmd.Printf("  %s\n", config.SuccessStyle().Render(clientModelPath(enabledClients[0].Name, modelName)))
+		cmd.Println("")
+	}
 }
 
 func appendToFile(filePath, content string) error {
 	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("opening %s: %w", filePath, err)
 	}
 	defer func() {
 		err := f.Close()
 		if err != nil {
-			fmt.Printf("Error closing file: %v\n", err)
+			fmt.Fprintf(os.Stderr, "error closing %s: %v\n", filePath, err)
 		}
 	}()
 
 	_, err = f.WriteString(content)
 	if err != nil {
-		return err
+		return fmt.Errorf("writing %s: %w", filePath, err)
 	}
 	return nil
 }
-
-var pluralizeClient = pluralize.NewClient()
 
 func capitalize(s string) string {
 	return toCamelCase(s)
@@ -370,13 +381,14 @@ func toGoVarName(s string) string {
 	if len(parts) == 1 {
 		return s
 	}
-	result := parts[0]
+	var result strings.Builder
+	result.WriteString(parts[0])
 	for _, part := range parts[1:] {
 		if len(part) > 0 {
-			result += strings.ToUpper(string(part[0])) + part[1:]
+			result.WriteString(strings.ToUpper(string(part[0])) + part[1:])
 		}
 	}
-	return result
+	return result.String()
 }
 
 // generateTransportTestContent generates transport test file by copying skeleton and replacing markers
@@ -446,7 +458,7 @@ func generateAuthAccessFlags(modelName string) error {
 
 	// Build new flags and access list entries
 	modelCap := capitalize(modelName)
-	modelPlural := pluralizeClient.Plural(modelName)
+	modelPlural := pluralize.NewClient().Plural(modelName)
 	modelPluralCap := capitalize(modelPlural)
 
 	flagsSnippet := fmt.Sprintf("\tGet%[1]s   int64 = 1 << iota\n\tCreate%[2]s int64 = 1 << iota\n\tEdit%[2]s   int64 = 1 << iota\n\tRemove%[2]s int64 = 1 << iota\n", modelPluralCap, modelCap)
@@ -501,7 +513,8 @@ func generateAuthAccessFlags(modelName string) error {
 		}
 	}
 
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	err = os.WriteFile(path, []byte(content), 0644)
+	if err != nil {
 		return fmt.Errorf("writing auth file: %w", err)
 	}
 	return nil
@@ -520,7 +533,7 @@ func wireCoreMain(modelName string) error {
 	// Go naming conversions
 	goPackageName := toGoPackageName(modelName)
 	goVarName := toGoVarName(modelName)
-	cap := capitalize(modelName)
+	capName := capitalize(modelName)
 	svcAlias := goVarName + "Svc"
 	routeAlias := goVarName + "Route"
 
@@ -533,8 +546,8 @@ func wireCoreMain(modelName string) error {
 
 	// Route mounting (3 lines)
 	routeMountLines := strings.Join([]string{
-		"\t" + goVarName + "Server := " + routeAlias + ".New" + cap + "Server(" + goVarName + "Deps)",
-		"\tpath, handler = v1connect.New" + cap + "ServiceHandler(" + goVarName + "Server, server.Interceptors())",
+		"\t" + goVarName + "Server := " + routeAlias + ".New" + capName + "Server(" + goVarName + "Deps)",
+		"\tpath, handler = v1connect.New" + capName + "ServiceHandler(" + goVarName + "Server, server.Interceptors())",
 		"\tserver.Mount(path, handler)",
 	}, "\n")
 
@@ -584,7 +597,8 @@ func wireCoreMain(modelName string) error {
 		return fmt.Errorf("adding route mount: %w", aerr)
 	}
 
-	if err := os.WriteFile(path, []byte(s), 0o644); err != nil {
+	err = os.WriteFile(path, []byte(s), 0o644)
+	if err != nil {
 		return fmt.Errorf("writing core main.go: %w", err)
 	}
 	return nil
