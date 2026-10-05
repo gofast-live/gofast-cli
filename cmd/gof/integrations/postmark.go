@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,22 +15,26 @@ import (
 // Called by init command after downloading the template.
 func PostmarkStrip(projectPath string) error {
 	// 1. Remove email domain folder
-	if err := os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "domain", "email")); err != nil {
+	err := os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "domain", "email"))
+	if err != nil {
 		return fmt.Errorf("removing email domain: %w", err)
 	}
 
 	// 2. Remove email transport folder
-	if err := os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "transport", "email")); err != nil {
+	err = os.RemoveAll(filepath.Join(projectPath, "app", "service-core", "transport", "email"))
+	if err != nil {
 		return fmt.Errorf("removing email transport: %w", err)
 	}
 
 	// 3. Remove emails migration
-	if err := os.Remove(filepath.Join(projectPath, "app", "service-core", "storage", "migrations", "00005_create_emails.sql")); err != nil && !os.IsNotExist(err) {
+	err = os.Remove(filepath.Join(projectPath, "app", "service-core", "storage", "migrations", "00005_create_emails.sql"))
+	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("removing emails migration: %w", err)
 	}
 
 	// 4. Strip all GF_EMAIL marker blocks from all files
-	if err := StripIntegration(projectPath, "EMAIL"); err != nil {
+	err = StripIntegration(projectPath, "EMAIL")
+	if err != nil {
 		return fmt.Errorf("stripping email markers: %w", err)
 	}
 
@@ -48,7 +53,7 @@ func PostmarkAddClient(tmpProject, clientType, clientPath string) error {
 
 // PostmarkAdd adds Postmark email integration to an existing project.
 // Called by 'gof add postmark' command.
-func PostmarkAdd(email, apiKey string) error {
+func PostmarkAdd(ctx context.Context, email, apiKey string) error {
 	// 1. Download template to temp location
 	tmpDir, err := os.MkdirTemp("", "gofast-email-*")
 	if err != nil {
@@ -61,17 +66,20 @@ func PostmarkAdd(email, apiKey string) error {
 	if err != nil {
 		return fmt.Errorf("getting current dir: %w", err)
 	}
-	if err := os.Chdir(tmpDir); err != nil {
+	err = os.Chdir(tmpDir)
+	if err != nil {
 		return fmt.Errorf("changing to temp dir: %w", err)
 	}
 
-	if err := repo.DownloadRepo(email, apiKey, "template"); err != nil {
+	err = repo.DownloadRepo(ctx, email, apiKey, "template")
+	if err != nil {
 		_ = os.Chdir(cwd)
 		return fmt.Errorf("downloading template: %w", err)
 	}
 
 	// Return to original directory
-	if err := os.Chdir(cwd); err != nil {
+	err = os.Chdir(cwd)
+	if err != nil {
 		return fmt.Errorf("returning to original dir: %w", err)
 	}
 
@@ -80,24 +88,28 @@ func PostmarkAdd(email, apiKey string) error {
 	// 2. Copy email domain folder
 	srcDomain := filepath.Join(tmpProject, "app", "service-core", "domain", "email")
 	dstDomain := filepath.Join("app", "service-core", "domain", "email")
-	if err := CopyDir(srcDomain, dstDomain); err != nil {
+	err = CopyDir(srcDomain, dstDomain)
+	if err != nil {
 		return fmt.Errorf("copying email domain: %w", err)
 	}
 
 	// 3. Copy email transport folder
 	srcTransport := filepath.Join(tmpProject, "app", "service-core", "transport", "email")
 	dstTransport := filepath.Join("app", "service-core", "transport", "email")
-	if err := CopyDir(srcTransport, dstTransport); err != nil {
+	err = CopyDir(srcTransport, dstTransport)
+	if err != nil {
 		return fmt.Errorf("copying email transport: %w", err)
 	}
 
 	// 4. Copy and renumber emails migration
-	if err := AddMigration(tmpProject, "00005_create_emails.sql", "create_emails.sql"); err != nil {
+	err = AddMigration(tmpProject, "00005_create_emails.sql", "create_emails.sql")
+	if err != nil {
 		return fmt.Errorf("adding emails migration: %w", err)
 	}
 
 	// 5. Copy files with GF_EMAIL markers from template
-	if err := CopyFilesWithMarkers(tmpProject, ".", "EMAIL"); err != nil {
+	err = CopyFilesWithMarkers(tmpProject, ".", "EMAIL")
+	if err != nil {
 		return fmt.Errorf("copying files with EMAIL markers: %w", err)
 	}
 
@@ -109,7 +121,8 @@ func PostmarkAdd(email, apiKey string) error {
 	enabledClients := clients.Enabled(cfg)
 	for _, client := range enabledClients {
 		clientPath := filepath.Join("app", client.ServiceDir)
-		if err := PostmarkAddClient(tmpProject, client.Name, clientPath); err != nil {
+		err := PostmarkAddClient(tmpProject, client.Name, clientPath)
+		if err != nil {
 			return fmt.Errorf("adding email to %s client: %w", client.DisplayName, err)
 		}
 	}

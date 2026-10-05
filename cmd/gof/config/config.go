@@ -5,25 +5,24 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/charmbracelet/lipgloss"
 )
 
 const (
-	SERVER_URL     = "https://admin.gofast.live"
-	VERSION        = "v2.17.0"
+	ServerURL      = "https://admin.gofast.live"
+	Version        = "v2.17.0"
 	ConfigFileName = "gofast.json"
 )
 
-var (
-	NoStyle      = lipgloss.NewStyle()
-	FocusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("032"))
-	BlurredStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	ActiveStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	ErrStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
-	SuccessStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	HelpStyle    = BlurredStyle
-)
+func NoStyle() lipgloss.Style      { return lipgloss.NewStyle() }
+func FocusedStyle() lipgloss.Style { return lipgloss.NewStyle().Foreground(lipgloss.Color("032")) }
+func BlurredStyle() lipgloss.Style { return lipgloss.NewStyle().Foreground(lipgloss.Color("240")) }
+func ActiveStyle() lipgloss.Style  { return lipgloss.NewStyle().Foreground(lipgloss.Color("244")) }
+func ErrStyle() lipgloss.Style     { return lipgloss.NewStyle().Foreground(lipgloss.Color("9")) }
+func SuccessStyle() lipgloss.Style { return lipgloss.NewStyle().Foreground(lipgloss.Color("10")) }
+func HelpStyle() lipgloss.Style    { return BlurredStyle() }
 
 type Column struct {
 	Name string `json:"name"`
@@ -52,10 +51,14 @@ type Service struct {
 func writeConfig(cfg *Config) error {
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("encoding config: %w", err)
 	}
 
-	return os.WriteFile(ConfigFileName, data, 0644)
+	err = os.WriteFile(ConfigFileName, data, 0644)
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", ConfigFileName, err)
+	}
+	return nil
 }
 
 func ParseConfig() (*Config, error) {
@@ -64,11 +67,12 @@ func ParseConfig() (*Config, error) {
 		if os.IsNotExist(err) {
 			return nil, errors.New("gofast.json config file not found. Please run 'gof init <project_name> && cd <project_name>' to create a new project")
 		}
-		return nil, err
+		return nil, fmt.Errorf("reading %s: %w", ConfigFileName, err)
 	}
 	var config Config
-	if err := json.Unmarshal(data, &config); err != nil {
-		return nil, err
+	err = json.Unmarshal(data, &config)
+	if err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", ConfigFileName, err)
 	}
 	return &config, nil
 }
@@ -118,10 +122,14 @@ func Initialize(projectName string) error {
 
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("encoding config: %w", err)
 	}
 
-	return os.WriteFile(projectName+"/"+ConfigFileName, data, 0644)
+	err = os.WriteFile(projectName+"/"+ConfigFileName, data, 0644)
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", projectName+"/"+ConfigFileName, err)
+	}
+	return nil
 }
 
 func IsSvelte() bool {
@@ -194,12 +202,7 @@ func HasIntegration(name string) bool {
 	if err != nil {
 		return false
 	}
-	for _, i := range cfg.Integrations {
-		if i == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(cfg.Integrations, name)
 }
 
 func AddIntegration(name string) error {
@@ -209,10 +212,8 @@ func AddIntegration(name string) error {
 	}
 
 	// Check if already added
-	for _, i := range cfg.Integrations {
-		if i == name {
-			return nil
-		}
+	if slices.Contains(cfg.Integrations, name) {
+		return nil
 	}
 
 	cfg.Integrations = append(cfg.Integrations, name)

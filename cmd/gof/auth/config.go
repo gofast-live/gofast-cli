@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"net/mail"
 	"os"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gofast-live/gofast-cli/v2/cmd/gof/config"
@@ -15,7 +17,7 @@ import (
 
 type Config struct {
 	Email  string `json:"email"`
-	ApiKey string `json:"api_key"`
+	APIKey string `json:"api_key"`
 }
 
 func checkConfig(email string, apiKey string) tea.Cmd {
@@ -23,19 +25,21 @@ func checkConfig(email string, apiKey string) tea.Cmd {
 		if email == "" {
 			return errMsg{nil, "Email address is required"}
 		}
-		if _, err := mail.ParseAddress(email); err != nil {
+		_, err := mail.ParseAddress(email)
+		if err != nil {
 			return errMsg{err, "Invalid email address format"}
 		}
 		if apiKey == "" {
 			return errMsg{nil, "API key is required"}
 		}
-		err := saveToConfig(email, apiKey)
-		if err != nil {
-			return errMsg{err, "Error saving configuration"}
-		}
+		// Validate first, so a typo doesn't replace credentials that still work
 		err = validateConfig(email, apiKey)
 		if err != nil {
 			return errMsg{err, "Authentication failed, please check your email and API key"}
+		}
+		err = saveToConfig(email, apiKey)
+		if err != nil {
+			return errMsg{err, "Error saving configuration"}
 		}
 		return authMsg{email, apiKey}
 	}
@@ -48,7 +52,7 @@ func CheckAuthentication() (string, string, error) {
 
 	path, err := os.UserConfigDir()
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("getting user config dir: %w", err)
 	}
 	configPath := path + "/gofast.json"
 	jsonFile, err := os.OpenFile(configPath, os.O_RDWR, 0666)
@@ -56,18 +60,18 @@ func CheckAuthentication() (string, string, error) {
 		if os.IsNotExist(err) {
 			return "", "", errors.New("config file not found. Please run 'gof auth'")
 		}
-		return "", "", err
+		return "", "", fmt.Errorf("opening %s: %w", configPath, err)
 	}
 	defer func() {
 		closeErr := jsonFile.Close()
 		if closeErr != nil {
-			fmt.Printf("error closing config file: %v\n", closeErr)
+			fmt.Fprintf(os.Stderr, "error closing config file: %v\n", closeErr)
 		}
 	}()
 
 	data, err := io.ReadAll(jsonFile)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("reading auth config: %w", err)
 	}
 
 	if len(data) == 0 {
@@ -80,16 +84,16 @@ func CheckAuthentication() (string, string, error) {
 		return "", "", errors.New("failed to parse config file. It might be corrupted. Please run 'gof auth'")
 	}
 
-	if c.Email == "" || c.ApiKey == "" {
+	if c.Email == "" || c.APIKey == "" {
 		return "", "", errors.New("email or API key not found in config. Please run 'gof auth'")
 	}
 
-	err = validateConfig(c.Email, c.ApiKey)
+	err = validateConfig(c.Email, c.APIKey)
 	if err != nil {
 		return "", "", fmt.Errorf("authentication failed: %w. Please run 'gof auth'", err)
 	}
 
-	return c.Email, c.ApiKey, nil
+	return c.Email, c.APIKey, nil
 }
 
 func saveToConfig(email string, apiKey string) error {
@@ -105,7 +109,7 @@ func saveToConfig(email string, apiKey string) error {
 	defer func() {
 		closeErr := jsonFile.Close()
 		if closeErr != nil {
-			fmt.Printf("error closing response body: %v\n", closeErr)
+			fmt.Fprintf(os.Stderr, "error closing config file: %v\n", closeErr)
 		}
 	}()
 	data, err := io.ReadAll(jsonFile)
@@ -116,10 +120,11 @@ func saveToConfig(email string, apiKey string) error {
 	err = json.Unmarshal(data, &c)
 	if err != nil {
 		_ = jsonFile.Truncate(0)
-		c = Config{}
+		c = Config{Email: "", APIKey: ""}
 	}
 	c.Email = email
-	c.ApiKey = apiKey
+	c.APIKey = apiKey
+	//nolint:gosec // G117: the CLI stores the user's own API key in their local config on purpose
 	data, err = json.Marshal(c)
 	if err != nil {
 		return fmt.Errorf("error marshalling config: %w", err)
@@ -133,8 +138,11 @@ func saveToConfig(email string, apiKey string) error {
 }
 
 func validateConfig(email string, apiKey string) error {
+	// the auth TUI has no caller context, so the request carries its own deadline
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", config.SERVER_URL+"/repo", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, config.ServerURL+"/repo", nil)
 	if err != nil {
 		return fmt.Errorf("error creating request: %w", err)
 	}
@@ -149,10 +157,10 @@ func validateConfig(email string, apiKey string) error {
 	defer func() {
 		closeErr := resp.Body.Close()
 		if closeErr != nil {
-			fmt.Printf("error closing response body: %v\n", closeErr)
+			fmt.Fprintf(os.Stderr, "error closing response body: %v\n", closeErr)
 		}
 	}()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return errors.New("error validating configuration: " + resp.Status)
 	}
 	return nil

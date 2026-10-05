@@ -1,11 +1,14 @@
 package svelte
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/gertd/go-pluralize"
@@ -16,11 +19,9 @@ type Column struct {
 	Type string // "string", "number", "date", "bool"
 }
 
-var pluralizeClient = pluralize.NewClient()
-
 // GetModelPath returns the client-side path for a model (e.g., "/models/notes" for "note")
 func GetModelPath(modelName string) string {
-	return "/models/" + pluralizeClient.Plural(modelName)
+	return "/models/" + pluralize.NewClient().Plural(modelName)
 }
 
 // toCamelCase converts snake_case to camelCase (e.g., "published_at" -> "publishedAt")
@@ -61,21 +62,24 @@ func replaceProtoFieldAccess(content, fieldName, replacement string) string {
 }
 
 func GenerateSvelteScaffolding(modelName string, columns []Column) error {
-	if err := generateClientConnect(modelName); err != nil {
+	err := generateClientConnect(modelName)
+	if err != nil {
 		return fmt.Errorf("generating client connect.ts: %w", err)
 	}
-	if err := generateClientListPage(modelName, columns); err != nil {
+	err = generateClientListPage(modelName, columns)
+	if err != nil {
 		return fmt.Errorf("generating client list page: %w", err)
 	}
-	if err := generateClientDetailPage(modelName, columns); err != nil {
+	err = generateClientDetailPage(modelName, columns)
+	if err != nil {
 		return fmt.Errorf("generating client detail page: %w", err)
 	}
 	return nil
 }
 
-func FormatProject() error {
+func FormatProject(ctx context.Context) error {
 	cmd := "cd ./app/service-svelte && npm ci && npm run format"
-	execCmd := exec.Command("bash", "-c", cmd)
+	execCmd := exec.CommandContext(ctx, "bash", "-c", cmd)
 	out, err := execCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("running npm commands: %w\nOutput: %s", err, string(out))
@@ -100,31 +104,10 @@ func generateClientConnect(modelName string) error {
 
 	// Ensure the service is imported from main_pb
 	if !strings.Contains(s, serviceToken) {
-		// Assume double quotes in imports
-		marker := "from \"$lib/gen/proto/v1/main_pb\""
-		idx := strings.Index(s, marker)
-		if idx == -1 {
-			return fmt.Errorf("main_pb import not found in connect.ts")
+		s, err = addMainPbImport(s, serviceToken)
+		if err != nil {
+			return err
 		}
-		// Find the opening brace for the import list
-		pre := s[:idx]
-		braceOpen := strings.LastIndex(pre, "{")
-		braceClose := strings.LastIndex(pre, "}")
-		if braceOpen == -1 || braceClose == -1 || braceClose < braceOpen {
-			return fmt.Errorf("malformed main_pb import in connect.ts")
-		}
-		importList := pre[braceOpen+1 : braceClose]
-		importList = strings.TrimSpace(importList)
-		if importList == "" {
-			importList = serviceToken
-		} else {
-			if !strings.HasSuffix(importList, ",") {
-				importList += ","
-			}
-			importList += " " + serviceToken
-		}
-		// Rebuild the string with updated import list
-		s = s[:braceOpen+1] + importList + s[braceClose:]
 	}
 
 	// Ensure the client export exists
@@ -146,7 +129,8 @@ func generateClientConnect(modelName string) error {
 		}
 	}
 
-	if err := os.WriteFile(path, []byte(s), 0o644); err != nil {
+	err = os.WriteFile(path, []byte(s), 0o644)
+	if err != nil {
 		return fmt.Errorf("writing connect.ts: %w", err)
 	}
 	return nil
@@ -158,13 +142,14 @@ func generateClientConnect(modelName string) error {
 // is a straight token-based clone of the skeleton UI.
 func generateClientListPage(modelName string, columns []Column) error {
 	sourcePath := "./app/service-svelte/src/routes/(app)/models/skeletons/+page.svelte"
-	pluralLower := pluralizeClient.Plural(modelName)
+	pluralLower := pluralize.NewClient().Plural(modelName)
 	pluralCap := toPascalCase(pluralLower)
 	capitalizedModelName := toPascalCase(modelName)
 
 	// Ensure destination directory exists
 	destDir := filepath.Join("app/service-svelte/src/routes/(app)/models", pluralLower)
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
+	err := os.MkdirAll(destDir, 0o755)
+	if err != nil {
 		return fmt.Errorf("creating destination directory %s: %w", destDir, err)
 	}
 	destPath := filepath.Join(destDir, "+page.svelte")
@@ -270,7 +255,8 @@ func generateClientListPage(modelName string, columns []Column) error {
 	s = strings.Join(outLines, "\n")
 
 	// Write out the generated file
-	if err := os.WriteFile(destPath, []byte(s), 0o644); err != nil {
+	err = os.WriteFile(destPath, []byte(s), 0o644)
+	if err != nil {
 		return fmt.Errorf("writing client list page %s: %w", destPath, err)
 	}
 	return nil
@@ -282,7 +268,7 @@ func generateClientListPage(modelName string, columns []Column) error {
 // empty model defaults, form-data extraction, request payload fields, and form inputs.
 func generateClientDetailPage(modelName string, columns []Column) error {
 	sourcePath := "./app/service-svelte/src/routes/(app)/models/skeletons/[skeleton_id]/+page.svelte"
-	pluralLower := pluralizeClient.Plural(modelName)
+	pluralLower := pluralize.NewClient().Plural(modelName)
 	pluralCap := toPascalCase(pluralLower)
 	capitalizedModelName := toPascalCase(modelName)
 
@@ -292,7 +278,8 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 		pluralLower,
 		"["+modelName+"_id]",
 	)
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
+	err := os.MkdirAll(destDir, 0o755)
+	if err != nil {
 		return fmt.Errorf("creating destination directory %s: %w", destDir, err)
 	}
 	destPath := filepath.Join(destDir, "+page.svelte")
@@ -317,6 +304,64 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 	// Build replacement snippets
 	// 1) Empty model defaults inside empty<Model>
 	// Use camelCase for proto field names
+	emptySnippet := detailEmptySnippet(columns)
+
+	// 2) FormData extraction
+	// Use camelCase for variable names (to match proto fields), but snake_case for form field names
+	formDataSnippet := detailFormDataSnippet(columns)
+
+	// 3) Request payload fields for create/edit
+	// Use camelCase for proto field names
+	payloadFields := detailPayloadFields(columns)
+
+	// 4) Form input fields markup
+	// Use snake_case for HTML id/name attributes, camelCase for proto field access
+	fieldsSnippet := detailFieldsMarkup(modelName, columns)
+
+	// Replace regions delimited by markers
+	replaceRegion := func(content, startMarker, endMarker, replacement string) (string, error) {
+		start := strings.Index(content, startMarker)
+		end := strings.Index(content, endMarker)
+		if start == -1 || end == -1 || end < start {
+			return content, fmt.Errorf("markers %q .. %q not found", startMarker, endMarker)
+		}
+		return content[:start] + "\n" + replacement + "\n" + content[end+len(endMarker):], nil
+	}
+
+	var rErr error
+	s, rErr = replaceRegion(s, "// GF_DETAIL_EMPTY_START", "// GF_DETAIL_EMPTY_END", emptySnippet)
+	if rErr != nil {
+		return fmt.Errorf("replacing empty defaults: %w", rErr)
+	}
+	s, rErr = replaceRegion(s, "// GF_DETAIL_FORMDATA_START", "// GF_DETAIL_FORMDATA_END", formDataSnippet)
+	if rErr != nil {
+		return fmt.Errorf("replacing form data: %w", rErr)
+	}
+	s, rErr = replaceRegion(s, "// GF_DETAIL_CREATE_FIELDS_START", "// GF_DETAIL_CREATE_FIELDS_END", payloadFields)
+	if rErr != nil {
+		return fmt.Errorf("replacing create fields: %w", rErr)
+	}
+	s, rErr = replaceRegion(s, "// GF_DETAIL_EDIT_FIELDS_START", "// GF_DETAIL_EDIT_FIELDS_END", payloadFields)
+	if rErr != nil {
+		return fmt.Errorf("replacing edit fields: %w", rErr)
+	}
+	s, rErr = replaceRegion(s, "<!-- GF_DETAIL_FIELDS_START -->", "<!-- GF_DETAIL_FIELDS_END -->", fieldsSnippet)
+	if rErr != nil {
+		return fmt.Errorf("replacing UI fields: %w", rErr)
+	}
+
+	s = stripDetailMarkers(s, slices.ContainsFunc(columns, func(c Column) bool { return c.Type == "date" }))
+
+	// Write out the generated file
+	err = os.WriteFile(destPath, []byte(s), 0o644)
+	if err != nil {
+		return fmt.Errorf("writing client detail page %s: %w", destPath, err)
+	}
+	return nil
+}
+
+// detailEmptySnippet builds the empty<Model> defaults, using camelCase proto field names.
+func detailEmptySnippet(columns []Column) string {
 	var emptyB strings.Builder
 	emptyIndent := "        "
 	emptyB.WriteString(emptyIndent + "created: \"\",\n")
@@ -331,10 +376,11 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 			emptyB.WriteString(emptyIndent + camelName + ": \"\",\n")
 		}
 	}
-	emptySnippet := strings.TrimRight(emptyB.String(), "\n")
+	return strings.TrimRight(emptyB.String(), "\n")
+}
 
-	// 2) FormData extraction
-	// Use camelCase for variable names (to match proto fields), but snake_case for form field names
+// detailFormDataSnippet reads form fields (snake_case names) into camelCase variables.
+func detailFormDataSnippet(columns []Column) string {
 	var fdB strings.Builder
 	fdIndent := "        "
 	for _, c := range columns {
@@ -345,19 +391,21 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 			fdB.WriteString(fdIndent + "const " + camelName + " = formData.get(\"" + c.Name + "\")?.toString() ?? \"\";\n")
 		}
 	}
-	formDataSnippet := strings.TrimRight(fdB.String(), "\n")
+	return strings.TrimRight(fdB.String(), "\n")
+}
 
-	// 3) Request payload fields for create/edit
-	// Use camelCase for proto field names
+// detailPayloadFields lists the camelCase request fields for create and edit.
+func detailPayloadFields(columns []Column) string {
 	var reqB strings.Builder
 	for _, c := range columns {
 		camelName := toCamelCase(c.Name)
 		reqB.WriteString("                        " + camelName + ",\n")
 	}
-	payloadFields := strings.TrimRight(reqB.String(), "\n")
+	return strings.TrimRight(reqB.String(), "\n")
+}
 
-	// 4) Form input fields markup
-	// Use snake_case for HTML id/name attributes, camelCase for proto field access
+// detailFieldsMarkup renders one form input per column.
+func detailFieldsMarkup(modelName string, columns []Column) string {
 	toTitle := func(name string) string {
 		parts := strings.Split(name, "_")
 		for i := range parts {
@@ -425,49 +473,11 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 			uiB.WriteString("        </label>\n\n")
 		}
 	}
-	fieldsSnippet := strings.TrimRight(uiB.String(), "\n")
+	return strings.TrimRight(uiB.String(), "\n")
+}
 
-	// Replace regions delimited by markers
-	replaceRegion := func(content, startMarker, endMarker, replacement string) (string, error) {
-		start := strings.Index(content, startMarker)
-		end := strings.Index(content, endMarker)
-		if start == -1 || end == -1 || end < start {
-			return content, fmt.Errorf("markers %q .. %q not found", startMarker, endMarker)
-		}
-		return content[:start] + "\n" + replacement + "\n" + content[end+len(endMarker):], nil
-	}
-
-	var rErr error
-	s, rErr = replaceRegion(s, "// GF_DETAIL_EMPTY_START", "// GF_DETAIL_EMPTY_END", emptySnippet)
-	if rErr != nil {
-		return fmt.Errorf("replacing empty defaults: %w", rErr)
-	}
-	s, rErr = replaceRegion(s, "// GF_DETAIL_FORMDATA_START", "// GF_DETAIL_FORMDATA_END", formDataSnippet)
-	if rErr != nil {
-		return fmt.Errorf("replacing form data: %w", rErr)
-	}
-	s, rErr = replaceRegion(s, "// GF_DETAIL_CREATE_FIELDS_START", "// GF_DETAIL_CREATE_FIELDS_END", payloadFields)
-	if rErr != nil {
-		return fmt.Errorf("replacing create fields: %w", rErr)
-	}
-	s, rErr = replaceRegion(s, "// GF_DETAIL_EDIT_FIELDS_START", "// GF_DETAIL_EDIT_FIELDS_END", payloadFields)
-	if rErr != nil {
-		return fmt.Errorf("replacing edit fields: %w", rErr)
-	}
-	s, rErr = replaceRegion(s, "<!-- GF_DETAIL_FIELDS_START -->", "<!-- GF_DETAIL_FIELDS_END -->", fieldsSnippet)
-	if rErr != nil {
-		return fmt.Errorf("replacing UI fields: %w", rErr)
-	}
-
-	// Check if any columns are date type
-	hasDateColumn := false
-	for _, c := range columns {
-		if c.Type == "date" {
-			hasDateColumn = true
-			break
-		}
-	}
-
+// stripDetailMarkers drops marker comment lines, and the formatDate helper when no column is a date.
+func stripDetailMarkers(s string, hasDateColumn bool) string {
 	// Remove lines that contain marker comments to avoid extra spacing
 	markers := []string{
 		"// GF_DETAIL_EMPTY_START", "// GF_DETAIL_EMPTY_END",
@@ -488,38 +498,60 @@ func generateClientDetailPage(modelName string, columns []Column) error {
 			}
 		}
 		// Remove formatDate function if no date columns
-		if !hasDateColumn {
-			trimmed := strings.TrimSpace(line)
-			if strings.HasPrefix(trimmed, "function formatDate(") {
-				inFormatDateFunc = true
-				braceDepth = 0
-				skip = true
-			}
-			if inFormatDateFunc {
-				skip = true
-				// Track brace depth to find the function's closing brace
-				for _, ch := range line {
-					if ch == '{' {
-						braceDepth++
-					} else if ch == '}' {
-						braceDepth--
-						if braceDepth == 0 {
-							inFormatDateFunc = false
-							break
-						}
-					}
-				}
-			}
+		if !hasDateColumn && strings.HasPrefix(strings.TrimSpace(line), "function formatDate(") {
+			inFormatDateFunc = true
+			braceDepth = 0
+		}
+		if !hasDateColumn && inFormatDateFunc {
+			skip = true
+			braceDepth, inFormatDateFunc = trackFunctionEnd(line, braceDepth)
 		}
 		if !skip {
 			outLines = append(outLines, line)
 		}
 	}
-	s = strings.Join(outLines, "\n")
+	return strings.Join(outLines, "\n")
+}
 
-	// Write out the generated file
-	if err := os.WriteFile(destPath, []byte(s), 0o644); err != nil {
-		return fmt.Errorf("writing client detail page %s: %w", destPath, err)
+// trackFunctionEnd updates the brace depth for one line and reports whether the function is still open.
+func trackFunctionEnd(line string, braceDepth int) (int, bool) {
+	for _, ch := range line {
+		switch ch {
+		case '{':
+			braceDepth++
+		case '}':
+			braceDepth--
+			if braceDepth == 0 {
+				return braceDepth, false
+			}
+		}
 	}
-	return nil
+	return braceDepth, true
+}
+
+// addMainPbImport appends serviceToken to the main_pb import list in connect.ts.
+func addMainPbImport(s, serviceToken string) (string, error) {
+	// Assume double quotes in imports
+	marker := "from \"$lib/gen/proto/v1/main_pb\""
+	pre, _, found := strings.Cut(s, marker)
+	if !found {
+		return "", errors.New("main_pb import not found in connect.ts")
+	}
+	// Find the opening brace for the import list
+	braceOpen := strings.LastIndex(pre, "{")
+	braceClose := strings.LastIndex(pre, "}")
+	if braceOpen == -1 || braceClose == -1 || braceClose < braceOpen {
+		return "", errors.New("malformed main_pb import in connect.ts")
+	}
+	importList := strings.TrimSpace(pre[braceOpen+1 : braceClose])
+	switch {
+	case importList == "":
+		importList = serviceToken
+	case strings.HasSuffix(importList, ","):
+		importList += " " + serviceToken
+	default:
+		importList += ", " + serviceToken
+	}
+	// Rebuild the string with updated import list
+	return s[:braceOpen+1] + importList + s[braceClose:], nil
 }
