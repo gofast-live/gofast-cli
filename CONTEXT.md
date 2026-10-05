@@ -318,6 +318,7 @@ cmd/gof/
 ├── cmd/
 │   ├── root.go                # Root Cobra command; Execute() builds the whole command tree (no init())
 │   ├── init.go                # gof init - project scaffolding
+│   ├── init_helpers.go        # init path/name parse, postgres port, rollback helpers
 │   ├── model.go               # gof model - CRUD generation orchestrator
 │   ├── model_db.go            # Proto, SQL migration, SQLC query generation
 │   ├── model_service.go       # Service + transport + validation generation
@@ -363,7 +364,7 @@ Related files outside `cmd/gof/`:
 
 | Command | Purpose |
 |---------|---------|
-| `gof init <name>` | Scaffold new project |
+| `gof init <path-or-name> [--postgres-port N]` | Scaffold new project |
 | `gof model <name> <col:type...>` | Generate CRUD model with all layers |
 | `gof client svelte` | Add Svelte frontend |
 | `gof client tanstack` | Add TanStack frontend |
@@ -374,6 +375,8 @@ Related files outside `cmd/gof/`:
 | `gof mon` | Add monitoring stack (OTel Collector, VictoriaMetrics, VictoriaLogs, VictoriaTraces, Grafana) |
 | `gof auth` | Authenticate with GoFast |
 | `gof version` | Print version (v2.17.0) |
+
+`gof init` takes a path or a name: the directory basename is the project name (letters, numbers, `_`, `-`, starting with a letter) and missing parent directories are created. It refuses to start when the Postgres host port is in use (remap with `--postgres-port`) or when Docker already has containers for a Compose project of that name. A run that fails after that removes everything it created, including its compose resources.
 
 Running a generator twice is refused, not repeated: `gof add` and `gof client` check `integrations` / `services` in `gofast.json`, `gof infra` / `gof mon` check their `*_populated` flags, and `gof model` checks for an existing `app/service-core/domain/<name>`.
 
@@ -638,7 +641,7 @@ Known gaps:
 ```go
 // Config
 config.ParseConfig() (*Config, error)
-config.Initialize(projectName string) error
+config.Initialize(projectDir, projectName string) error
 config.AddModel(name string, columns []Column) error
 config.AddIntegration(name string) error
 config.HasService(name string) bool
@@ -659,7 +662,7 @@ integrations.MergeConfigMarkers(srcConfig, dstConfig, integration string) error
 integrations.StripOtherIntegrations(projectPath string, keep string) error
 
 // Repo
-repo.DownloadRepo(email, apiKey, projectName string) error
+repo.DownloadRepo(ctx context.Context, email, apiKey, projectDir string) error
 
 // E2E
 e2e.GenerateClientE2ETest(modelName string, columns []config.Column) error

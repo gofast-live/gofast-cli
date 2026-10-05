@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 
 	"github.com/charmbracelet/lipgloss"
@@ -98,7 +99,7 @@ func AddModel(modelName string, columns []Column) error {
 	return writeConfig(config)
 }
 
-func Initialize(projectName string) error {
+func Initialize(projectDir, projectName string) error {
 	cfg := Config{
 		ProjectName:         projectName,
 		InfraPopulated:      false,
@@ -125,9 +126,10 @@ func Initialize(projectName string) error {
 		return fmt.Errorf("encoding config: %w", err)
 	}
 
-	err = os.WriteFile(projectName+"/"+ConfigFileName, data, 0644)
+	configPath := filepath.Join(projectDir, ConfigFileName)
+	err = os.WriteFile(configPath, data, 0644)
 	if err != nil {
-		return fmt.Errorf("writing %s: %w", projectName+"/"+ConfigFileName, err)
+		return fmt.Errorf("writing %s: %w", configPath, err)
 	}
 	return nil
 }

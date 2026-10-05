@@ -327,8 +327,8 @@ func AppendMarkerBlock(srcPath, dstPath, integration string) error {
 }
 
 // AppendComposeBlock copies the "# GF_<integration>" services block from the template's
-// docker-compose.yml to the end of the project's, renaming "gofast" to the project name the
-// same way init does. Only the copied block is renamed, so the rest of the file is untouched.
+// docker-compose.yml to the end of the project's, renaming "gofast" to the project name.
+// Only the copied block is renamed, so the rest of the file is untouched.
 func AppendComposeBlock(tmpProject, integration, projectName string) error {
 	startMarker := fmt.Sprintf("# GF_%s_START", integration)
 	endMarker := fmt.Sprintf("# GF_%s_END", integration)
