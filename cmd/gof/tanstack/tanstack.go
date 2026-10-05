@@ -478,7 +478,8 @@ func trackFunctionEnd(line string, braceDepth int) (int, bool) {
 	return braceDepth, true
 }
 
-// addMainPbImport appends serviceToken to the main_pb import list in connect.ts, one import per line.
+// addMainPbImport adds serviceToken to the main_pb import list in connect.ts, one import per line,
+// sorted because the TanStack eslint config enforces sort-imports on members.
 func addMainPbImport(s, serviceToken string) (string, error) {
 	marker := "from './gen/proto/v1/main_pb'"
 	pre, _, found := strings.Cut(s, marker)
@@ -490,14 +491,13 @@ func addMainPbImport(s, serviceToken string) (string, error) {
 	if braceOpen == -1 || braceClose == -1 || braceClose < braceOpen {
 		return "", errors.New("malformed main_pb import in connect.ts")
 	}
-	importList := strings.TrimSpace(pre[braceOpen+1 : braceClose])
-	switch {
-	case importList == "":
-		importList = serviceToken
-	case strings.HasSuffix(importList, ","):
-		importList += "\n  " + serviceToken
-	default:
-		importList += ",\n  " + serviceToken
+	names := []string{serviceToken}
+	for name := range strings.SplitSeq(pre[braceOpen+1:braceClose], ",") {
+		name = strings.TrimSpace(name)
+		if name != "" {
+			names = append(names, name)
+		}
 	}
-	return s[:braceOpen+1] + "\n  " + importList + "\n" + s[braceClose:], nil
+	slices.Sort(names)
+	return s[:braceOpen+1] + "\n  " + strings.Join(names, ",\n  ") + ",\n" + s[braceClose:], nil
 }

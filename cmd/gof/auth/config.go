@@ -32,13 +32,14 @@ func checkConfig(email string, apiKey string) tea.Cmd {
 		if apiKey == "" {
 			return errMsg{nil, "API key is required"}
 		}
-		err = saveToConfig(email, apiKey)
-		if err != nil {
-			return errMsg{err, "Error saving configuration"}
-		}
+		// Validate first, so a typo doesn't replace credentials that still work
 		err = validateConfig(email, apiKey)
 		if err != nil {
 			return errMsg{err, "Authentication failed, please check your email and API key"}
+		}
+		err = saveToConfig(email, apiKey)
+		if err != nil {
+			return errMsg{err, "Error saving configuration"}
 		}
 		return authMsg{email, apiKey}
 	}

@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -99,6 +102,18 @@ func newModelCmd() *cobra.Command {
 				singular := pluralize.NewClient().Singular(modelName)
 				cmd.Printf("Error: Model name '%s' appears to be plural. Use the singular form instead.\n", modelName)
 				cmd.Printf("Suggestion: gof model %s ...\n", singular)
+				return
+			}
+
+			// Generating over an existing domain (user, skeleton, an integration or an earlier model) overwrites its code
+			domainPath := filepath.Join("app", "service-core", "domain", modelName)
+			_, err = os.Stat(domainPath)
+			switch {
+			case err == nil:
+				cmd.Printf("Error: '%s' already exists (%s), choose a different model name\n", modelName, domainPath)
+				return
+			case !errors.Is(err, fs.ErrNotExist):
+				cmd.Printf("Error checking %s: %v\n", domainPath, err)
 				return
 			}
 

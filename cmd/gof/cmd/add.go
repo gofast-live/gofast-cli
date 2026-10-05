@@ -69,6 +69,12 @@ func newAddStripeCmd() *cobra.Command {
 				return
 			}
 
+			// A second add would duplicate the migration and re-copy the integration code
+			if config.HasIntegration("stripe") {
+				cmd.Println("Stripe integration has already been added to this project.")
+				return
+			}
+
 			cmd.Println("")
 			cmd.Println("Adding Stripe payment integration...")
 
@@ -159,6 +165,12 @@ func newAddS3Cmd() *cobra.Command {
 				return
 			}
 
+			// A second add would duplicate the migration and re-copy the integration code
+			if config.HasIntegration("s3") {
+				cmd.Println("S3 integration has already been added to this project.")
+				return
+			}
+
 			cmd.Println("")
 			cmd.Println("Adding S3 file storage integration...")
 
@@ -244,6 +256,12 @@ func newAddPostmarkCmd() *cobra.Command {
 			_, err = config.ParseConfig()
 			if err != nil {
 				cmd.Printf("%v\n", err)
+				return
+			}
+
+			// A second add would duplicate the migration and re-copy the integration code
+			if config.HasIntegration("postmark") {
+				cmd.Println("Postmark integration has already been added to this project.")
 				return
 			}
 

@@ -194,16 +194,16 @@ TEST=true go run ../cmd/gof/... model article title:string body:string author:st
 # All numbers
 TEST=true go run ../cmd/gof/... model metric count:number value:number score:number
 # All dates
-TEST=true go run ../cmd/gof/... model event start:date end:date reminder:date
+TEST=true go run ../cmd/gof/... model event starts_at:date ends_at:date reminder:date
 # All bools
-TEST=true go run ../cmd/gof/... model settings dark_mode:bool notifications:bool auto_save:bool
+TEST=true go run ../cmd/gof/... model setting dark_mode:bool notifications:bool auto_save:bool
 # Mixed (classic)
 TEST=true go run ../cmd/gof/... model post title:string views:number published_at:date is_active:bool
-# Single column each type
-TEST=true go run ../cmd/gof/... model tag name:string
-TEST=true go run ../cmd/gof/... model counter value:number
-TEST=true go run ../cmd/gof/... model deadline due:date
-TEST=true go run ../cmd/gof/... model toggle enabled:bool
+# Minimum (2 columns)
+TEST=true go run ../cmd/gof/... model tag name:string color:string
+TEST=true go run ../cmd/gof/... model counter value:number step:number
+TEST=true go run ../cmd/gof/... model deadline due:date notified:bool
+TEST=true go run ../cmd/gof/... model toggle enabled:bool label:string
 # Snake_case names
 TEST=true go run ../cmd/gof/... model user_profile display_name:string bio:string
 TEST=true go run ../cmd/gof/... model event_log event_type:string occurred_at:date
@@ -375,6 +375,8 @@ Related files outside `cmd/gof/`:
 | `gof auth` | Authenticate with GoFast |
 | `gof version` | Print version (v2.17.0) |
 
+Running a generator twice is refused, not repeated: `gof add` and `gof client` check `integrations` / `services` in `gofast.json`, `gof infra` / `gof mon` check their `*_populated` flags, and `gof model` checks for an existing `app/service-core/domain/<name>`.
+
 **Prerequisites for `gof init`:** buf, sqlc, goose, docker, docker-compose
 
 ### 4.2 Model generation contract
@@ -384,6 +386,7 @@ Related files outside `cmd/gof/`:
 **Model name rules:**
 - Lowercase letters and underscores only (e.g., `user_profile`, `event_log`)
 - Must be singular - plural names rejected with suggestion (e.g., `trucks` -> use `truck`)
+- Must not match an existing `app/service-core/domain/<name>` (`user`, `skeleton`, `login`, enabled integrations, earlier models); generating over one would overwrite its code
 - Minimum 2 columns required
 
 **Column name rules:**
